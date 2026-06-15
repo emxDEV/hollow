@@ -9,8 +9,20 @@ let isSyncingFromCloud = false;
 // Sanitizes objects to prevent Supabase sync errors due to local-only properties
 function sanitizeForSupabase(tableName, obj) {
   if (!obj) return obj;
+  if (tableName === 'accounts') {
+    const allowed = [
+      'id', 'name', 'type', 'balance', 'capital', 'profitTarget', 'maxLoss', 
+      'propFirm', 'payoutGoal', 'drawdownType', 'drawdownLimit', 'maxDailyLoss', 
+      'minTradingDays', 'evaluationStatus', 'user_id'
+    ];
+    const cleaned = {};
+    allowed.forEach(k => {
+      if (obj[k] !== undefined) cleaned[k] = obj[k];
+    });
+    return cleaned;
+  }
   if (tableName === 'weeklyPlanners') {
-    const allowed = ['weekId', 'startDate', 'endDate', 'status', 'goals', 'priorities', 'reviewNotes'];
+    const allowed = ['weekId', 'startDate', 'endDate', 'status', 'goals', 'priorities', 'reviewNotes', 'user_id'];
     const cleaned = {};
     allowed.forEach(k => {
       if (obj[k] !== undefined) cleaned[k] = obj[k];
@@ -56,7 +68,8 @@ const registerSyncHooks = () => {
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const { error } = await supabase.from(table.name).upsert(sanitized);
+        const prefixed = prefixRecord(sanitized, session.user.id, table.name);
+        const { error } = await supabase.from(table.name).upsert(prefixed);
         if (error) {
           console.error(`Supabase sync error on creating in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
@@ -71,7 +84,8 @@ const registerSyncHooks = () => {
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const { error } = await supabase.from(table.name).upsert(sanitized);
+        const prefixed = prefixRecord(sanitized, session.user.id, table.name);
+        const { error } = await supabase.from(table.name).upsert(prefixed);
         if (error) {
           console.error(`Supabase sync error on updating in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
@@ -84,7 +98,8 @@ const registerSyncHooks = () => {
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const { error } = await supabase.from(table.name).delete().eq(table.pk, primKey);
+        const prefixedKey = `${session.user.id}:${primKey}`;
+        const { error } = await supabase.from(table.name).delete().eq(table.pk, prefixedKey);
         if (error) {
           console.error(`Supabase sync error on deleting in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
@@ -176,6 +191,106 @@ export async function cleanOrphanedRecordsLocal() {
   }
 }
 
+// Helper to prefix IDs and foreign keys with user_id
+export function prefixRecord(obj, userId, tableName) {
+  if (!obj || !userId) return obj;
+  const prefixed = { ...obj };
+  
+  if (tableName === 'accounts') {
+    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
+      prefixed.id = `${userId}:${prefixed.id}`;
+    }
+  } else if (tableName === 'trades') {
+    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
+      prefixed.id = `${userId}:${prefixed.id}`;
+    }
+    if (prefixed.accountId && !prefixed.accountId.startsWith(userId + ':')) {
+      prefixed.accountId = `${userId}:${prefixed.accountId}`;
+    }
+  } else if (tableName === 'executions') {
+    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
+      prefixed.id = `${userId}:${prefixed.id}`;
+    }
+    if (prefixed.tradeId && !prefixed.tradeId.startsWith(userId + ':')) {
+      prefixed.tradeId = `${userId}:${prefixed.tradeId}`;
+    }
+  } else if (tableName === 'dailyJournals') {
+    if (prefixed.date && !prefixed.date.startsWith(userId + ':')) {
+      prefixed.date = `${userId}:${prefixed.date}`;
+    }
+  } else if (tableName === 'weeklyPlanners') {
+    if (prefixed.weekId && !prefixed.weekId.startsWith(userId + ':')) {
+      prefixed.weekId = `${userId}:${prefixed.weekId}`;
+    }
+  } else if (tableName === 'groups') {
+    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
+      prefixed.id = `${userId}:${prefixed.id}`;
+    }
+    if (prefixed.leaderAccountId && !prefixed.leaderAccountId.startsWith(userId + ':')) {
+      prefixed.leaderAccountId = `${userId}:${prefixed.leaderAccountId}`;
+    }
+    if (Array.isArray(prefixed.followerAccountIds)) {
+      prefixed.followerAccountIds = prefixed.followerAccountIds.map(id => 
+        id && !id.startsWith(userId + ':') ? `${userId}:${id}` : id
+      );
+    } else if (typeof prefixed.followerAccountIds === 'string') {
+      try {
+        const parsed = JSON.parse(prefixed.followerAccountIds);
+        if (Array.isArray(parsed)) {
+          prefixed.followerAccountIds = JSON.stringify(parsed.map(id => 
+            id && !id.startsWith(userId + ':') ? `${userId}:${id}` : id
+          ));
+        }
+      } catch (e) {}
+    }
+  }
+  
+  return prefixed;
+}
+
+// Helper to remove user_id prefix from IDs and foreign keys
+export function unprefixRecord(obj, userId, tableName) {
+  if (!obj || !userId) return obj;
+  const clean = { ...obj };
+  const prefix = userId + ':';
+  
+  const strip = (str) => {
+    if (str && typeof str === 'string' && str.startsWith(prefix)) {
+      return str.substring(prefix.length);
+    }
+    return str;
+  };
+
+  if (tableName === 'accounts') {
+    clean.id = strip(clean.id);
+  } else if (tableName === 'trades') {
+    clean.id = strip(clean.id);
+    clean.accountId = strip(clean.accountId);
+  } else if (tableName === 'executions') {
+    clean.id = strip(clean.id);
+    clean.tradeId = strip(clean.tradeId);
+  } else if (tableName === 'dailyJournals') {
+    clean.date = strip(clean.date);
+  } else if (tableName === 'weeklyPlanners') {
+    clean.weekId = strip(clean.weekId);
+  } else if (tableName === 'groups') {
+    clean.id = strip(clean.id);
+    clean.leaderAccountId = strip(clean.leaderAccountId);
+    if (Array.isArray(clean.followerAccountIds)) {
+      clean.followerAccountIds = clean.followerAccountIds.map(strip);
+    } else if (typeof clean.followerAccountIds === 'string') {
+      try {
+        const parsed = JSON.parse(clean.followerAccountIds);
+        if (Array.isArray(parsed)) {
+          clean.followerAccountIds = JSON.stringify(parsed.map(strip));
+        }
+      } catch (e) {}
+    }
+  }
+  
+  return clean;
+}
+
 // Synchronization function
 export async function syncWithSupabase() {
   try {
@@ -184,8 +299,9 @@ export async function syncWithSupabase() {
       console.warn("Supabase sync skipped: No active user session.");
       return;
     }
+    const userId = session.user.id;
     await cleanOrphanedRecordsLocal();
-    console.log('Starting Supabase parallel sync check...');
+    console.log('Starting Supabase parallel sync check with user isolation...');
     
     // Disable hooks during initial synchronization to prevent cycles
     isSyncingFromCloud = true;
@@ -203,7 +319,10 @@ export async function syncWithSupabase() {
     let pushedCount = 0;
 
     for (const table of tables) {
-      const { data: remoteData, error } = await supabase.from(table.name).select('*');
+      const { data: remoteData, error } = await supabase
+        .from(table.name)
+        .select('*')
+        .like(table.pk, `${userId}:%`);
       
       if (error) {
         console.error(`Failed to query table ${table.name} from Supabase:`, error);
@@ -212,19 +331,16 @@ export async function syncWithSupabase() {
       }
 
       const localData = await table.store.toArray();
+      const prefixedLocalData = localData.map(item => prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name));
+      const cleanRemoteData = remoteData.map(item => unprefixRecord(item, userId, table.name));
 
       if (remoteData.length > 0 && localData.length === 0) {
         // Pull data from Supabase to empty local database
-        const cleanedData = remoteData.map(item => {
-          const { created_at, ...rest } = item;
-          return rest;
-        });
-        await table.store.bulkPut(cleanedData);
+        await table.store.bulkPut(cleanRemoteData);
         pulledCount++;
       } else if (localData.length > 0 && remoteData.length === 0) {
         // Push local database to empty Supabase database
-        const sanitizedLocalData = localData.map(item => sanitizeForSupabase(table.name, item));
-        const { error: pushError } = await supabase.from(table.name).upsert(sanitizedLocalData);
+        const { error: pushError } = await supabase.from(table.name).upsert(prefixedLocalData);
         if (pushError) {
           console.error(`Failed to push table ${table.name} to Supabase:`, pushError);
           showToast(`Failed to upload ${table.name}: ${pushError.message}`, 'error');
@@ -233,24 +349,19 @@ export async function syncWithSupabase() {
         }
       } else if (localData.length > 0 && remoteData.length > 0) {
         // Bidirectional merge: sync local changes to cloud and pull cloud changes
-        const sanitizedLocalData = localData.map(item => sanitizeForSupabase(table.name, item));
-        const { error: pushError } = await supabase.from(table.name).upsert(sanitizedLocalData);
+        const { error: pushError } = await supabase.from(table.name).upsert(prefixedLocalData);
         if (pushError) {
           console.error(`Failed to merge push table ${table.name}:`, pushError);
         }
         
-        const cleanedData = remoteData.map(item => {
-          const { created_at, ...rest } = item;
-          return rest;
-        });
-        
         // Merge remote data into local database, keeping local-only fields
-        for (const remoteItem of cleanedData) {
-          const localItem = await table.store.get(remoteItem[table.pk]);
+        for (const remoteItem of remoteData) {
+          const cleanItem = unprefixRecord(remoteItem, userId, table.name);
+          const localItem = await table.store.get(cleanItem[table.pk]);
           if (localItem) {
-            await table.store.put({ ...localItem, ...remoteItem });
+            await table.store.put({ ...localItem, ...cleanItem });
           } else {
-            await table.store.put(remoteItem);
+            await table.store.put(cleanItem);
           }
         }
       }
@@ -311,8 +422,12 @@ export async function clearDatabaseAndCloud() {
           { name: 'weeklyPlanners', pk: 'weekId' }
         ];
 
+        const userId = session.user.id;
         for (const table of tables) {
-          const { data, error: selectError } = await supabase.from(table.name).select(table.pk);
+          const { data, error: selectError } = await supabase
+            .from(table.name)
+            .select(table.pk)
+            .like(table.pk, `${userId}:%`);
           if (selectError) {
             console.error(`Failed to select from Supabase table ${table.name}:`, selectError);
             continue;

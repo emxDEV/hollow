@@ -324,6 +324,29 @@ export async function checkAndRunWeeklyBackup(addToast) {
       if (addToast) addToast('Weekly backup PDF automatically generated and downloaded!', 'success');
     }
 
+    // Also save the backup of ONLY the previous week to LocalStorage
+    try {
+      const day = today.getDay(); // 0 is Sunday
+      const diffToMonday = day === 0 ? 6 : day - 1;
+
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - diffToMonday);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = endDate.toISOString().split('T')[0];
+
+      const prevWeekDoc = generatePreviousWeekBackupPDF(accs, trds, execs, jrns, plns, grps, wrkts, startStr, endStr);
+      const prevWeekBase64 = prevWeekDoc.output('datauristring');
+      localStorage.setItem('hollow_previous_week_backup_pdf', prevWeekBase64);
+      localStorage.setItem('hollow_previous_week_backup_range', `${startStr} to ${endStr}`);
+    } catch (pdfErr) {
+      console.error('Failed to generate previous week PDF backup for LocalStorage:', pdfErr);
+    }
+
     localStorage.setItem('hollowLastWeeklyBackupDate', todayStr);
   } catch (err) {
     console.error('Failed to run automated weekly backup:', err);
@@ -692,6 +715,235 @@ export function exportAllDataBackupPDF(accounts, trades, executions, dailyJourna
     doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 170);
     doc.text('HOLLOW INTEGRATED PLATFORM BACKUP — PORTABLE DATA FORMAT', 15, 287);
+    doc.text(`Page ${i} of ${totalPages}`, 180, 287);
+  }
+
+  return doc;
+}
+
+// ----------------------------------------------------
+// PREVIOUS WEEK ONLY DATA BACKUP GENERATOR (PDF)
+// ----------------------------------------------------
+export function generatePreviousWeekBackupPDF(accounts, trades, executions, dailyJournals, weeklyPlanners, groups, workouts, startStr, endStr) {
+  const doc = new jsPDF();
+  let y = 15;
+
+  const addPageIfOverflow = (heightNeeded) => {
+    if (y + heightNeeded > 275) {
+      doc.addPage();
+      y = 15;
+      return true;
+    }
+    return false;
+  };
+
+  // Cover Page or Header
+  doc.setFillColor(19, 17, 41); // #131129
+  doc.rect(0, 0, 210, 45, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('HOLLOW WEEKLY REPORT', 15, 20);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(157, 118, 250); // Brand violet
+  doc.text(`PREVIOUS WEEK DATA: ${startStr} TO ${endStr}`, 15, 28);
+  
+  doc.setFontSize(9);
+  doc.setTextColor(200, 200, 220);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 140, 24);
+
+  y = 55;
+
+  // Filter data to only previous week
+  const weekTrades = trades.filter(t => t.date && t.date >= startStr && t.date <= endStr);
+  const weekJournals = dailyJournals.filter(j => j.date && j.date >= startStr && j.date <= endStr);
+  const weekWorkouts = (workouts || []).filter(w => w.date && w.date >= startStr && w.date <= endStr);
+  
+  // Weekly planners
+  const weekPlannersFiltered = weeklyPlanners.filter(p => {
+    return (p.startDate && p.startDate >= startStr && p.startDate <= endStr) ||
+           (p.endDate && p.endDate >= startStr && p.endDate <= endStr);
+  });
+
+  const tradeIds = new Set(weekTrades.map(t => t.id));
+  const weekExecutions = executions.filter(e => tradeIds.has(e.tradeId));
+
+  // 1. Accounts
+  doc.setTextColor(19, 17, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Active Accounts', 15, y);
+  y += 6;
+  
+  if (accounts.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No active accounts.', 18, y + 4);
+    y += 10;
+  } else {
+    accounts.forEach(acc => {
+      addPageIfOverflow(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`• ${acc.name} (${acc.type || 'Live'}) - Balance: $${(acc.balance || 0).toLocaleString()}`, 18, y + 4);
+      y += 8;
+    });
+  }
+  
+  y += 6;
+
+  // 2. Trades of the week
+  addPageIfOverflow(20);
+  doc.setTextColor(19, 17, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Trading Ledger (Previous Week)', 15, y);
+  y += 6;
+
+  if (weekTrades.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No trades logged in this period.', 18, y + 4);
+    y += 10;
+  } else {
+    // Table Header
+    doc.setFillColor(230, 230, 240);
+    doc.rect(15, y, 180, 8, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 100);
+    doc.text('DATE', 18, y + 5.5);
+    doc.text('TICKER', 38, y + 5.5);
+    doc.text('MODEL', 58, y + 5.5);
+    doc.text('BIAS', 102, y + 5.5);
+    doc.text('WL STATUS', 125, y + 5.5);
+    doc.text('NET PnL', 165, y + 5.5);
+    y += 8;
+
+    weekTrades.forEach(trade => {
+      addPageIfOverflow(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(40, 40, 50);
+      doc.text(trade.date || 'N/A', 18, y + 5);
+      doc.text(trade.symbol || 'N/A', 38, y + 5);
+      doc.text(trade.model || 'Unmapped', 58, y + 5);
+      doc.text(trade.bias || 'LONG', 102, y + 5);
+      
+      const wlText = trade.wl || (trade.netPnL > 0 ? 'Win' : 'Loss');
+      doc.text(wlText, 125, y + 5);
+
+      const tradeExecs = weekExecutions.filter(e => e.tradeId === trade.id);
+      const { netPnL } = calculateTradePnL(trade, tradeExecs);
+      
+      if (netPnL >= 0) {
+        doc.setTextColor(40, 199, 111);
+        doc.text(`+$${Math.round(netPnL).toLocaleString()}`, 165, y + 5);
+      } else {
+        doc.setTextColor(234, 84, 85);
+        doc.text(`-$${Math.round(Math.abs(netPnL)).toLocaleString()}`, 165, y + 5);
+      }
+      y += 8;
+    });
+  }
+
+  y += 6;
+
+  // 3. Daily Journals
+  addPageIfOverflow(20);
+  doc.setTextColor(19, 17, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Daily Routine Compliance (Previous Week)', 15, y);
+  y += 6;
+
+  if (weekJournals.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No daily journal entries logged.', 18, y + 4);
+    y += 10;
+  } else {
+    weekJournals.forEach(j => {
+      addPageIfOverflow(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`• ${j.date} (Status: ${j.status || 'DRAFT'}) - Focus: ${j.mentalFocus || 0}/5, Patience: ${j.patienceLevel || 0}/5, Risk: ${j.riskAdherence || 0}/5`, 18, y + 4);
+      y += 8;
+    });
+  }
+
+  y += 6;
+
+  // 4. Weekly Planners
+  addPageIfOverflow(20);
+  doc.setTextColor(19, 17, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Weekly Strategic Planning', 15, y);
+  y += 6;
+
+  if (weekPlannersFiltered.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No weekly planner configured.', 18, y + 4);
+    y += 10;
+  } else {
+    weekPlannersFiltered.forEach(p => {
+      addPageIfOverflow(25);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`Week ${p.weekId}:`, 18, y + 4);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(`Goals: ${p.goals || 'None'}`, 20, y + 10);
+      doc.text(`Priorities: ${p.priorities || 'None'}`, 20, y + 16);
+      y += 22;
+    });
+  }
+
+  y += 6;
+
+  // 5. Workouts
+  addPageIfOverflow(20);
+  doc.setTextColor(19, 17, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Workout History', 15, y);
+  y += 6;
+
+  if (weekWorkouts.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('No workouts logged.', 18, y + 4);
+    y += 10;
+  } else {
+    weekWorkouts.forEach(w => {
+      addPageIfOverflow(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`• ${w.date} - Type: ${w.type || 'Workout'}, Duration: ${w.duration || 0} mins`, 18, y + 4);
+      y += 8;
+    });
+  }
+
+  // Page Numbers
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.5);
+    doc.setTextColor(150, 150, 170);
+    doc.text('HOLLOW INTEGRATED PREVIOUS WEEK BACKUP PDF', 15, 287);
     doc.text(`Page ${i} of ${totalPages}`, 180, 287);
   }
 

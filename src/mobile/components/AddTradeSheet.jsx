@@ -43,8 +43,33 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const isGroupInit = selectedAccountId && selectedAccountId.startsWith('group-');
   const [targetType, setTargetType] = useState(isGroupInit ? 'group' : 'account');
   const [targetAccountId, setTargetAccountId] = useState(selectedAccountId || 'acc-funded-1');
+  const [showAccDropdown, setShowAccDropdown] = useState(false);
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Default Account Selection Sync
+  React.useEffect(() => {
+    if (targetType === 'group' && groups.length > 0) {
+      const exists = groups.some(g => g.id === targetAccountId);
+      if (!exists) {
+        setTargetAccountId(groups[0].id);
+      }
+    } else if (targetType === 'account' && accounts.length > 0) {
+      const exists = accounts.some(acc => acc.id === targetAccountId);
+      if (!exists) {
+        setTargetAccountId(accounts[0].id);
+      }
+    }
+  }, [accounts, groups, targetAccountId, targetType]);
+
+  const getAccountColor = (type = '') => {
+    const t = type.toUpperCase();
+    if (t === 'FUNDED' || t === 'LIVE') return '#30d158'; // Emerald Green
+    if (t === 'EVALUATION') return '#0a84ff'; // Blue
+    if (t === 'PERSONAL') return '#bf5af2'; // Purple
+    if (t === 'GROUP') return '#ff9f0a'; // Orange
+    return 'rgba(255, 255, 255, 0.7)';
+  };
   
   // Dynamic Symbols & Customization
   const [symbols, setSymbols] = useState(() => {
@@ -523,51 +548,179 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                 transition={{ duration: 0.15 }}
                 style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
               >
-                {/* Account & Date */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>account</div>
-                    <select
-                      value={`${targetType}:${targetAccountId}`}
-                      onChange={e => {
-                        const [type, id] = e.target.value.split(':');
-                        setTargetType(type);
-                        setTargetAccountId(id);
-                      }}
+                {/* SECTION 1: LEDGER & TIMING */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 12, marginBottom: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>ledger & timing</div>
+                  
+                  {/* Account Selection */}
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>account</div>
+                    
+                    {showAccDropdown && (
+                      <div
+                        onClick={() => setShowAccDropdown(false)}
+                        style={{
+                          position: 'fixed',
+                          inset: 0,
+                          zIndex: 999,
+                          background: 'transparent'
+                        }}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAccDropdown(!showAccDropdown)}
                       style={{
                         width: '100%',
                         background: 'rgba(255,255,255,0.04)',
                         border: '1px solid rgba(255,255,255,0.08)',
                         borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        color: activeColor,
+                        fontWeight: '600',
+                        fontSize: 12.5,
                         outline: 'none',
-                        appearance: 'none',
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        textAlign: 'left'
                       }}
                     >
-                      <optgroup label="accounts" style={{ background: '#1c1c1e', color: 'rgba(255,255,255,0.4)' }}>
-                        {accounts.map(acc => (
-                          <option key={acc.id} value={`account:${acc.id}`} style={{ background: '#1c1c1e', color: '#fff' }}>
-                            {acc.name.toLowerCase()}
-                          </option>
-                        ))}
-                      </optgroup>
-                      {groups.length > 0 && (
-                        <optgroup label="copy groups" style={{ background: '#1c1c1e', color: 'rgba(255,255,255,0.4)' }}>
-                          {groups.map(g => (
-                            <option key={g.id} value={`group:${g.id}`} style={{ background: '#1c1c1e', color: '#fff' }}>
-                              {g.name.toLowerCase()}
-                            </option>
-                          ))}
-                        </optgroup>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: activeColor }} />
+                        <span style={{ textTransform: 'lowercase' }}>{selectedName}</span>
+                        <span style={{ fontSize: 9.5, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '700', marginLeft: 4 }}>
+                          {selectedAccountType.toLowerCase()}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', transform: showAccDropdown ? 'rotate(180deg)' : 'rotate(0)' , transition: 'transform 0.2s' }}>▼</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {showAccDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.15 }}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            marginTop: 4,
+                            background: '#141416',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 10,
+                            zIndex: 1000,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                            padding: 4
+                          }}
+                        >
+                          {/* Accounts Group */}
+                          {accounts.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: 8.5, fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 8px 4px' }}>
+                                accounts
+                              </div>
+                              {accounts.map(acc => {
+                                const isCurrent = targetType === 'account' && targetAccountId === acc.id;
+                                const accColor = getAccountColor(acc.type);
+                                return (
+                                  <button
+                                    key={acc.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTargetType('account');
+                                      setTargetAccountId(acc.id);
+                                      setShowAccDropdown(false);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      background: isCurrent ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      padding: '8px 10px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      outline: 'none',
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: accColor }} />
+                                    <span style={{ fontSize: 12.5, color: accColor, fontWeight: isCurrent ? '700' : '500', textTransform: 'lowercase', flex: 1 }}>
+                                      {acc.name}
+                                    </span>
+                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'lowercase' }}>
+                                      {acc.type.toLowerCase()}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Copy Groups Group */}
+                          {groups.length > 0 && (
+                            <div style={{ marginTop: 4, borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 4 }}>
+                              <div style={{ fontSize: 8.5, fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 8px 4px' }}>
+                                copy groups
+                              </div>
+                              {groups.map(g => {
+                                const isCurrent = targetType === 'group' && targetAccountId === g.id;
+                                const grpColor = getAccountColor('group');
+                                return (
+                                  <button
+                                    key={g.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setTargetType('group');
+                                      setTargetAccountId(g.id);
+                                      setShowAccDropdown(false);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      background: isCurrent ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      padding: '8px 10px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      cursor: 'pointer',
+                                      textAlign: 'left',
+                                      outline: 'none',
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: grpColor }} />
+                                    <span style={{ fontSize: 12.5, color: grpColor, fontWeight: isCurrent ? '700' : '500', textTransform: 'lowercase', flex: 1 }}>
+                                      {g.name}
+                                    </span>
+                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'lowercase' }}>
+                                      copy group
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </motion.div>
                       )}
-                    </select>
+                    </AnimatePresence>
                   </div>
+
+                  {/* Date Selection */}
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>date</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>date</div>
                     <input
                       type="date"
                       value={date}
@@ -580,7 +733,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                         color: '#fff',
                         fontFamily: 'var(--font)',
                         fontSize: 12,
-                        padding: '6px 8px',
+                        padding: '8px 10px',
                         outline: 'none',
                         colorScheme: 'dark',
                         boxSizing: 'border-box'
@@ -589,432 +742,445 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                   </div>
                 </div>
 
-                {/* Trade Name */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>trade name</div>
-                  <input
-                    type="text"
-                    placeholder="e.g. range bounce"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 8,
-                      color: '#fff',
-                      fontFamily: 'var(--font)',
-                      fontSize: 12,
-                      padding: '6px 8px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
+                {/* SECTION 2: TRADE SETUP */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 12, marginBottom: 4 }}>
+                  <div style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>trade setup</div>
+                  
+                  {/* Trade Name */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>trade name</div>
+                    <input
+                      type="text"
+                      placeholder="e.g. range bounce"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        color: '#fff',
+                        fontFamily: 'var(--font)',
+                        fontSize: 12,
+                        padding: '8px 10px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
 
-                {/* Symbol Ticker Pills */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>symbol</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {symbols.map(s => {
-                      const isSelected = symbol.toUpperCase() === s.toUpperCase() && !showCustomSymbolInput;
-                      const bgColor = isSelected ? getTickerColor(s) : 'rgba(255,255,255,0.04)';
-                      const textColor = isSelected ? getPillTextColor(getTickerColor(s)) : 'rgba(255,255,255,0.7)';
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => {
-                            if (s === 'CUSTOM') {
-                              setShowCustomSymbolInput(true);
-                            } else {
-                              setSymbol(s);
-                              setShowCustomSymbolInput(false);
+                  {/* Symbol */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>symbol</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {symbols.map(s => {
+                        const isSelected = symbol.toUpperCase() === s.toUpperCase() && !showCustomSymbolInput;
+                        const bgColor = isSelected ? getTickerColor(s) : 'rgba(255,255,255,0.04)';
+                        const textColor = isSelected ? getPillTextColor(getTickerColor(s)) : 'rgba(255,255,255,0.7)';
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              if (s === 'CUSTOM') {
+                                setShowCustomSymbolInput(true);
+                              } else {
+                                setSymbol(s);
+                                setShowCustomSymbolInput(false);
+                              }
+                            }}
+                            onTouchStart={(e) => handlePillTouchStart(e, 'symbol', s)}
+                            onTouchEnd={handlePillTouchEnd}
+                            onContextMenu={(e) => e.preventDefault()}
+                            style={{
+                              background: bgColor,
+                              border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 12,
+                              padding: '4px 9px',
+                              color: textColor,
+                              fontSize: 10,
+                              fontWeight: isSelected ? 700 : 500,
+                              cursor: s === 'CUSTOM' ? 'pointer' : 'context-menu',
+                              fontFamily: 'var(--font)',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {s === 'CUSTOM' ? '+ custom' : s.toLowerCase()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {showCustomSymbolInput && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                        <input
+                          type="text"
+                          placeholder="ENTER TICKER (e.g. MMNQ)"
+                          value={customSymbol}
+                          onChange={e => setCustomSymbol(e.target.value.toUpperCase())}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              handleAddCustomSymbolTicker();
                             }
                           }}
-                          onTouchStart={(e) => handlePillTouchStart(e, 'symbol', s)}
-                          onTouchEnd={handlePillTouchEnd}
-                          onContextMenu={(e) => e.preventDefault()}
                           style={{
-                            background: bgColor,
-                            border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 12,
-                            padding: '4px 9px',
-                            color: textColor,
-                            fontSize: 10,
-                            fontWeight: isSelected ? 700 : 500,
-                            cursor: s === 'CUSTOM' ? 'pointer' : 'context-menu',
+                            flex: 1,
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 8,
+                            color: '#fff',
                             fontFamily: 'var(--font)',
-                            transition: 'all 0.15s'
+                            fontSize: 12,
+                            padding: '6px 8px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomSymbolTicker}
+                          style={{
+                            background: '#fff',
+                            border: 'none',
+                            borderRadius: 8,
+                            width: 28,
+                            height: 28,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#000',
+                            flexShrink: 0
                           }}
                         >
-                          {s === 'CUSTOM' ? '+ custom' : s.toLowerCase()}
+                          <Check size={14} strokeWidth={3} />
                         </button>
-                      );
-                    })}
+                      </div>
+                    )}
                   </div>
-                  {showCustomSymbolInput && (
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+
+                  {/* Direction & Outcome */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>direction</div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setBias('LONG')}
+                          style={{
+                            flex: 1,
+                            background: bias === 'LONG' ? 'rgba(48,209,88,0.15)' : 'rgba(255,255,255,0.02)',
+                            border: bias === 'LONG' ? '1px solid rgba(48,209,88,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 8,
+                            padding: '6px',
+                            color: bias === 'LONG' ? '#30d158' : 'rgba(255,255,255,0.4)',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'var(--font)'
+                          }}
+                        >
+                          long
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBias('SHORT')}
+                          style={{
+                            flex: 1,
+                            background: bias === 'SHORT' ? 'rgba(255,69,58,0.15)' : 'rgba(255,255,255,0.02)',
+                            border: bias === 'SHORT' ? '1px solid rgba(255,69,58,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 8,
+                            padding: '6px',
+                            color: bias === 'SHORT' ? '#ff453a' : 'rgba(255,255,255,0.4)',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'var(--font)'
+                          }}
+                        >
+                          short
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>outcome (w/l)</div>
+                      <div style={{ position: 'relative' }}>
+                        <select
+                          value={outcome}
+                          onChange={e => setOutcome(e.target.value)}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 8,
+                            color: '#fff',
+                            fontFamily: 'var(--font)',
+                            fontSize: 12,
+                            padding: '8px 10px',
+                            outline: 'none',
+                            appearance: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          {OUTCOMES.map(o => (
+                            <option key={o} value={o} style={{ background: '#1c1c1e' }}>{o.toLowerCase()}</option>
+                          ))}
+                        </select>
+                        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>▼</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 3: STRATEGY & METRICS */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>strategy & metrics</div>
+                  
+                  {/* Setup Rating */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>setup rating</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {RATINGS.map(r => {
+                        const isSelected = rating.toUpperCase() === r.toUpperCase();
+                        const ratingColor = getRatingColor(r);
+                        const bgColor = isSelected ? ratingColor : 'rgba(255,255,255,0.04)';
+                        const textColor = isSelected ? getPillTextColor(ratingColor) : 'rgba(255,255,255,0.7)';
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setRating(r)}
+                            onTouchStart={(e) => handlePillTouchStart(e, 'rating', r)}
+                            onTouchEnd={handlePillTouchEnd}
+                            style={{
+                              flex: 1,
+                              background: bgColor,
+                              border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 12,
+                              padding: '5px 0',
+                              color: textColor,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              fontFamily: 'var(--font)',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {r.toUpperCase()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Confluences */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>confluences</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {confluences.map(c => {
+                        const isSelected = selectedConfluences.includes(c) && !showCustomConfluenceInput;
+                        const bgColor = isSelected ? '#0a84ff' : 'rgba(255,255,255,0.04)';
+                        const textColor = isSelected ? '#ffffff' : 'rgba(255,255,255,0.7)';
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              if (c === 'CUSTOM') {
+                                setShowCustomConfluenceInput(true);
+                              } else {
+                                if (selectedConfluences.includes(c)) {
+                                  setSelectedConfluences(selectedConfluences.filter(item => item !== c));
+                                } else {
+                                  setSelectedConfluences([...selectedConfluences, c]);
+                                }
+                                setShowCustomConfluenceInput(false);
+                              }
+                            }}
+                            onTouchStart={(e) => handlePillTouchStart(e, 'confluence', c)}
+                            onTouchEnd={handlePillTouchEnd}
+                            onContextMenu={(e) => handlePillContextMenu(e, 'confluence', c)}
+                            style={{
+                              background: bgColor,
+                              border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 12,
+                              padding: '4px 9px',
+                              color: textColor,
+                              fontSize: 10,
+                              fontWeight: isSelected ? 700 : 500,
+                              cursor: c === 'CUSTOM' ? 'pointer' : 'context-menu',
+                              fontFamily: 'var(--font)',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {c === 'CUSTOM' ? '+ custom' : c.toLowerCase()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {showCustomConfluenceInput && (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                        <input
+                          type="text"
+                          placeholder="ENTER CONFLUENCE"
+                          value={customConfluence}
+                          onChange={e => setCustomConfluence(e.target.value.toUpperCase())}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              handleAddCustomConfluence();
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 8,
+                            color: '#fff',
+                            fontFamily: 'var(--font)',
+                            fontSize: 12,
+                            padding: '6px 8px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomConfluence}
+                          style={{
+                            background: '#fff',
+                            border: 'none',
+                            borderRadius: 8,
+                            width: 28,
+                            height: 28,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#000',
+                            flexShrink: 0
+                          }}
+                        >
+                          <Check size={14} strokeWidth={3} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Model */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>model</div>
+                    <input
+                      type="text"
+                      placeholder="e.g. fvg retest"
+                      value={model}
+                      onChange={e => setModel(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8,
+                        color: '#fff',
+                        fontFamily: 'var(--font)',
+                        fontSize: 12,
+                        padding: '8px 10px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  {/* PO3 Time & Entry TF */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>po3 time</div>
                       <input
                         type="text"
-                        placeholder="ENTER TICKER (e.g. MMNQ)"
-                        value={customSymbol}
-                        onChange={e => setCustomSymbol(e.target.value.toUpperCase())}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            handleAddCustomSymbolTicker();
-                          }
-                        }}
+                        placeholder="e.g. 12:30"
+                        value={po3Time}
+                        onChange={e => setPo3Time(e.target.value)}
                         style={{
-                          flex: 1,
+                          width: '100%',
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 8,
                           color: '#fff',
                           fontFamily: 'var(--font)',
                           fontSize: 12,
-                          padding: '6px 8px',
+                          padding: '8px 10px',
                           outline: 'none',
                           boxSizing: 'border-box'
                         }}
                       />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomSymbolTicker}
-                        style={{
-                          background: '#fff',
-                          border: 'none',
-                          borderRadius: 8,
-                          width: 28,
-                          height: 28,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          color: '#000',
-                          flexShrink: 0
-                        }}
-                      >
-                        <Check size={14} strokeWidth={3} />
-                      </button>
                     </div>
-                  )}
-                </div>
-
-                {/* Direction & Outcome */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>direction</div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        type="button"
-                        onClick={() => setBias('LONG')}
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>entry time frame</div>
+                      <input
+                        type="text"
+                        placeholder="e.g. 5 min"
+                        value={entryTf}
+                        onChange={e => setEntryTf(e.target.value)}
                         style={{
-                          flex: 1,
-                          background: bias === 'LONG' ? 'rgba(48,209,88,0.15)' : 'rgba(255,255,255,0.02)',
-                          border: bias === 'LONG' ? '1px solid rgba(48,209,88,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 8,
-                          padding: '5px',
-                          color: bias === 'LONG' ? '#30d158' : 'rgba(255,255,255,0.4)',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          fontFamily: 'var(--font)'
+                          color: '#fff',
+                          fontFamily: 'var(--font)',
+                          fontSize: 12,
+                          padding: '8px 10px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
                         }}
-                      >
-                        long
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBias('SHORT')}
-                        style={{
-                          flex: 1,
-                          background: bias === 'SHORT' ? 'rgba(255,69,58,0.15)' : 'rgba(255,255,255,0.02)',
-                          border: bias === 'SHORT' ? '1px solid rgba(255,69,58,0.4)' : '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: 8,
-                          padding: '5px',
-                          color: bias === 'SHORT' ? '#ff453a' : 'rgba(255,255,255,0.4)',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          fontFamily: 'var(--font)'
-                        }}
-                      >
-                        short
-                      </button>
+                      />
                     </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>outcome (w/l)</div>
-                    <select
-                      value={outcome}
-                      onChange={e => setOutcome(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
-                        outline: 'none',
-                        appearance: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {OUTCOMES.map(o => (
-                        <option key={o} value={o} style={{ background: '#1c1c1e' }}>{o.toLowerCase()}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
-                {/* Setup Rating Pills */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>setup rating</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {RATINGS.map(r => {
-                      const isSelected = rating.toUpperCase() === r.toUpperCase();
-                      const ratingColor = getRatingColor(r);
-                      const bgColor = isSelected ? ratingColor : 'rgba(255,255,255,0.04)';
-                      const textColor = isSelected ? getPillTextColor(ratingColor) : 'rgba(255,255,255,0.7)';
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setRating(r)}
-                          onTouchStart={(e) => handlePillTouchStart(e, 'rating', r)}
-                          onTouchEnd={handlePillTouchEnd}
-                          style={{
-                            flex: 1,
-                            background: bgColor,
-                            border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 12,
-                            padding: '3px 0',
-                            color: textColor,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontFamily: 'var(--font)',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          {r.toUpperCase()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-          {/* Confluences pills */}
-          <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>confluences</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-              {confluences.map(c => {
-                const isSelected = selectedConfluences.includes(c) && !showCustomConfluenceInput;
-                const bgColor = isSelected ? '#0a84ff' : 'rgba(255,255,255,0.04)';
-                const textColor = isSelected ? '#ffffff' : 'rgba(255,255,255,0.7)';
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      if (c === 'CUSTOM') {
-                        setShowCustomConfluenceInput(true);
-                      } else {
-                        if (selectedConfluences.includes(c)) {
-                          setSelectedConfluences(selectedConfluences.filter(item => item !== c));
-                        } else {
-                          setSelectedConfluences([...selectedConfluences, c]);
-                        }
-                        setShowCustomConfluenceInput(false);
-                      }
-                    }}
-                    onTouchStart={(e) => handlePillTouchStart(e, 'confluence', c)}
-                    onTouchEnd={handlePillTouchEnd}
-                    onContextMenu={(e) => handlePillContextMenu(e, 'confluence', c)}
-                    style={{
-                      background: bgColor,
-                      border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 12,
-                      padding: '4px 9px',
-                      color: textColor,
-                      fontSize: 10,
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: c === 'CUSTOM' ? 'pointer' : 'context-menu',
-                      fontFamily: 'var(--font)',
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    {c === 'CUSTOM' ? '+ custom' : c.toLowerCase()}
-                  </button>
-                );
-              })}
-            </div>
-            {showCustomConfluenceInput && (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
-                <input
-                  type="text"
-                  placeholder="ENTER CONFLUENCE"
-                  value={customConfluence}
-                  onChange={e => setCustomConfluence(e.target.value.toUpperCase())}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      handleAddCustomConfluence();
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 8,
-                    color: '#fff',
-                    fontFamily: 'var(--font)',
-                    fontSize: 12,
-                    padding: '6px 8px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCustomConfluence}
-                  style={{
-                    background: '#fff',
-                    border: 'none',
-                    borderRadius: 8,
-                    width: 28,
-                    height: 28,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: '#000',
-                    flexShrink: 0
-                  }}
-                >
-                  <Check size={14} strokeWidth={3} />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Model */}
-          <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>model</div>
-            <input
-              type="text"
-              placeholder="e.g. fvg retest"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 8,
-                color: '#fff',
-                fontFamily: 'var(--font)',
-                fontSize: 12,
-                padding: '6px 8px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-                {/* PO3 Time & Entry TF */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>po3 time</div>
-                    <input
-                      type="text"
-                      placeholder="e.g. 12:30"
-                      value={po3Time}
-                      onChange={e => setPo3Time(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>entry time frame</div>
-                    <input
-                      type="text"
-                      placeholder="e.g. 5 min"
-                      value={entryTf}
-                      onChange={e => setEntryTf(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* R-Multiple & Manual P&L Override */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>r-multiple</div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      step="0.1"
-                      placeholder="e.g. 2.5"
-                      value={rr}
-                      onChange={e => setRr(parseFloat(e.target.value) || 0)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>manual p&l ($)</div>
-                    <input
-                      type="number"
-                      placeholder="optional override"
-                      value={manualPnL}
-                      onChange={e => setManualPnL(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '6px 8px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                  {/* R-Multiple & Manual P&L */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>r-multiple</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.1"
+                        placeholder="e.g. 2.5"
+                        value={rr}
+                        onChange={e => setRr(parseFloat(e.target.value) || 0)}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 8,
+                          color: '#fff',
+                          fontFamily: 'var(--font)',
+                          fontSize: 12,
+                          padding: '8px 10px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>manual p&l ($)</div>
+                      <input
+                        type="number"
+                        placeholder="optional override"
+                        value={manualPnL}
+                        onChange={e => setManualPnL(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 8,
+                          color: '#fff',
+                          fontFamily: 'var(--font)',
+                          fontSize: 12,
+                          padding: '8px 10px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </motion.div>

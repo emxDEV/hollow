@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, DollarSign, ArrowRight } from 'lucide-react';
+import { CreditCard, DollarSign, ArrowRight, X } from 'lucide-react';
 import { db } from '../db/hollowDb';
 
-export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
+export default function NoAccountsModal({ isOpen, onClose, isMobile, addToast }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('EVALUATION'); // 'EVALUATION' | 'FUNDED' | 'PERSONAL'
   const [balance, setBalance] = useState(100000);
@@ -129,9 +129,46 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
             overflow: 'hidden',
             paddingTop: isMobile ? 'env(safe-area-inset-top, 44px)' : 0,
             paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 34px)' : 0,
-            transition: 'border-color 0.4s ease, box-shadow 0.4s ease'
+            transition: 'border-color 0.4s ease, box-shadow 0.4s ease',
+            position: 'relative'
           }}
         >
+          {/* Close Button */}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                position: 'absolute',
+                top: isMobile ? 'calc(env(safe-area-inset-top, 44px) + 16px)' : '20px',
+                right: '20px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 10,
+                color: 'rgba(255, 255, 255, 0.6)',
+                outline: 'none',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
+              }}
+            >
+              <X size={16} />
+            </button>
+          )}
+
           {/* Scrollable Container */}
           <div style={{
             flex: 1,

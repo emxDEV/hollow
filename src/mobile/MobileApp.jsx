@@ -39,6 +39,7 @@ export default function MobileApp() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isNoAccountsModalDismissed, setIsNoAccountsModalDismissed] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
@@ -131,7 +132,9 @@ export default function MobileApp() {
     checkBackup();
   }, [appInitialized, session]);
 
-  const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
+  const rawAccounts = useLiveQuery(() => db.accounts.toArray());
+  const accounts = rawAccounts || [];
+  const accountsLoaded = rawAccounts !== undefined;
   const trades = useLiveQuery(() => db.trades.toArray()) || [];
   const executions = useLiveQuery(() => db.executions.toArray()) || [];
 
@@ -417,7 +420,8 @@ export default function MobileApp() {
       </AnimatePresence>
 
       <NoAccountsModal
-        isOpen={accounts.length === 0 && appInitialized && session}
+        isOpen={accountsLoaded && accounts.length === 0 && appInitialized && session && !isNoAccountsModalDismissed}
+        onClose={() => setIsNoAccountsModalDismissed(true)}
         isMobile={true}
         addToast={addToast}
       />

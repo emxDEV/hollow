@@ -48,6 +48,7 @@ export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isNoAccountsModalDismissed, setIsNoAccountsModalDismissed] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
@@ -166,7 +167,9 @@ export default function App() {
   }, [appInitialized, session, addToast]);
 
   // Fetch accounts, trades, and executions reactively from IndexedDB (Dexie)
-  const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
+  const rawAccounts = useLiveQuery(() => db.accounts.toArray());
+  const accounts = rawAccounts || [];
+  const accountsLoaded = rawAccounts !== undefined;
   const trades = useLiveQuery(() => db.trades.toArray()) || [];
   const executions = useLiveQuery(() => db.executions.toArray()) || [];
 
@@ -656,7 +659,8 @@ export default function App() {
         </AnimatePresence>
 
         <NoAccountsModal
-          isOpen={accounts.length === 0 && appInitialized && session}
+          isOpen={accountsLoaded && accounts.length === 0 && appInitialized && session && !isNoAccountsModalDismissed}
+          onClose={() => setIsNoAccountsModalDismissed(true)}
           isMobile={isMobile}
           addToast={addToast}
         />

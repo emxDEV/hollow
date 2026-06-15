@@ -2607,6 +2607,53 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                       Generate Backup Now
                     </button>
                   </div>
+
+                  {/* Download Last Week's Saved Backup */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Last Week's Local Backup</span>
+                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>
+                        {localStorage.getItem('hollow_previous_week_backup_range')
+                          ? `Saved backup for: ${localStorage.getItem('hollow_previous_week_backup_range')}`
+                          : 'No backup stored in local storage yet.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!localStorage.getItem('hollow_previous_week_backup_pdf')}
+                      onClick={() => {
+                        const pdfBase64 = localStorage.getItem('hollow_previous_week_backup_pdf');
+                        if (!pdfBase64) {
+                          showToast('No backup PDF found in local storage.', 'error');
+                          return;
+                        }
+                        try {
+                          const dateRange = localStorage.getItem('hollow_previous_week_backup_range') || 'previous_week';
+                          const cleanedRange = dateRange.replace(/\s+/g, '_');
+                          const link = document.createElement('a');
+                          link.href = pdfBase64;
+                          link.download = `hollow_weekly_backup_${cleanedRange}.pdf`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          showToast("Weekly backup PDF downloaded from local storage!", "success");
+                        } catch (err) {
+                          console.error("Failed to download PDF from localStorage", err);
+                          showToast("Failed to download backup.", "error");
+                        }
+                      }}
+                      className="btn-dark"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '12px',
+                        color: '#fff',
+                        opacity: localStorage.getItem('hollow_previous_week_backup_pdf') ? 1 : 0.5,
+                        cursor: localStorage.getItem('hollow_previous_week_backup_pdf') ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      Download Local Backup
+                    </button>
+                  </div>
                 </div>
               </div>
 

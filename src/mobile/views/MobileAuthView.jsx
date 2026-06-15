@@ -17,25 +17,25 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
 
     if (mode === 'login' || mode === 'signup') {
       if (!email || !password) {
-        setErrorMsg('Please enter email and password.');
+        setErrorMsg('Bitte E-Mail und Passwort eingeben.');
         return;
       }
     } else if (mode === 'forgot') {
       if (!email) {
-        setErrorMsg('Please enter your email address.');
+        setErrorMsg('Bitte gib deine E-Mail-Adresse ein.');
         return;
       }
     } else if (mode === 'reset') {
       if (!password || !confirmPassword) {
-        setErrorMsg('Please fill in both password fields.');
+        setErrorMsg('Bitte fülle beide Passwort-Felder aus.');
         return;
       }
       if (password !== confirmPassword) {
-        setErrorMsg('Passwords do not match.');
+        setErrorMsg('Passwörter stimmen nicht überein.');
         return;
       }
       if (password.length < 6) {
-        setErrorMsg('Password must be at least 6 characters.');
+        setErrorMsg('Das Passwort muss mindestens 6 Zeichen lang sein.');
         return;
       }
     }
@@ -49,7 +49,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           password
         });
         if (error) throw error;
-        addToast('Signed in successfully.', 'success');
+        addToast('Erfolgreich angemeldet.', 'success');
       } else if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -58,23 +58,23 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         if (error) throw error;
         
         if (data?.user && data.user.identities?.length === 0) {
-          addToast('Email is already registered. Try logging in.', 'info');
+          addToast('E-Mail ist bereits registriert. Versuche dich anzumelden.', 'info');
         } else {
-          addToast('Check email for confirmation link.', 'success');
+          addToast('Bitte überprüfe deine E-Mails auf den Bestätigungslink.', 'success');
         }
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: window.location.origin
         });
         if (error) throw error;
-        addToast('Reset link sent to your email.', 'success');
+        addToast('Link zum Zurücksetzen an deine E-Mail gesendet.', 'success');
         setEmail('');
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.updateUser({
           password: password
         });
         if (error) throw error;
-        addToast('Password updated successfully!', 'success');
+        addToast('Passwort erfolgreich aktualisiert!', 'success');
         setTimeout(async () => {
           await supabase.auth.signOut();
           if (onResetComplete) onResetComplete();
@@ -84,8 +84,8 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         }, 2000);
       }
     } catch (err) {
-      setErrorMsg(err.message || 'An error occurred.');
-      addToast(err.message || 'Failed.', 'error');
+      setErrorMsg(err.message || 'Ein Fehler ist aufgetreten.');
+      addToast(err.message || 'Fehlgeschlagen.', 'error');
     } finally {
       setLoading(false);
     }
@@ -147,10 +147,10 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
             hollow.
           </span>
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
-            {mode === 'login' && 'Sign in to continue'}
-            {mode === 'signup' && 'Register a new account'}
-            {mode === 'forgot' && 'Reset Password'}
-            {mode === 'reset' && 'Choose New Password'}
+            {mode === 'login' && 'Melde dich an, um fortzufahren'}
+            {mode === 'signup' && 'Erstelle ein neues Konto'}
+            {mode === 'forgot' && 'Passwort zurücksetzen'}
+            {mode === 'reset' && 'Neues Passwort wählen'}
           </span>
         </div>
 
@@ -185,7 +185,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>EMAIL ADDRESS</label>
+              <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>E-MAIL-ADRESSE</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type="email"
@@ -214,7 +214,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           {(mode === 'login' || mode === 'signup') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORD</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORT</label>
                 {mode === 'login' && (
                   <button
                     type="button"
@@ -233,7 +233,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                       outline: 'none'
                     }}
                   >
-                    Forgot Password?
+                    Passwort vergessen?
                   </button>
                 )}
               </div>
@@ -265,7 +265,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           {mode === 'reset' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>NEW PASSWORD</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>NEUES PASSWORT</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="password"
@@ -291,7 +291,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>CONFIRM PASSWORD</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORT BESTÄTIGEN</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="password"
@@ -341,13 +341,13 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
               boxShadow: '0 4px 12px rgba(255,255,255,0.05)'
             }}
           >
-            {loading ? 'Processing...' : (
+            {loading ? 'Wird verarbeitet...' : (
               <>
                 <span>
-                  {mode === 'login' && 'Sign In'}
-                  {mode === 'signup' && 'Register Account'}
-                  {mode === 'forgot' && 'Send Reset Link'}
-                  {mode === 'reset' && 'Update Password'}
+                  {mode === 'login' && 'Anmelden'}
+                  {mode === 'signup' && 'Konto erstellen'}
+                  {mode === 'forgot' && 'Link zum Zurücksetzen senden'}
+                  {mode === 'reset' && 'Passwort aktualisieren'}
                 </span>
                 <ArrowRight size={14} />
               </>
@@ -377,9 +377,9 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                 outline: 'none'
               }}
             >
-              {mode === 'login' && "Don't have an account? Sign Up"}
-              {mode === 'signup' && 'Already have an account? Sign In'}
-              {mode === 'forgot' && 'Back to Sign In'}
+              {mode === 'login' && 'Noch kein Konto? Registrieren'}
+              {mode === 'signup' && 'Bereits ein Konto? Anmelden'}
+              {mode === 'forgot' && 'Zurück zur Anmeldung'}
             </button>
           ) : (
             <button
@@ -398,7 +398,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                 outline: 'none'
               }}
             >
-              Cancel & Back to Sign In
+              Abbrechen & Zurück zur Anmeldung
             </button>
           )}
         </div>

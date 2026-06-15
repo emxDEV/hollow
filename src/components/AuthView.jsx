@@ -158,8 +158,8 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>
             {mode === 'login' && 'Sign In to Journal'}
             {mode === 'signup' && 'Create New Account'}
-            {mode === 'forgot' && 'Reset Password'}
-            {mode === 'reset' && 'Choose New Password'}
+            {mode === 'forgot' && 'Passwort zurücksetzen'}
+            {mode === 'reset' && 'Neues Passwort wählen'}
           </span>
         </div>
 
@@ -268,7 +268,7 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
                     onMouseEnter={e => e.currentTarget.style.color = '#fff'}
                     onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
                   >
-                    Forgot Password?
+                    Passwort vergessen?
                   </button>
                 )}
               </div>
@@ -367,8 +367,8 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
                 <span>
                   {mode === 'login' && 'Sign In'}
                   {mode === 'signup' && 'Create Account'}
-                  {mode === 'forgot' && 'Send Reset Link'}
-                  {mode === 'reset' && 'Update Password'}
+                  {mode === 'forgot' && 'Link zum Zurücksetzen senden'}
+                  {mode === 'reset' && 'Passwort aktualisieren'}
                 </span>
                 <ArrowRight size={14} />
               </>
@@ -405,7 +405,7 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
             >
               {mode === 'login' && "Don't have an account? Sign Up"}
               {mode === 'signup' && 'Already have an account? Sign In'}
-              {mode === 'forgot' && 'Back to Sign In'}
+              {mode === 'forgot' && 'Zurück zum Login'}
             </button>
           ) : (
             <button
@@ -426,7 +426,7 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
               onMouseEnter={e => e.currentTarget.style.color = '#fff'}
               onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
             >
-              Cancel & Back to Sign In
+              Abbrechen & Zurück zum Login
             </button>
           )}
         </div>
