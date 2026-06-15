@@ -45,6 +45,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
@@ -57,6 +58,15 @@ export default function App() {
   // Handle auth session state reactively
   useEffect(() => {
     if (!supabase) return;
+
+    const checkHashForRecovery = () => {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('type=recovery') || hash.includes('recovery_token') || hash.includes('recovery'))) {
+        setIsRecoveryMode(true);
+      }
+    };
+    checkHashForRecovery();
+    window.addEventListener('hashchange', checkHashForRecovery);
 
     async function initAuth() {
       try {
@@ -78,6 +88,10 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       try {
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsRecoveryMode(true);
+        }
+
         if (event === 'SIGNED_IN') {
           await clearDatabase();
           setSession(currentSession);
@@ -100,6 +114,7 @@ export default function App() {
 
     return () => {
       if (subscription) subscription.unsubscribe();
+      window.removeEventListener('hashchange', checkHashForRecovery);
     };
   }, []);
 
@@ -247,6 +262,18 @@ export default function App() {
 
   if (!authLoaded) {
     return <div style={{ height: '100vh', width: '100vw', background: '#000' }} />;
+  }
+
+  if (isRecoveryMode) {
+    return (
+      <AuthView
+        initialMode="reset"
+        onResetComplete={() => {
+          setIsRecoveryMode(false);
+          window.location.hash = '';
+        }}
+      />
+    );
   }
 
   if (session && !appInitialized) {

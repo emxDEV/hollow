@@ -37,6 +37,7 @@ export default function MobileApp() {
   const [session, setSession] = useState(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
@@ -45,6 +46,15 @@ export default function MobileApp() {
   // Handle auth session state reactively
   useEffect(() => {
     if (!supabase) return;
+
+    const checkHashForRecovery = () => {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('type=recovery') || hash.includes('recovery_token') || hash.includes('recovery'))) {
+        setIsRecoveryMode(true);
+      }
+    };
+    checkHashForRecovery();
+    window.addEventListener('hashchange', checkHashForRecovery);
 
     async function initAuth() {
       try {
@@ -66,6 +76,10 @@ export default function MobileApp() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       try {
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsRecoveryMode(true);
+        }
+
         if (event === 'SIGNED_IN') {
           await clearDatabase();
           setSession(currentSession);
@@ -88,6 +102,7 @@ export default function MobileApp() {
 
     return () => {
       if (subscription) subscription.unsubscribe();
+      window.removeEventListener('hashchange', checkHashForRecovery);
     };
   }, []);
 
@@ -187,6 +202,21 @@ export default function MobileApp() {
     return (
       <IPhoneFrame>
         <div style={{ height: '100%', width: '100%', background: '#000' }} />
+      </IPhoneFrame>
+    );
+  }
+
+  if (isRecoveryMode) {
+    return (
+      <IPhoneFrame>
+        <MobileAuthView 
+          addToast={addToast} 
+          initialMode="reset" 
+          onResetComplete={() => {
+            setIsRecoveryMode(false);
+            window.location.hash = '';
+          }} 
+        />
       </IPhoneFrame>
     );
   }

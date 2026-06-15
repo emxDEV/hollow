@@ -1,33 +1,56 @@
 import React, { useState } from 'react';
 import { supabase } from '../../db/supabaseClient';
-import { Mail, Lock, AlertCircle, ArrowRight, Activity } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function MobileAuthView({ addToast }) {
-  const [isLogin, setIsLogin] = useState(true);
+export default function MobileAuthView({ addToast, initialMode = 'login', onResetComplete }) {
+  const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg('Please enter email and password.');
-      return;
-    }
     setErrorMsg('');
+
+    if (mode === 'login' || mode === 'signup') {
+      if (!email || !password) {
+        setErrorMsg('Please enter email and password.');
+        return;
+      }
+    } else if (mode === 'forgot') {
+      if (!email) {
+        setErrorMsg('Please enter your email address.');
+        return;
+      }
+    } else if (mode === 'reset') {
+      if (!password || !confirmPassword) {
+        setErrorMsg('Please fill in both password fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
+      if (password.length < 6) {
+        setErrorMsg('Password must be at least 6 characters.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password
         });
         if (error) throw error;
         addToast('Signed in successfully.', 'success');
-      } else {
+      } else if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password
@@ -39,10 +62,30 @@ export default function MobileAuthView({ addToast }) {
         } else {
           addToast('Check email for confirmation link.', 'success');
         }
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin
+        });
+        if (error) throw error;
+        addToast('Reset link sent to your email.', 'success');
+        setEmail('');
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.updateUser({
+          password: password
+        });
+        if (error) throw error;
+        addToast('Password updated successfully!', 'success');
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          if (onResetComplete) onResetComplete();
+          setMode('login');
+          setPassword('');
+          setConfirmPassword('');
+        }, 2000);
       }
     } catch (err) {
       setErrorMsg(err.message || 'An error occurred.');
-      addToast(err.message || 'Authentication failed.', 'error');
+      addToast(err.message || 'Failed.', 'error');
     } finally {
       setLoading(false);
     }
@@ -104,7 +147,10 @@ export default function MobileAuthView({ addToast }) {
             hollow.
           </span>
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
-            {isLogin ? 'Sign in to continue' : 'Register a new account'}
+            {mode === 'login' && 'Sign in to continue'}
+            {mode === 'signup' && 'Register a new account'}
+            {mode === 'forgot' && 'Reset Password'}
+            {mode === 'reset' && 'Choose New Password'}
           </span>
         </div>
 
@@ -137,57 +183,140 @@ export default function MobileAuthView({ addToast }) {
 
         {/* Form Fields */}
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>EMAIL ADDRESS</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@domain.com"
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 12,
-                  color: '#fff',
-                  fontFamily: 'var(--font)',
-                  fontSize: 15,
-                  padding: '12px 14px 12px 38px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <Mail size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+          {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>EMAIL ADDRESS</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@domain.com"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    color: '#fff',
+                    fontFamily: 'var(--font)',
+                    fontSize: 15,
+                    padding: '12px 14px 12px 38px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Mail size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+              </div>
             </div>
-          </div>
+          )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORD</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 12,
-                  color: '#fff',
-                  fontFamily: 'var(--font)',
-                  fontSize: 15,
-                  padding: '12px 14px 12px 38px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+          {(mode === 'login' || mode === 'signup') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORD</label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('forgot');
+                      setErrorMsg('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'rgba(255,255,255,0.35)',
+                      fontSize: '11.5px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      padding: 0,
+                      outline: 'none'
+                    }}
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    color: '#fff',
+                    fontFamily: 'var(--font)',
+                    fontSize: 15,
+                    padding: '12px 14px 12px 38px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+              </div>
             </div>
-          </div>
+          )}
+
+          {mode === 'reset' && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>NEW PASSWORD</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12,
+                      color: '#fff',
+                      fontFamily: 'var(--font)',
+                      fontSize: 15,
+                      padding: '12px 14px 12px 38px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>CONFIRM PASSWORD</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12,
+                      color: '#fff',
+                      fontFamily: 'var(--font)',
+                      fontSize: 15,
+                      padding: '12px 14px 12px 38px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
+                </div>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
@@ -214,7 +343,12 @@ export default function MobileAuthView({ addToast }) {
           >
             {loading ? 'Processing...' : (
               <>
-                <span>{isLogin ? 'Sign In' : 'Register Account'}</span>
+                <span>
+                  {mode === 'login' && 'Sign In'}
+                  {mode === 'signup' && 'Register Account'}
+                  {mode === 'forgot' && 'Send Reset Link'}
+                  {mode === 'reset' && 'Update Password'}
+                </span>
                 <ArrowRight size={14} />
               </>
             )}
@@ -222,24 +356,51 @@ export default function MobileAuthView({ addToast }) {
         </form>
 
         {/* Toggle Switch */}
-        <div style={{ marginTop: '24px', textAlign: 'center' }}>
-          <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setErrorMsg('');
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255,255,255,0.4)',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              outline: 'none'
-            }}
-          >
-            {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-          </button>
+        <div style={{ marginTop: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+          {mode !== 'reset' ? (
+            <button
+              onClick={() => {
+                if (mode === 'forgot') {
+                  setMode('login');
+                } else {
+                  setMode(mode === 'login' ? 'signup' : 'login');
+                }
+                setErrorMsg('');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255,255,255,0.4)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              {mode === 'login' && "Don't have an account? Sign Up"}
+              {mode === 'signup' && 'Already have an account? Sign In'}
+              {mode === 'forgot' && 'Back to Sign In'}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                if (onResetComplete) onResetComplete();
+                setMode('login');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255,255,255,0.35)',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              Cancel & Back to Sign In
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

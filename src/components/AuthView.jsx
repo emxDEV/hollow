@@ -1,34 +1,57 @@
 import React, { useState } from 'react';
 import { supabase } from '../db/supabaseClient';
-import { Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function AuthView() {
-  const [isLogin, setIsLogin] = useState(true);
+export default function AuthView({ initialMode = 'login', onResetComplete }) {
+  const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg('Please enter both email and password.');
-      return;
-    }
     setErrorMsg('');
     setInfoMsg('');
+
+    if (mode === 'login' || mode === 'signup') {
+      if (!email || !password) {
+        setErrorMsg('Please enter both email and password.');
+        return;
+      }
+    } else if (mode === 'forgot') {
+      if (!email) {
+        setErrorMsg('Please enter your email address.');
+        return;
+      }
+    } else if (mode === 'reset') {
+      if (!password || !confirmPassword) {
+        setErrorMsg('Please fill in both password fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
+      if (password.length < 6) {
+        setErrorMsg('Password must be at least 6 characters.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password
         });
         if (error) throw error;
-      } else {
+      } else if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password
@@ -40,6 +63,26 @@ export default function AuthView() {
         } else {
           setInfoMsg('Registration successful! Please check your email for confirmation (or try logging in directly).');
         }
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin
+        });
+        if (error) throw error;
+        setInfoMsg('Reset link sent! Please check your email inbox.');
+      } else if (mode === 'reset') {
+        const { error } = await supabase.auth.updateUser({
+          password: password
+        });
+        if (error) throw error;
+        setInfoMsg('Password updated successfully! Redirecting to login...');
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          if (onResetComplete) onResetComplete();
+          setMode('login');
+          setPassword('');
+          setConfirmPassword('');
+          setInfoMsg('');
+        }, 2500);
       }
     } catch (err) {
       setErrorMsg(err.message || 'An error occurred during authentication.');
@@ -113,7 +156,10 @@ export default function AuthView() {
             hollow.
           </span>
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>
-            {isLogin ? 'Sign In to Journal' : 'Create New Account'}
+            {mode === 'login' && 'Sign In to Journal'}
+            {mode === 'signup' && 'Create New Account'}
+            {mode === 'forgot' && 'Reset Password'}
+            {mode === 'reset' && 'Choose New Password'}
           </span>
         </div>
 
@@ -152,17 +198,17 @@ export default function AuthView() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
-                background: 'rgba(10, 132, 255, 0.1)',
-                border: '1px solid rgba(10, 132, 255, 0.25)',
+                background: 'rgba(48, 209, 88, 0.1)',
+                border: '1px solid rgba(48, 209, 88, 0.25)',
                 borderRadius: '12px',
                 padding: '12px 14px',
-                color: '#0a84ff',
+                color: '#30d158',
                 fontSize: '12.5px',
                 marginBottom: '20px',
                 lineHeight: 1.4
               }}
             >
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
               <span>{infoMsg}</span>
             </motion.div>
           )}
@@ -171,49 +217,127 @@ export default function AuthView() {
         {/* Form Inputs */}
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              Email Address
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@domain.com"
-                className="hollow-input"
-                style={{
-                  width: '100%',
-                  paddingLeft: '38px',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <Mail size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+          {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                Email Address
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@domain.com"
+                  className="hollow-input"
+                  style={{
+                    width: '100%',
+                    paddingLeft: '38px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Mail size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              </div>
             </div>
-          </div>
+          )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="hollow-input"
-                style={{
-                  width: '100%',
-                  paddingLeft: '38px',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <Lock size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+          {(mode === 'login' || mode === 'signup') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                  Password
+                </label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('forgot');
+                      setErrorMsg('');
+                      setInfoMsg('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      fontSize: '10.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      padding: 0,
+                      outline: 'none'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="hollow-input"
+                  style={{
+                    width: '100%',
+                    paddingLeft: '38px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <Lock size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              </div>
             </div>
-          </div>
+          )}
+
+          {mode === 'reset' && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                  New Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="hollow-input"
+                    style={{
+                      width: '100%',
+                      paddingLeft: '38px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Lock size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                  Confirm Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="hollow-input"
+                    style={{
+                      width: '100%',
+                      paddingLeft: '38px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Lock size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                </div>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
@@ -240,7 +364,12 @@ export default function AuthView() {
           >
             {loading ? 'Processing...' : (
               <>
-                <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                <span>
+                  {mode === 'login' && 'Sign In'}
+                  {mode === 'signup' && 'Create Account'}
+                  {mode === 'forgot' && 'Send Reset Link'}
+                  {mode === 'reset' && 'Update Password'}
+                </span>
                 <ArrowRight size={14} />
               </>
             )}
@@ -248,29 +377,58 @@ export default function AuthView() {
         </form>
 
         {/* Footer Toggle Link */}
-        <div style={{ marginTop: '28px', textAlign: 'center' }}>
-          <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setErrorMsg('');
-              setInfoMsg('');
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255, 255, 255, 0.45)',
-              fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              textDecoration: 'none',
-              transition: 'color 0.2s',
-              outline: 'none'
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.45)'}
-          >
-            {isLogin ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-          </button>
+        <div style={{ marginTop: '28px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+          {mode !== 'reset' ? (
+            <button
+              onClick={() => {
+                if (mode === 'forgot') {
+                  setMode('login');
+                } else {
+                  setMode(mode === 'login' ? 'signup' : 'login');
+                }
+                setErrorMsg('');
+                setInfoMsg('');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.45)',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.45)'}
+            >
+              {mode === 'login' && "Don't have an account? Sign Up"}
+              {mode === 'signup' && 'Already have an account? Sign In'}
+              {mode === 'forgot' && 'Back to Sign In'}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                if (onResetComplete) onResetComplete();
+                setMode('login');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.4)',
+                fontSize: '11px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
+            >
+              Cancel & Back to Sign In
+            </button>
+          )}
         </div>
 
       </motion.div>
