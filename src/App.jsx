@@ -58,33 +58,49 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoaded(true);
-      if (!session) {
-        setAppInitialized(true);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (event === 'SIGNED_IN') {
-        await clearDatabase();
-        setSession(currentSession);
-        setAppInitialized(false);
-      } else if (event === 'SIGNED_OUT') {
-        await clearDatabase();
-        setSession(null);
-        setAppInitialized(true);
-      } else {
-        setSession(currentSession);
-        if (!currentSession) {
+    async function initAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (!session) {
           setAppInitialized(true);
         }
+      } catch (err) {
+        console.error('Supabase session retrieval error:', err);
+        setSession(null);
+        setAppInitialized(true);
+      } finally {
+        setAuthLoaded(true);
+      }
+    }
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      try {
+        if (event === 'SIGNED_IN') {
+          await clearDatabase();
+          setSession(currentSession);
+          setAppInitialized(false);
+        } else if (event === 'SIGNED_OUT') {
+          await clearDatabase();
+          setSession(null);
+          setAppInitialized(true);
+        } else {
+          setSession(currentSession);
+          if (!currentSession) {
+            setAppInitialized(true);
+          }
+        }
+      } catch (err) {
+        console.error('Auth state change error:', err);
       }
       setAuthLoaded(true);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
