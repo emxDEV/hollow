@@ -6,8 +6,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 
 const DEFAULT_SYMBOLS = ['nq', 'es', 'cl', 'gc'];
 const BIASES = ['LONG', 'SHORT'];
-const RATINGS = ['f', 'c', 'b', 'a', 'a+'];
-const OUTCOMES = ['win', 'be -> win', 'loss', 'be -> loss', 'tape'];
+const RATINGS = ['F', 'C', 'B', 'A', 'A+'];
+const OUTCOMES = ['Win', 'BE -> Win', 'Loss', 'BE -> Loss', 'Tape'];
 
 const MISTAKES_OPTIONS = [
   'FOMO',
@@ -85,7 +85,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [symbol, setSymbol] = useState('NQ');
   const [customSymbol, setCustomSymbol] = useState('');
   const [showCustomSymbolInput, setShowCustomSymbolInput] = useState(false);
-  const [rating, setRating] = useState('a');
+  const [rating, setRating] = useState('A');
   const [confluences, setConfluences] = useState(() => {
     const saved = localStorage.getItem('hollow_pill_confluences');
     return saved ? JSON.parse(saved) : ['VWAP HOLD', 'HTF LEVEL', 'LIQUIDITY SWEEP', 'FVG RETEST', 'MARKET SHIFT', 'CUSTOM'];
@@ -97,7 +97,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [entryTf, setEntryTf] = useState('');
   const [model, setModel] = useState('');
   const [dol, setDol] = useState('');
-  const [outcome, setOutcome] = useState('win');
+  const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
   const [rr, setRr] = useState(2);
   const [manualPnL, setManualPnL] = useState('');
@@ -355,9 +355,10 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       if (isNaN(pnlVal)) {
         // Calculate based on outcome
         const baseRisk = 300;
-        if (outcome.includes('win')) {
+        const lowOutcome = outcome.toLowerCase();
+        if (lowOutcome.includes('win')) {
           pnlVal = baseRisk * rr;
-        } else if (outcome.includes('loss')) {
+        } else if (lowOutcome.includes('loss')) {
           pnlVal = -baseRisk;
         } else {
           pnlVal = 0;
@@ -394,16 +395,23 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             accountId: accId,
             date,
             symbol: finalSymbol,
-            model: model || 'Opening Range Breakout',
+            model: model || 'Unmapped',
             bias,
             status: 'CLOSED',
-            setupRating: rating.toUpperCase(),
             confluences: selectedConfluences,
+            setupRating: rating.toUpperCase(),
+            wl: outcome,
+            rr: parseFloat(rr) || 0,
+            tp: null,
+            sl: null,
+            po3: po3Time || '',
+            entryTf: entryTf || '',
+            dol: '',
             mistakes: selectedMistakes,
-            commentBias: po3Time ? `PO3 Time: ${po3Time}` : '',
+            commentBias: name || `${finalSymbol} Breakout Setup`,
             commentExecution: reflections || '',
-            commentProblems: entryTf ? `Entry TF: ${entryTf}` : '',
-            commentFazit: `Logged via mobile. R-Multiple: 1:${rr}`,
+            commentProblems: selectedMistakes.join(', ') || '',
+            commentFazit: `Logged via mobile.`,
             sentimentPre,
             sentimentPost,
             images: [imageLTF, imageMTF, imageHTF].filter(Boolean),
@@ -453,6 +461,27 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       setSaving(false);
     }
   };
+
+  // Selected Account/Group details for dropdown header
+  let selectedName = 'select account';
+  let selectedAccountType = '';
+  let activeColor = 'rgba(255, 255, 255, 0.7)';
+
+  if (targetType === 'group') {
+    const currentGroup = groups.find(g => g.id === targetAccountId);
+    if (currentGroup) {
+      selectedName = currentGroup.name;
+      selectedAccountType = 'group';
+      activeColor = getAccountColor('group');
+    }
+  } else {
+    const currentAcc = accounts.find(acc => acc.id === targetAccountId);
+    if (currentAcc) {
+      selectedName = currentAcc.name;
+      selectedAccountType = currentAcc.type;
+      activeColor = getAccountColor(currentAcc.type);
+    }
+  }
 
   return (
     <motion.div
