@@ -408,6 +408,106 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     primaryMarket: 'Futures'
   });
 
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(localStorage.getItem('hollowEnableAutoBackup') !== 'false');
+  const [backupDirName, setBackupDirName] = useState('Downloads Folder (Default)');
+
+  useEffect(() => {
+    async function loadBackupSettings() {
+      try {
+        const { getBackupDirectoryHandle } = await import('../utils/pdfExport');
+        const handle = await getBackupDirectoryHandle();
+        if (handle) {
+          setBackupDirName(`Custom Folder: ${handle.name}`);
+        }
+      } catch (err) {
+        console.error('Failed to load backup handle:', err);
+      }
+    }
+    loadBackupSettings();
+  }, []);
+
+  const handleSelectDirectory = async () => {
+    if (!window.showDirectoryPicker) {
+      showToast('Custom folders are only supported in desktop Chrome, Edge, or Opera.', 'info');
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker();
+      const { saveBackupDirectoryHandle } = await import('../utils/pdfExport');
+      await saveBackupDirectoryHandle(handle);
+      setBackupDirName(`Custom Folder: ${handle.name}`);
+      showToast('Backup directory selected successfully!', 'success');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Directory selection failed:', err);
+        showToast('Failed to select directory.', 'error');
+      }
+    }
+  };
+
+  const handleResetDirectory = async () => {
+    try {
+      const { saveBackupDirectoryHandle } = await import('../utils/pdfExport');
+      await saveBackupDirectoryHandle(null);
+      setBackupDirName('Downloads Folder (Default)');
+      showToast('Reset to default downloads folder.', 'success');
+    } catch (err) {
+      showToast('Reset failed.', 'error');
+    }
+  };
+
+  const handleToggleAutoBackup = (enabled) => {
+    setAutoBackupEnabled(enabled);
+    localStorage.setItem('hollowEnableAutoBackup', enabled ? 'true' : 'false');
+    showToast(enabled ? 'Auto-backup enabled.' : 'Auto-backup disabled.');
+  };
+
+  const handleManualBackup = async () => {
+    showToast('Generating manual system backup...', 'info');
+    try {
+      const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
+        db.accounts.toArray(),
+        db.trades.toArray(),
+        db.executions.toArray(),
+        db.dailyJournals.toArray(),
+        db.weeklyPlanners.toArray(),
+        db.groups.toArray(),
+        db.workouts ? db.workouts.toArray() : []
+      ]);
+      const { exportAllDataBackupPDF, getBackupDirectoryHandle } = await import('../utils/pdfExport');
+      const doc = exportAllDataBackupPDF(accs, trds, execs, jrns, plns, grps, wrkts);
+      const filename = `hollow_backup_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.pdf`;
+
+      let savedToCustom = false;
+      if (window.showDirectoryPicker) {
+        const dirHandle = await getBackupDirectoryHandle();
+        if (dirHandle) {
+          try {
+            const options = { mode: 'readwrite' };
+            if ((await dirHandle.queryPermission(options)) === 'granted' || (await dirHandle.requestPermission(options)) === 'granted') {
+              const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+              const writable = await fileHandle.createWritable();
+              await writable.write(doc.output('blob'));
+              await writable.close();
+              savedToCustom = true;
+              showToast(`Backup saved to custom folder: ${filename}`, 'success');
+            }
+          } catch (e) {
+            console.error('Custom save failed, falling back to download:', e);
+          }
+        }
+      }
+
+      if (!savedToCustom) {
+        doc.save(filename);
+        showToast('Backup PDF downloaded successfully.', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Backup generation failed.', 'error');
+    }
+  };
+
   useEffect(() => {
     setProfileSettings({
       displayName: localStorage.getItem('hollowDisplayName') || '',
@@ -2428,6 +2528,85 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                     rows={3}
                     style={{ resize: 'vertical', lineHeight: 1.6 }}
                   />
+                </div>
+              </div>
+
+              {/* Automated Backups */}
+              <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', marginTop: '16px' }}>
+                <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: '700', margin: 0 }}>Automated Sunday Backup</h4>
+                <p style={{ fontSize: '11px', color: 'var(--colors-stone)', marginTop: '4px', lineHeight: 1.5 }}>
+                  Every Sunday, a comprehensive PDF backup containing your complete trading ledger, accounts, daily reviews, and workout history will be generated.
+                </p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                  {/* Toggle Option */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Enable Weekly Auto-Backup</span>
+                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>Triggers automatically when you open the application on Sunday.</p>
+                    </div>
+                    <label className="hollow-switch-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={autoBackupEnabled} 
+                        onChange={e => handleToggleAutoBackup(e.target.checked)} 
+                        style={{ display: 'none' }}
+                      />
+                      <div className={`hollow-switch-slider ${autoBackupEnabled ? 'active' : ''}`} style={{
+                        width: '36px', height: '20px', borderRadius: '10px',
+                        background: autoBackupEnabled ? 'var(--colors-violet)' : '#2c2c2e',
+                        position: 'relative', transition: 'background-color 0.2s',
+                        border: '1px solid rgba(255,255,255,0.08)'
+                      }}>
+                        <div style={{
+                          width: '14px', height: '14px', borderRadius: '50%',
+                          background: '#fff', position: 'absolute', top: '2px',
+                          left: autoBackupEnabled ? '18px' : '2px', transition: 'left 0.2s'
+                        }} />
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Pick Folder Option */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Backup Storage Directory</span>
+                    <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 10px 0' }}>
+                      Select a folder on your local device to save backups automatically. If unsupported or unconfigured, backups fall back to browser downloads.
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '11px', color: '#9d76fa', background: 'rgba(157, 118, 250, 0.08)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(157, 118, 250, 0.15)' }}>
+                        Destination: <strong>{backupDirName}</strong>
+                      </div>
+                      {window.showDirectoryPicker && (
+                        <>
+                          <button onClick={handleSelectDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: '#fff' }}>
+                            Choose Folder
+                          </button>
+                          {backupDirName !== 'Downloads Folder (Default)' && (
+                            <button onClick={handleResetDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--colors-stone)' }}>
+                              Reset to Default
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {!window.showDirectoryPicker && (
+                      <p style={{ fontSize: '10px', color: 'var(--colors-stone)', marginTop: '8px', fontStyle: 'italic' }}>
+                        Note: Directory picking requires a desktop Chromium browser (Chrome, Edge, Opera). Backups will download to your default downloads folder on this device.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Manual Backup Trigger */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Manual Backup</span>
+                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>Trigger a full structured PDF backup of all data immediately.</p>
+                    </div>
+                    <button onClick={handleManualBackup} className="btn-dark" style={{ padding: '8px 16px', fontSize: '12px', color: '#fff' }}>
+                      Generate Backup Now
+                    </button>
+                  </div>
                 </div>
               </div>
 

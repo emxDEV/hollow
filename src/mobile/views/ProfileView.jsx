@@ -20,6 +20,36 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
     primaryMarket: localStorage.getItem('hollowPrimaryMarket') || 'Futures'
   });
   const [userEmail, setUserEmail] = useState('');
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(localStorage.getItem('hollowEnableAutoBackup') !== 'false');
+
+  const handleToggleAutoBackup = (enabled) => {
+    setAutoBackupEnabled(enabled);
+    localStorage.setItem('hollowEnableAutoBackup', enabled ? 'true' : 'false');
+    addToast(enabled ? 'Auto-backup enabled.' : 'Auto-backup disabled.', 'success');
+  };
+
+  const handleManualBackup = async () => {
+    addToast('Generating backup...', 'success');
+    try {
+      const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
+        db.accounts.toArray(),
+        db.trades.toArray(),
+        db.executions.toArray(),
+        db.dailyJournals.toArray(),
+        db.weeklyPlanners.toArray(),
+        db.groups.toArray(),
+        db.workouts ? db.workouts.toArray() : []
+      ]);
+      const { exportAllDataBackupPDF } = await import('../../utils/pdfExport');
+      const doc = exportAllDataBackupPDF(accs, trds, execs, jrns, plns, grps, wrkts);
+      const filename = `hollow_backup_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.pdf`;
+      doc.save(filename);
+      addToast('Backup downloaded successfully.', 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Backup failed.', 'error');
+    }
+  };
 
   // Form states for the bottom sheet
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -341,6 +371,47 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
               <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{item.value}</span>
             </div>
           ))}
+        </div>
+
+        {/* Sunday Backup */}
+        <SectionHeader title="Automated Sunday Backup" />
+        <div style={{ margin: '0 16px 16px', background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '14px 16px',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            gap: 12
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>Enable Weekly Auto-Backup</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Triggers automatically when you open the app on Sunday. Saves complete PDF ledger to device.</div>
+            </div>
+            <Toggle value={autoBackupEnabled} onToggle={() => handleToggleAutoBackup(!autoBackupEnabled)} />
+          </div>
+          
+          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+              Manually download a complete portable data document (PDF) representing all accounts, journals, trades, and workouts instantly.
+            </div>
+            <button
+              onClick={handleManualBackup}
+              style={{
+                width: '100%',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 10,
+                padding: '10px',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#fff',
+                cursor: 'pointer',
+                marginTop: 4
+              }}
+            >
+              Generate Backup Now
+            </button>
+          </div>
         </div>
 
         {/* Database Actions */}

@@ -106,6 +106,30 @@ export default function MobileApp() {
     };
   }, []);
 
+  // Weekly Auto-Backup Check on Sunday
+  useEffect(() => {
+    if (!appInitialized || !session) return;
+
+    const checkBackup = async () => {
+      const today = new Date();
+      const isSunday = today.getDay() === 0;
+      if (!isSunday) return;
+
+      const todayStr = today.toISOString().split('T')[0];
+      const lastBackupDate = localStorage.getItem('hollowLastWeeklyBackupDate');
+      if (lastBackupDate === todayStr) return;
+
+      try {
+        const { checkAndRunWeeklyBackup } = await import('../utils/pdfExport');
+        await checkAndRunWeeklyBackup(addToast);
+      } catch (err) {
+        console.error('Failed to run weekly auto-backup:', err);
+      }
+    };
+
+    checkBackup();
+  }, [appInitialized, session]);
+
   const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
   const trades = useLiveQuery(() => db.trades.toArray()) || [];
   const executions = useLiveQuery(() => db.executions.toArray()) || [];
