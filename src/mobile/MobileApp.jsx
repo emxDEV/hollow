@@ -20,6 +20,7 @@ import AddTradeSheet from './components/AddTradeSheet';
 import TradeDetailSheet from './components/TradeDetailSheet';
 import SharePnLSheet from './components/SharePnLSheet';
 import IPhoneFrame from './components/IPhoneFrame';
+import NoAccountsModal from '../components/NoAccountsModal';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function MobileApp() {
@@ -414,6 +415,12 @@ export default function MobileApp() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <NoAccountsModal
+        isOpen={accounts.length === 0 && appInitialized && session}
+        isMobile={true}
+        addToast={addToast}
+      />
 
       {/* Toasts */}
       <div style={{

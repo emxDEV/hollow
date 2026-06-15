@@ -13,7 +13,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddTrade, vi
   return (
     <div style={{
       position: 'fixed',
-      bottom: 'calc(var(--safe-bottom) + 12px)',
+      bottom: 'calc(var(--safe-bottom) + 4px)',
       left: '16px',
       right: '16px',
       zIndex: 100,

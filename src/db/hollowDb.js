@@ -289,6 +289,13 @@ export async function clearDatabaseAndCloud() {
     await db.groups.clear();
     if (db.workouts) await db.workouts.clear();
 
+    // Clear local localStorage settings starting with 'hollow' or 'playbook' to ensure fresh stats
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('hollow') || key.startsWith('playbook')) {
+        localStorage.removeItem(key);
+      }
+    });
+
     // 2. Clear remote Supabase tables if session exists
     if (supabase) {
       const { data: { session } } = await supabase.auth.getSession();

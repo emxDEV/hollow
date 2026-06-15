@@ -18,6 +18,7 @@ import GroupsView from './components/GroupsView';
 import TrainingJournalView from './components/TrainingJournalView';
 import './App.css';
 import AddTradeModal from './components/AddTradeModal';
+import NoAccountsModal from './components/NoAccountsModal';
 import { CheckCircle, AlertCircle, Info, Menu } from 'lucide-react';
 import { useUIStore } from './store/useUIStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -653,6 +654,12 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <NoAccountsModal
+          isOpen={accounts.length === 0 && appInitialized && session}
+          isMobile={isMobile}
+          addToast={addToast}
+        />
 
         {/* Sleek Custom Toast Container */}
         <div className="hollow-toast-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
