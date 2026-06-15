@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hollow Mobile Workspace Emulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080614;
+      --surface-glass: rgba(21, 19, 43, 0.7);
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --primary: #9d85f5;
+      --primary-bright: #bba9ff;
+      --text-muted: #8c88b0;
+      --transition-normal: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    .bg-blur {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-1 {
+      background: radial-gradient(circle, #7f56da 0%, transparent 70%);
+      top: -100px;
+      left: -100px;
+    }
+    .glow-2 {
+      background: radial-gradient(circle, #00f0ff 0%, transparent 70%);
+      bottom: -150px;
+      right: -100px;
+    }
+
+    /* Main Workspace Layout */
+    .app-container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Sidebar Control Panel */
+    .sidebar {
+      width: 320px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-right: 1px solid var(--border-glass);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      z-index: 10;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #7f56da 0%, #9d85f5 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justifyContent: center;
+      box-shadow: 0 4px 12px rgba(127, 86, 218, 0.4);
+    }
+
+    .brand-logo svg {
+      width: 18px;
+      height: 18px;
+      fill: #fff;
+    }
+
+    .brand-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #fff, var(--primary-bright));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e0;
+    }
+
+    .glass-input {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-glass);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #fff;
+      outline: none;
+      width: 100%;
+      font-family: inherit;
+      transition: border-color var(--transition-normal);
+    }
+
+    .glass-input:focus {
+      border-color: var(--primary);
+    }
+
+    .glass-select {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-glass);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #fff;
+      outline: none;
+      width: 100%;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .glass-select option {
+      background: var(--bg-dark);
+      color: #fff;
+    }
+
+    /* Action Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-control {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      color: #fff;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all var(--transition-normal);
+    }
+
+    .btn-control:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-control.active {
+      background: var(--primary);
+      color: #080614;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(157, 133, 245, 0.3);
+    }
+
+    .btn-control.active svg {
+      stroke: #080614;
+    }
+
+    /* Preset list items */
+    .preset-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .preset-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-glass);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all var(--transition-normal);
+    }
+
+    .preset-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .preset-item.active {
+      background: rgba(157, 133, 245, 0.08);
+      border-color: var(--primary);
+    }
+
+    .preset-name {
+      font-weight: 600;
+    }
+
+    .preset-dims {
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 10px;
+    }
+
+    /* Scaling / Slider */
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .slider-val {
+      color: var(--primary);
+    }
+
+    .slider-input {
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    .slider-input::-webkit-slider-thumb {
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(157, 133, 245, 0.6);
+    }
+
+    /* Simulator Main Area */
+    .simulator-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: auto;
+      padding: 40px;
+    }
+
+    /* Device Container wrapper for scaling */
+    .device-wrapper {
+      transform-origin: center center;
+      transition: transform var(--transition-normal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Elegant Device frame Mockup */
+    .device-frame {
+      background: #000;
+      border-radius: 44px;
+      padding: 12px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.8), 
+                  0 0 0 3px rgba(255, 255, 255, 0.08),
+                  inset 0 0 15px rgba(255, 255, 255, 0.15);
+      position: relative;
+      transition: width var(--transition-normal), height var(--transition-normal);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* iPhone Dynamic Island / Notch Mockup */
+    .device-notch {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 28px;
+      background: #000;
+      border-radius: 15px;
+      z-index: 100;
+      transition: width var(--transition-normal), height var(--transition-normal), border-radius var(--transition-normal);
+      pointer-events: none;
+    }
+
+    /* Pixel Mockup Camera Punchhole */
+    .device-frame.pixel-frame .device-notch {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      top: 18px;
+    }
+
+    /* iPad style without notch */
+    .device-frame.ipad-frame .device-notch {
+      display: none;
+    }
+
+    /* Screen display viewport */
+    .device-screen {
+      flex: 1;
+      background: #080614;
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .device-frame.ipad-frame .device-screen {
+      border-radius: 20px;
+    }
+
+    /* Screen Status bar mockup */
+    .status-bar {
+      height: 44px;
+      background: rgba(8, 6, 20, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 90;
+      user-select: none;
+    }
+
+    .status-bar-left {
+      display: flex;
+      align-items: center;
+    }
+
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Screen navigation frame iframe */
+    .iframe-viewport {
+      flex: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+      background: #080614;
+    }
+
+    /* Home Indicator line */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.45);
+      border-radius: 2px;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    /* Info card */
+    .info-card {
+      margin-top: auto;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .info-card strong {
+      color: #fff;
+    }
+
+    /* Icon definitions */
+    .status-icon {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-blur glow-1"></div>
+  <div class="bg-blur glow-2"></div>
+
+  <div class="app-container">
+    <!-- Sidebar Panel -->
+    <div class="sidebar">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99z" />
+          </svg>
+        </div>
+        <div class="brand-name">Hollow Emulator</div>
+      </div>
+
+      <!-- Live URL Configuration -->
+      <div class="control-group">
+        <span class="section-title">Workspace Link</span>
+        <label class="input-label">Ledger Local URL</label>
+        <input type="text" id="targetUrl" class="glass-input" value="http://localhost:5174" placeholder="http://localhost:5174">
+        <button class="btn-control active" onclick="reloadFrame()" style="margin-top: 4px;">
+          <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.228 10H17" />
+          </svg>
+          Reload Simulator
+        </button>
+      </div>
+
+      <!-- Presets / Devices selection -->
+      <div class="control-group">
+        <span class="section-title">Devices Profile</span>
+        <div class="preset-list">
+          <div class="preset-item active" id="preset-iphone" onclick="selectDevice('iphone')">
+            <div>
+              <div class="preset-name">iPhone 15 Pro</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Standard iOS Grid</div>
+            </div>
+            <span class="preset-dims">393 × 852</span>
+          </div>
+          <div class="preset-item" id="preset-pixel" onclick="selectDevice('pixel')">
+            <div>
+              <div class="preset-name">Google Pixel 8</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Android Pure Flex</div>
+            </div>
+            <span class="preset-dims">412 × 915</span>
+          </div>
+          <div class="preset-item" id="preset-ipad" onclick="selectDevice('ipad')">
+            <div>
+              <div class="preset-name">iPad Mini</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Tablet Viewport</div>
+            </div>
+            <span class="preset-dims">744 × 1133</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orientation control -->
+      <div class="control-group">
+        <span class="section-title">Screen Orientation</span>
+        <div class="btn-row">
+          <button class="btn-control active" id="orient-portrait" onclick="setOrientation('portrait')">
+            Portrait
+          </button>
+          <button class="btn-control" id="orient-landscape" onclick="setOrientation('landscape')">
+            Landscape
+          </button>
+        </div>
+      </div>
+
+      <!-- Zoom Slider -->
+      <div class="slider-container">
+        <div class="slider-header">
+          <span>Viewport Zoom</span>
+          <span class="slider-val" id="zoomVal">80%</span>
+        </div>
+        <input type="range" class="slider-input" id="zoomSlider" min="40" max="120" value="80" oninput="updateZoom(this.value)">
+      </div>
+
+      <!-- Info instructions -->
+      <div class="info-card">
+        <strong>Dynamic Resize Testing</strong><br>
+        Resize your desktop browser or select presets. Your changes in store automatically apply mobile styles fluidly when the emulator window bounds cross <strong>768px</strong>.
+      </div>
+    </div>
+
+    <!-- Simulator canvas area -->
+    <div class="simulator-area">
+      <div class="device-wrapper" id="deviceWrapper" style="transform: scale(0.8);">
+        <!-- Phone Mockup Container -->
+        <div class="device-frame" id="deviceFrame" style="width: 393px; height: 852px;">
+          <!-- Camera cutout / Island -->
+          <div class="device-notch"></div>
+          
+          <div class="device-screen">
+            <!-- Mobile top status bar -->
+            <div class="status-bar">
+              <div class="status-bar-left" id="liveClock">09:41</div>
+              <div class="status-bar-right">
+                <!-- Wifi Icon -->
+                <svg class="status-icon" viewBox="0 0 24 24">
+                  <path d="M12 21l-12-14.332c.983-.755 5.566-3.668 12-3.668 6.431 0 11.018 2.913 12 3.668l-12 14.332z" />
+                </svg>
+                <!-- Battery Icon -->
+                <svg class="status-icon" viewBox="0 0 24 24" style="transform: rotate(90deg);">
+                  <path d="M17 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm1 11H2V8h16v8z" />
+                </svg>
+              </div>
+            </div>
+
+            <!-- Main Live App frame -->
+            <iframe id="appFrame" class="iframe-viewport" src="http://localhost:5174"></iframe>
+
+            <!-- iOS bottom swipe indicator -->
+            <div class="home-indicator"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Local device specifications
+    const devices = {
+      iphone: { width: 393, height: 852, className: '' },
+      pixel: { width: 412, height: 915, className: 'pixel-frame' },
+      ipad: { width: 744, height: 1133, className: 'ipad-frame' }
+    };
+
+    let activeDevice = 'iphone';
+    let activeOrientation = 'portrait';
+    let currentScale = 0.8;
+
+    // Synchronize UI status bar clock
+    function updateClock() {
+      const date = new Date();
+      let hours = date.getHours();
+      let minutes = date.getMinutes();
+      hours = hours < 10 ? '0' + hours : hours;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      document.getElementById('liveClock').textContent = `${hours}:${minutes}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Device Profile change selector
+    function selectDevice(deviceKey) {
+      activeDevice = deviceKey;
+      
+      // Update presets buttons active state
+      document.querySelectorAll('.preset-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(`preset-${deviceKey}`).classList.add('active');
+
+      updateDeviceLayout();
+    }
+
+    // Toggle Landscape vs Portrait
+    function setOrientation(orientation) {
+      activeOrientation = orientation;
+      
+      document.getElementById('orient-portrait').classList.remove('active');
+      document.getElementById('orient-landscape').classList.remove('active');
+      document.getElementById(`orient-${orientation}`).classList.add('active');
+
+      updateDeviceLayout();
+    }
+
+    // Refresh layout bounds
+    function updateDeviceLayout() {
+      const dev = devices[activeDevice];
+      const frame = document.getElementById('deviceFrame');
+      
+      frame.className = `device-frame ${dev.className}`;
+      
+      if (activeOrientation === 'portrait') {
+        frame.style.width = `${dev.width}px`;
+        frame.style.height = `${dev.height}px`;
+      } else {
+        // Swap values for landscape view
+        frame.style.width = `${dev.height}px`;
+        frame.style.height = `${dev.width}px`;
+      }
+    }
+
+    // Zoom adjust
+    function updateZoom(value) {
+      currentScale = value / 100;
+      document.getElementById('zoomVal').textContent = `${value}%`;
+      document.getElementById('deviceWrapper').style.transform = `scale(${currentScale})`;
+    }
+
+    // Refresh Target IFrame Source
+    function reloadFrame() {
+      const targetUrlInput = document.getElementById('targetUrl').value;
+      let url = targetUrlInput.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'http://' + url;
+      }
+      document.getElementById('appFrame').src = url;
+    }
+
+    // Sync input trigger key events
+    document.getElementById('targetUrl').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        reloadFrame();
+      }
+    });
+
+    // Auto-adjust scale dynamically for smaller screen sizes
+    window.addEventListener('load', () => {
+      const screenH = window.innerHeight;
+      if (screenH < 900) {
+        // Scale down default view scale to keep device frame fitting nicely
+        const scaleVal = Math.round((screenH / 1150) * 100);
+        const finalScale = Math.min(80, Math.max(40, scaleVal));
+        document.getElementById('zoomSlider').value = finalScale;
+        updateZoom(finalScale);
+      }
+    });
+  </script>
+</body>
+</html>
