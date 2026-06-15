@@ -2372,6 +2372,7 @@ export default function DashboardView({
                       onClick={() => {
                         setSelectedDate(trade.date);
                         setJournalTab('daily');
+                        setHideTradeDetails(false);
                         setView('journal');
                       }}
                       style={{
@@ -2492,6 +2493,7 @@ export default function DashboardView({
                         onClick={() => {
                           setSelectedDate(trade.date);
                           setJournalTab('daily');
+                          setHideTradeDetails(false);
                           setView('journal');
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'}

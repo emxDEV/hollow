@@ -88,8 +88,8 @@ export default function TradeDetailSheet({
   const [customMistake, setCustomMistake] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
 
-  // References
-  const touchTimerRef = React.useRef(null);
+  // Double-tap/click detection state
+  const lastTapRef = React.useRef({ time: 0, label: null, type: null });
   const renameInputRef = React.useRef(null);
 
   useEffect(() => {
@@ -132,28 +132,56 @@ export default function TradeDetailSheet({
     return `${sign}$${abs.toFixed(2)}`;
   };
 
-  // Touch handlers for symbol pills customisation
-  const handlePillTouchStart = (e, type, label) => {
-    if (label === 'CUSTOM') return;
-    const clientX = e.touches[0].clientX;
-    const clientY = e.touches[0].clientY;
-    
-    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
-    
-    touchTimerRef.current = setTimeout(() => {
+  const handlePillClick = (e, type, label, onSingleClick) => {
+    if (label === 'CUSTOM') {
+      onSingleClick();
+      return;
+    }
+
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    const lastTap = lastTapRef.current;
+
+    if (lastTap.type === type && lastTap.label === label && (now - lastTap.time) < DOUBLE_TAP_DELAY) {
+      e.preventDefault();
+      
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (e.changedTouches && e.changedTouches[0]) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else if (e.touches && e.touches[0]) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+      if (!clientX || !clientY) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        clientX = rect.left + rect.width / 2;
+        clientY = rect.top + rect.height / 2;
+      }
+
       setContextMenu({
         x: Math.min(clientX, window.innerWidth - 250),
         y: Math.min(clientY, window.innerHeight - 320),
         type,
         label
       });
-    }, 600);
+      lastTapRef.current = { time: 0, label: null, type: null };
+    } else {
+      lastTapRef.current = { time: now, label, type };
+      onSingleClick();
+    }
   };
 
-  const handlePillTouchEnd = () => {
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
-    }
+  const handlePillContextMenu = (e, type, label) => {
+    e.preventDefault();
+    if (label === 'CUSTOM') return;
+    setContextMenu({
+      x: Math.min(e.clientX, window.innerWidth - 250),
+      y: Math.min(e.clientY, window.innerHeight - 320),
+      type,
+      label
+    });
   };
 
   const handleRenamePill = (type, oldLabel, newLabel) => {
@@ -537,17 +565,17 @@ export default function TradeDetailSheet({
                             <button
                               key={s}
                               type="button"
-                              onClick={() => {
-                                if (s === 'CUSTOM') {
-                                  setShowCustomSymbolInput(true);
-                                } else {
-                                  setForm(f => ({ ...f, symbol: s }));
-                                  setShowCustomSymbolInput(false);
-                                }
+                              onClick={(e) => {
+                                handlePillClick(e, 'symbol', s, () => {
+                                  if (s === 'CUSTOM') {
+                                    setShowCustomSymbolInput(true);
+                                  } else {
+                                    setForm(f => ({ ...f, symbol: s }));
+                                    setShowCustomSymbolInput(false);
+                                  }
+                                });
                               }}
-                              onTouchStart={(e) => handlePillTouchStart(e, 'symbol', s)}
-                              onTouchEnd={handlePillTouchEnd}
-                              onContextMenu={(e) => e.preventDefault()}
+                              onContextMenu={(e) => handlePillContextMenu(e, 'symbol', s)}
                               style={{
                                 background: bgColor,
                                 border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
@@ -696,9 +724,12 @@ export default function TradeDetailSheet({
                             <button
                               key={r}
                               type="button"
-                              onClick={() => setForm(f => ({ ...f, setupRating: r }))}
-                              onTouchStart={(e) => handlePillTouchStart(e, 'rating', r)}
-                              onTouchEnd={handlePillTouchEnd}
+                              onClick={(e) => {
+                                handlePillClick(e, 'rating', r, () => {
+                                  setForm(f => ({ ...f, setupRating: r }));
+                                });
+                              }}
+                              onContextMenu={(e) => handlePillContextMenu(e, 'rating', r)}
                               style={{
                                 flex: 1,
                                 background: bgColor,
@@ -732,20 +763,20 @@ export default function TradeDetailSheet({
                             <button
                               key={c}
                               type="button"
-                              onClick={() => {
-                                if (c === 'CUSTOM') {
-                                  setShowCustomConfluenceInput(true);
-                                } else {
-                                  if (form.confluences?.includes(c)) {
-                                    setForm(f => ({ ...f, confluences: f.confluences.filter(item => item !== c) }));
+                              onClick={(e) => {
+                                handlePillClick(e, 'confluence', c, () => {
+                                  if (c === 'CUSTOM') {
+                                    setShowCustomConfluenceInput(true);
                                   } else {
-                                    setForm(f => ({ ...f, confluences: [...(f.confluences || []), c] }));
+                                    if (form.confluences?.includes(c)) {
+                                      setForm(f => ({ ...f, confluences: f.confluences.filter(item => item !== c) }));
+                                    } else {
+                                      setForm(f => ({ ...f, confluences: [...(f.confluences || []), c] }));
+                                    }
+                                    setShowCustomConfluenceInput(false);
                                   }
-                                  setShowCustomConfluenceInput(false);
-                                }
+                                });
                               }}
-                              onTouchStart={(e) => handlePillTouchStart(e, 'confluence', c)}
-                              onTouchEnd={handlePillTouchEnd}
                               onContextMenu={(e) => handlePillContextMenu(e, 'confluence', c)}
                               style={{
                                 background: bgColor,

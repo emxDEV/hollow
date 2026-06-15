@@ -10,6 +10,7 @@ export const useUIStore = create((set) => ({
   mobileSidebarOpen: false,
   toasts: [],
   selectedDate: new Date().toISOString().split('T')[0],
+  dateSelectedByUser: false,
   journalTab: 'daily',
   hideTradeDetails: false,
 
@@ -20,7 +21,7 @@ export const useUIStore = create((set) => ({
   setIsAddTradeOpen: (isAddTradeOpen) => set({ isAddTradeOpen }),
   setIsMobile: (isMobile) => set({ isMobile }),
   setMobileSidebarOpen: (mobileSidebarOpen) => set({ mobileSidebarOpen }),
-  setSelectedDate: (selectedDate) => set({ selectedDate }),
+  setSelectedDate: (selectedDate, selectedByUser = true) => set({ selectedDate, dateSelectedByUser: selectedByUser }),
   setJournalTab: (journalTab) => set({ journalTab }),
   setHideTradeDetails: (hideTradeDetails) => set({ hideTradeDetails }),
   

@@ -48,10 +48,11 @@ export default function JournalView() {
     setHideTradeDetails(false);
   }, [selectedDate]);
 
-  // Default to June 18, 2024 if it's the current date on first mount
+  // Default to June 18, 2024 if it's the current date on first mount and not selected by user
   useEffect(() => {
-    if (selectedDate === new Date().toISOString().split('T')[0]) {
-      setSelectedDate('2024-06-18');
+    const isSelectedByUser = useUIStore.getState().dateSelectedByUser;
+    if (!isSelectedByUser && selectedDate === new Date().toISOString().split('T')[0]) {
+      setSelectedDate('2024-06-18', false);
     }
   }, []);
 
@@ -743,7 +744,7 @@ export default function JournalView() {
           display: 'grid',
           gridTemplateColumns: isMobile 
             ? '1fr' 
-            : (dayTrades.length > 0 && !hideTradeDetails)
+            : !hideTradeDetails
             ? '4fr 3.2fr 4.8fr' 
             : '7.5fr 4.5fr',
           gap: '20px',
@@ -1273,7 +1274,7 @@ export default function JournalView() {
           </div>
 
           {/* RIGHT COL: Active Trades Details Preview Panel (Matches Mockup Card design) */}
-          {!isMobile && dayTrades.length > 0 && !hideTradeDetails && (
+          {!isMobile && !hideTradeDetails && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Day Executions Details</div>
@@ -1300,7 +1301,20 @@ export default function JournalView() {
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }} className="hollow-menu-scrollbar">
-                {dayTrades.map(trade => {
+                {dayTrades.length === 0 ? (
+                  <div style={{
+                    background: '#0f0f11',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '24px',
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: 'rgba(255,255,255,0.4)',
+                    fontSize: '13px'
+                  }}>
+                    No trades logged for this day.
+                  </div>
+                ) : (
+                  dayTrades.map(trade => {
                   const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
                   const pnlData = calculateTradePnL(trade, tradeExecs);
                   const realPnL = pnlData.netPnL || 0;
@@ -1518,7 +1532,7 @@ export default function JournalView() {
                       </button>
                     </div>
                   );
-                })}
+                }))}
               </div>
             </div>
           )}
