@@ -130,6 +130,7 @@ export default function DashboardView({
   const setView = useUIStore(state => state.setView);
   const setSelectedDate = useUIStore(state => state.setSelectedDate);
   const setJournalTab = useUIStore(state => state.setJournalTab);
+  const setHideTradeDetails = useUIStore(state => state.setHideTradeDetails);
   const [filterSymbol, setFilterSymbol] = useState('');
   const [filterBias, setFilterBias] = useState('');
   const [filterOutcome, setFilterOutcome] = useState('all');
@@ -2083,6 +2084,7 @@ export default function DashboardView({
                           onClick={() => {
                             setSelectedDate(day.dateString);
                             setJournalTab('daily');
+                            setHideTradeDetails(false);
                             setView('journal');
                           }}
                           onMouseEnter={() => hasTrades && setHoveredDay(day.key)}

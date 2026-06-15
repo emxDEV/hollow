@@ -11,6 +11,7 @@ export const useUIStore = create((set) => ({
   toasts: [],
   selectedDate: new Date().toISOString().split('T')[0],
   journalTab: 'daily',
+  hideTradeDetails: false,
 
   setView: (view) => set({ view }),
   setSelectedAccountId: (selectedAccountId) => set({ selectedAccountId }),
@@ -21,6 +22,7 @@ export const useUIStore = create((set) => ({
   setMobileSidebarOpen: (mobileSidebarOpen) => set({ mobileSidebarOpen }),
   setSelectedDate: (selectedDate) => set({ selectedDate }),
   setJournalTab: (journalTab) => set({ journalTab }),
+  setHideTradeDetails: (hideTradeDetails) => set({ hideTradeDetails }),
   
   addToast: (message, type = 'success') => {
     const id = `toast-${Date.now()}-${Math.random()}`;

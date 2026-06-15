@@ -40,7 +40,8 @@ export default function JournalView() {
 
   const [saveStatus, setSaveStatus] = useState('');
 
-  const [hideTradeDetails, setHideTradeDetails] = useState(false);
+  const hideTradeDetails = useUIStore(state => state.hideTradeDetails);
+  const setHideTradeDetails = useUIStore(state => state.setHideTradeDetails);
 
   // Reset hide details state when shifting dates
   useEffect(() => {

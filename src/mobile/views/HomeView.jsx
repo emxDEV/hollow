@@ -88,8 +88,8 @@ export default function HomeView({
     }
   };
 
-  const [calYear, setCalYear] = useState(2024);
-  const [calMonth, setCalMonth] = useState(5); // 0-indexed, 5 = June
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
 
   // Filter to selected account / copy group
   const acctTrades = useMemo(() => {

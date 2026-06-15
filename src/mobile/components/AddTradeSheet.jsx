@@ -495,7 +495,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
         background: 'rgba(0,0,0,0.65)',
         zIndex: 1200,
         display: 'flex',
-        alignItems: 'flex-end'
+        alignItems: 'flex-end',
+        overflowX: 'hidden'
       }}
     >
       <motion.div
@@ -516,7 +517,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
           maxHeight: '94vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 -10px 40px rgba(0,0,0,0.6)'
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.6)',
+          overflowX: 'hidden'
         }}
       >
         {/* Handle */}
@@ -564,7 +566,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
         </div>
 
         {/* Scrollable Form Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '10px 14px', WebkitOverflowScrolling: 'touch' }}>
           <AnimatePresence mode="wait">
             
             {/* TAB 1: EXECUTION DETAILS */}
