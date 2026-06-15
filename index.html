@@ -5,6 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Hollow is a premium local-first, cognitive trading ledger and journal platform with multi-execution tracking, copy trading sync, and AI coaching integrations." />
+    <script>
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768) {
+        window.location.replace('/mobile.html' + window.location.search + window.location.hash);
+      }
+    </script>
     <title>hollow — the cognitive ledger.</title>
   </head>
   <body>

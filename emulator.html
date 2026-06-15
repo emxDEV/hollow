@@ -646,6 +646,12 @@
 
     // Auto-adjust scale dynamically for smaller screen sizes
     window.addEventListener('load', () => {
+      const currentOrigin = window.location.origin;
+      if (currentOrigin && !currentOrigin.startsWith('file:')) {
+        document.getElementById('targetUrl').value = currentOrigin;
+        document.getElementById('appFrame').src = currentOrigin;
+      }
+
       const screenH = window.innerHeight;
       if (screenH < 900) {
         // Scale down default view scale to keep device frame fitting nicely
