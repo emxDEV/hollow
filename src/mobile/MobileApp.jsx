@@ -44,6 +44,8 @@ export default function MobileApp() {
 
   // Handle auth session state reactively
   useEffect(() => {
+    if (!supabase) return;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoaded(true);
@@ -134,6 +136,36 @@ export default function MobileApp() {
       default: return <HomeView key="home" {...viewProps} />;
     }
   };
+
+  if (!supabase) {
+    return (
+      <IPhoneFrame>
+        <div style={{
+          height: '100%',
+          width: '100%',
+          background: '#0a0a0c',
+          color: '#ff453a',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--font, sans-serif)',
+          padding: 24,
+          textAlign: 'center'
+        }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 14 }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8, letterSpacing: '-0.02em' }}>Keys Missing</h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', maxWidth: 280, fontSize: 12, lineHeight: 1.5 }}>
+            Supabase keys (<code style={{ color: '#fff' }}>VITE_SUPABASE_URL</code> & <code style={{ color: '#fff' }}>VITE_SUPABASE_ANON_KEY</code>) are not configured. Configure them in Vercel settings and re-deploy.
+          </p>
+        </div>
+      </IPhoneFrame>
+    );
+  }
 
   if (!authLoaded) {
     return (

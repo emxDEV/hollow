@@ -56,6 +56,8 @@ export default function App() {
 
   // Handle auth session state reactively
   useEffect(() => {
+    if (!supabase) return;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoaded(true);
@@ -197,6 +199,35 @@ export default function App() {
       console.error('Failed to create manual trade:', err);
     }
   };
+
+  if (!supabase) {
+    return (
+      <div style={{
+        height: '100vh',
+        width: '100vw',
+        background: '#0a0a0c',
+        color: '#ff453a',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--font-body, sans-serif)',
+        padding: 24,
+        textAlign: 'center'
+      }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8, letterSpacing: '-0.02em' }}>Supabase Configuration Missing</h2>
+        <p style={{ color: 'rgba(255,255,255,0.5)', maxWidth: 440, fontSize: 13, lineHeight: 1.6 }}>
+          Your Supabase environment variables (<code style={{ color: '#fff', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> & <code style={{ color: '#fff', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code>) are not configured. 
+          Please configure them in your Vercel project settings, then trigger a new deployment.
+        </p>
+      </div>
+    );
+  }
 
   if (!authLoaded) {
     return <div style={{ height: '100vh', width: '100vw', background: '#000' }} />;
