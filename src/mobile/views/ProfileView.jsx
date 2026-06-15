@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, forceSeedDatabase } from '../../db/hollowDb';
+import { db, clearDatabaseAndCloud } from '../../db/hollowDb';
 import {
   User, Settings, CreditCard, ChevronRight, Bell,
   Moon, Layers, Wifi, WifiOff, Plus, Trash2, Edit2, X, Check,
@@ -347,17 +347,17 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
         <SectionHeader title="Database Operations" />
         <div style={{ margin: '0 16px', padding: '16px', background: 'rgba(255, 69, 58, 0.05)', borderRadius: 16, border: '1px solid rgba(255, 69, 58, 0.15)' }}>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, marginBottom: 12 }}>
-            Reset the local database and populate it with pre-configured example accounts and trades.
+            Permanently delete all your database data locally and on the cloud. This action cannot be undone.
           </div>
           <button
             onClick={async () => {
-              if (window.confirm('Delete all data and load mock/example trades?')) {
+              if (window.confirm('WARNING: Are you sure you want to permanently delete all data locally and on the cloud? This action is irreversible.')) {
                 try {
-                  await forceSeedDatabase();
-                  addToast('Database reset and example trades loaded.', 'success');
+                  await clearDatabaseAndCloud();
+                  addToast('Database cleared successfully.', 'success');
                   setTimeout(() => window.location.reload(), 800);
                 } catch (err) {
-                  addToast('Reset failed.', 'error');
+                  addToast('Clear database failed.', 'error');
                 }
               }
             }}
@@ -373,7 +373,7 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
               cursor: 'pointer'
             }}
           >
-            Reset & Load Example Trades
+            Delete All Data & Start Fresh
           </button>
         </div>
 

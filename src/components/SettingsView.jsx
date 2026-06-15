@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, forceSeedDatabase } from '../db/hollowDb';
+import { db, clearDatabaseAndCloud } from '../db/hollowDb';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { showToast } from '../utils/toast';
 import HollowSelect from './HollowSelect';
@@ -2433,26 +2433,26 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
 
               {/* Database Controls */}
               <div style={{ padding: '20px', background: 'rgba(255, 69, 58, 0.04)', border: '1px solid rgba(255, 69, 58, 0.15)', borderRadius: '16px', marginTop: '16px' }}>
-                <h4 style={{ fontSize: '13px', color: '#ff453a', fontWeight: '700', margin: 0 }}>Development & Seeding</h4>
+                <h4 style={{ fontSize: '13px', color: '#ff453a', fontWeight: '700', margin: 0 }}>Reset Database</h4>
                 <p style={{ fontSize: '11px', color: 'var(--colors-stone)', marginTop: '4px', lineHeight: 1.5 }}>
-                  Reset and populate the database with a clean set of mock prop-firm accounts, executions, and 35+ trades spanning multiple days.
+                  Completely wipe all data locally and in the cloud. This will permanently delete all accounts, trades, executions, daily journals, weekly planners, groups, and workouts. This action cannot be undone.
                 </p>
                 <button 
                   className="btn-dark" 
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', marginTop: '12px', borderColor: 'rgba(255, 69, 58, 0.3)', color: '#ff453a' }} 
                   onClick={async () => {
-                    if (window.confirm('Are you sure you want to delete all current data and load the example/mock trades?')) {
+                    if (window.confirm('WARNING: Are you sure you want to permanently delete all data locally and on the cloud? This action is irreversible.')) {
                       try {
-                        await forceSeedDatabase();
-                        showToast('Database reset and seeded with example trades.');
+                        await clearDatabaseAndCloud();
+                        showToast('Database cleared successfully.');
                         setTimeout(() => window.location.reload(), 800);
                       } catch (err) {
-                        showToast('Reset failed.', 'error');
+                        showToast('Clear database failed.', 'error');
                       }
                     }
                   }}
                 >
-                  Reset & Load Example Trades
+                  Delete All Data & Start Fresh
                 </button>
               </div>
 
