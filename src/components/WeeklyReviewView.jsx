@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/hollowDb';
 import { calculateTradePnL } from '../utils/tradeMath';
-import { exportWeeklyReportPDF, getISOWeekId, getWeekDates } from '../utils/pdfExport';
+import { getISOWeekId, getWeekDates } from '../utils/dateUtils';
 import HollowSelect from './HollowSelect';
 import useUIStore from '../store/useUIStore';
 import { 
@@ -552,7 +552,8 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const { exportWeeklyReportPDF } = await import('../utils/pdfExport');
     exportWeeklyReportPDF(selectedWeekId, account, trades, executions);
   };
 

@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'framer-motion';
 import { db } from '../../db/hollowDb';
 import { calculateTradePnL } from '../../utils/tradeMath';
-import { getISOWeekId, getWeekDates } from '../../utils/pdfExport';
+import { getISOWeekId, getWeekDates } from '../../utils/dateUtils';
 import { 
   ChevronLeft, ChevronRight, ChevronDown, Save, Camera, Target, 
   ClipboardCheck, TrendingUp, AlertCircle, BookOpen, Clock, Activity, Zap, ShieldAlert,

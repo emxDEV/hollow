@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Download, RotateCw } from 'lucide-react';
 import { calculateTradePnL } from '../../utils/tradeMath';
-import { getWeekDates } from '../../utils/pdfExport';
+import { getWeekDates } from '../../utils/dateUtils';
 
 const STOIC_QUOTES = {
   win: [

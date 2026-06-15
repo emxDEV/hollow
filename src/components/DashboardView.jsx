@@ -45,7 +45,7 @@ import {
 import { PropFirmBadge, PropFirmLogo } from './PropFirmBadge';
 import { calculateTradePnL, calculateAccountStatistics } from '../utils/tradeMath';
 import { showToast } from '../utils/toast';
-import { exportWeeklyReportPDF, getISOWeekId } from '../utils/pdfExport';
+import { getISOWeekId } from '../utils/dateUtils';
 import { db } from '../db/hollowDb';
 import HollowGroupedSelect from './HollowGroupedSelect';
 
@@ -204,9 +204,10 @@ export default function DashboardView({
     return localStorage.getItem('hollowDismissedSundayExport-' + todayStr) === 'true';
   });
 
-  const handleSundayExport = () => {
+  const handleSundayExport = async () => {
     if (!selectedAccount) return;
     const currentWeekId = getISOWeekId(new Date());
+    const { exportWeeklyReportPDF } = await import('../utils/pdfExport');
     exportWeeklyReportPDF(currentWeekId, selectedAccount, trades, executions);
     localStorage.setItem('hollowDismissedSundayExport-' + todayStr, 'true');
     setIsSundayBannerDismissed(true);

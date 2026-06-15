@@ -4,7 +4,7 @@ import HollowSelect from './HollowSelect';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/hollowDb';
 import { calculateTradePnL } from '../utils/tradeMath';
-import { getISOWeekId } from '../utils/pdfExport';
+import { getISOWeekId } from '../utils/dateUtils';
 import { 
   ClipboardList, 
   Smile, 
