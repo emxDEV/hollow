@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Download, RotateCw } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import { calculateTradePnL } from '../../utils/tradeMath';
 import { getWeekDates } from '../../utils/pdfExport';
 
@@ -137,10 +136,12 @@ export default function SharePnLSheet({ onClose, trades, executions, selectedAcc
     }
   }, [exportMode, dailyRecords, weeklyRecords]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const cardEl = document.getElementById('mobile-stoic-share-card');
     if (!cardEl) return;
     setExporting(true);
+
+    const html2canvas = (await import('html2canvas')).default;
 
     html2canvas(cardEl, {
       scale: 3,

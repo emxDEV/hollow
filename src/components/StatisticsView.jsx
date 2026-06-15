@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { calculateTradePnL } from '../utils/tradeMath';
 import useUIStore from '../store/useUIStore';
-import html2canvas from 'html2canvas';
+
 
 const STOIC_QUOTES = {
   win: [
@@ -188,10 +188,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
     return quotesList[quoteIndex % quotesList.length] || quotesList[0];
   }, [activeRecord, quoteIndex]);
 
-  const handleExportPnLCard = (mode = exportMode) => {
+  const handleExportPnLCard = async (mode = exportMode) => {
     const cardId = mode === 'daily' ? 'stoic-pnl-card-preview' : 'stoic-weekly-card-preview';
     const cardEl = document.getElementById(cardId);
     if (!cardEl) return;
+
+    const html2canvas = (await import('html2canvas')).default;
 
     html2canvas(cardEl, {
       scale: 3,

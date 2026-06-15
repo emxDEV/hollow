@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf';
 import { calculateTradePnL } from './tradeMath';
 
 export function getISOWeekId(date) {
@@ -37,7 +36,8 @@ export function getWeekDates(weekId) {
   };
 }
 
-export function exportWeeklyReportPDF(weekId, account, trades, executions) {
+export async function exportWeeklyReportPDF(weekId, account, trades, executions) {
+  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const dates = getWeekDates(weekId);
   
