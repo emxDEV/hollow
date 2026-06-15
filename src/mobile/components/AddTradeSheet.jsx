@@ -791,7 +791,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                             background: bgColor,
                             border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
                             borderRadius: 12,
-                            padding: '4px 0',
+                            padding: '3px 0',
                             color: textColor,
                             fontSize: 10,
                             fontWeight: 700,
@@ -809,8 +809,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
 
           {/* Confluences pills */}
           <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>confluences</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>confluences</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
               {confluences.map(c => {
                 const isSelected = selectedConfluences.includes(c) && !showCustomConfluenceInput;
                 const bgColor = isSelected ? '#0a84ff' : 'rgba(255,255,255,0.04)';

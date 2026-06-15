@@ -9,6 +9,46 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
   const [balance, setBalance] = useState(100000);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Dynamic Theme Mapping based on existing account colors
+  const getTheme = () => {
+    switch (type) {
+      case 'FUNDED':
+        return {
+          primary: '#30d158', // Emerald Green
+          glow: 'rgba(48, 209, 88, 0.25)',
+          bg: 'rgba(48, 209, 88, 0.08)',
+          gradient: 'linear-gradient(135deg, #30d158 0%, #1c9b3a 100%)',
+          rgb: '48, 209, 88'
+        };
+      case 'EVALUATION':
+        return {
+          primary: '#0a84ff', // Blue
+          glow: 'rgba(10, 132, 255, 0.25)',
+          bg: 'rgba(10, 132, 255, 0.08)',
+          gradient: 'linear-gradient(135deg, #0a84ff 0%, #0056b3 100%)',
+          rgb: '10, 132, 255'
+        };
+      case 'PERSONAL':
+        return {
+          primary: '#bf5af2', // Purple
+          glow: 'rgba(191, 90, 242, 0.25)',
+          bg: 'rgba(191, 90, 242, 0.08)',
+          gradient: 'linear-gradient(135deg, #bf5af2 0%, #8c2db2 100%)',
+          rgb: '191, 90, 242'
+        };
+      default:
+        return {
+          primary: '#ff9f0a', // Orange
+          glow: 'rgba(255, 159, 10, 0.25)',
+          bg: 'rgba(255, 159, 10, 0.08)',
+          gradient: 'linear-gradient(135deg, #ff9f0a 0%, #c67c05 100%)',
+          rgb: '255, 159, 10'
+        };
+    }
+  };
+
+  const theme = getTheme();
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -44,9 +84,9 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
   if (!isOpen) return null;
 
   const typeOptions = [
-    { value: 'EVALUATION', label: 'Evaluation', desc: 'Prop firm challenge' },
-    { value: 'FUNDED', label: 'Funded', desc: 'Live prop account' },
-    { value: 'PERSONAL', label: 'Personal', desc: 'Own private capital' }
+    { value: 'EVALUATION', label: 'Evaluation', desc: 'Prop firm challenge', color: '#0a84ff', bg: 'rgba(10, 132, 255, 0.08)' },
+    { value: 'FUNDED', label: 'Funded', desc: 'Live prop account', color: '#30d158', bg: 'rgba(48, 209, 88, 0.08)' },
+    { value: 'PERSONAL', label: 'Personal', desc: 'Own private capital', color: '#bf5af2', bg: 'rgba(191, 90, 242, 0.08)' }
   ];
 
   const quickBalances = [50000, 100000, 200000];
@@ -60,7 +100,7 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0, 0, 0, 0.88)',
+          background: 'rgba(0, 0, 0, 0.9)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           zIndex: 999999,
@@ -82,13 +122,14 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
             maxHeight: isMobile ? '100vh' : '90vh',
             background: '#0a0a0c',
             borderRadius: isMobile ? 0 : 24,
-            border: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: '0 32px 80px rgba(0, 0, 0, 0.9)',
+            border: isMobile ? 'none' : `1px solid rgba(${theme.rgb}, 0.15)`,
+            boxShadow: `0 32px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(${theme.rgb}, 0.04)`,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
             paddingTop: isMobile ? 'env(safe-area-inset-top, 44px)' : 0,
-            paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 34px)' : 0
+            paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 34px)' : 0,
+            transition: 'border-color 0.4s ease, box-shadow 0.4s ease'
           }}
         >
           {/* Scrollable Container */}
@@ -100,22 +141,23 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
             flexDirection: 'column'
           }}>
             {/* Header Brand */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: 24 }}>
               <div style={{
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #9d76fa, #8257e5)',
+                width: 44,
+                height: 44,
+                borderRadius: '12px',
+                background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primary}bd 100%)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 16px rgba(157, 118, 250, 0.3)'
+                boxShadow: `0 4px 16px ${theme.glow}`,
+                transition: 'background 0.4s ease, box-shadow 0.4s ease'
               }}>
-                <CreditCard size={18} color="#fff" />
+                <CreditCard size={20} color="#000" strokeWidth={2.5} />
               </div>
               <div>
-                <span style={{ fontSize: '10px', fontWeight: '800', color: '#9d76fa', textTransform: 'uppercase', letterSpacing: '1px' }}>Getting Started</span>
-                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>Create your ledger</h2>
+                <span style={{ fontSize: '10px', fontWeight: '800', color: theme.primary, textTransform: 'uppercase', letterSpacing: '1px', transition: 'color 0.4s ease' }}>getting started</span>
+                <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em', margin: 0 }}>create your ledger.</h2>
               </div>
             </div>
 
@@ -126,11 +168,11 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Account Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Account Name</label>
+                <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>account name</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Apex $100k Funded, My Personal Account"
+                  placeholder="e.g. apex $100k funded, my personal account"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   style={{
@@ -142,16 +184,22 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                     padding: '12px 16px',
                     fontSize: '14px',
                     outline: 'none',
-                    transition: 'border-color 0.2s'
+                    transition: 'border-color 0.2s, box-shadow 0.2s'
                   }}
-                  onFocus={e => e.target.style.borderColor = 'rgba(157, 118, 250, 0.5)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+                  onFocus={e => {
+                    e.target.style.borderColor = theme.primary;
+                    e.target.style.boxShadow = `0 0 10px rgba(${theme.rgb}, 0.1)`;
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                    e.target.style.boxShadow = 'none';
+                  }}
                 />
               </div>
 
               {/* Account Type Selector */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Account Type</label>
+                <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>account type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   {typeOptions.map(opt => {
                     const active = type === opt.value;
@@ -161,8 +209,8 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                         type="button"
                         onClick={() => setType(opt.value)}
                         style={{
-                          background: active ? 'rgba(157, 118, 250, 0.12)' : '#141416',
-                          border: active ? '1px solid #9d76fa' : '1px solid rgba(255, 255, 255, 0.08)',
+                          background: active ? opt.bg : '#141416',
+                          border: active ? `1px solid ${opt.color}` : '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '12px',
                           padding: '12px 8px',
                           cursor: 'pointer',
@@ -170,12 +218,13 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                           flexDirection: 'column',
                           alignItems: 'center',
                           gap: '4px',
-                          transition: 'all 0.2s',
-                          outline: 'none'
+                          transition: 'all 0.25s',
+                          outline: 'none',
+                          boxShadow: active ? `0 0 12px rgba(${opt.value === 'FUNDED' ? '48,209,88' : opt.value === 'EVALUATION' ? '10,132,255' : '191,90,242'}, 0.12)` : 'none'
                         }}
                       >
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: active ? '#9d76fa' : '#fff' }}>{opt.label}</span>
-                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>{opt.desc}</span>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: active ? opt.color : 'rgba(255,255,255,0.7)' }}>{opt.label.toLowerCase()}</span>
+                        <span style={{ fontSize: '9px', color: active ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.3)', textAlign: 'center' }}>{opt.desc}</span>
                       </button>
                     );
                   })}
@@ -184,8 +233,8 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
 
               {/* Initial Balance */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Initial Balance</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>initial balance</label>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     {quickBalances.map(bal => (
                       <button
@@ -193,14 +242,15 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                         type="button"
                         onClick={() => setBalance(bal)}
                         style={{
-                          background: 'rgba(255,255,255,0.04)',
-                          border: 'none',
+                          background: balance === bal ? theme.bg : 'rgba(255,255,255,0.04)',
+                          border: balance === bal ? `1px solid ${theme.primary}` : '1px solid transparent',
                           borderRadius: '6px',
                           padding: '3px 8px',
                           fontSize: '10px',
-                          fontWeight: '600',
-                          color: '#9d76fa',
-                          cursor: 'pointer'
+                          fontWeight: '700',
+                          color: theme.primary,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
                         }}
                       >
                         ${bal.toLocaleString()}
@@ -209,7 +259,7 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                   </div>
                 </div>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>$</span>
+                  <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: theme.primary, fontSize: '14px', fontWeight: '700', transition: 'color 0.4s ease' }}>$</span>
                   <input
                     type="number"
                     required
@@ -224,10 +274,16 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                       padding: '12px 16px 12px 28px',
                       fontSize: '14px',
                       outline: 'none',
-                      transition: 'border-color 0.2s'
+                      transition: 'border-color 0.2s, box-shadow 0.2s'
                     }}
-                    onFocus={e => e.target.style.borderColor = 'rgba(157, 118, 250, 0.5)'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)'}
+                    onFocus={e => {
+                      e.target.style.borderColor = theme.primary;
+                      e.target.style.boxShadow = `0 0 10px rgba(${theme.rgb}, 0.1)`;
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                      e.target.style.boxShadow = 'none';
+                    }}
                   />
                 </div>
               </div>
@@ -238,7 +294,7 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                 disabled={isSubmitting || !name.trim()}
                 style={{
                   width: '100%',
-                  background: 'linear-gradient(135deg, #9d76fa 0%, #8257e5 100%)',
+                  background: theme.gradient,
                   border: 'none',
                   borderRadius: '14px',
                   padding: '14px',
@@ -252,12 +308,12 @@ export default function NoAccountsModal({ isOpen, isMobile, addToast }) {
                   gap: '8px',
                   marginTop: '12px',
                   opacity: name.trim() ? 1 : 0.6,
-                  boxShadow: '0 8px 24px rgba(157, 118, 250, 0.25)',
+                  boxShadow: `0 8px 24px ${theme.glow}`,
                   outline: 'none',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.4s ease'
                 }}
               >
-                <span>Initialize Account & Enter Workspace</span>
+                <span>initialize account & enter workspace</span>
                 <ArrowRight size={16} />
               </button>
             </form>
