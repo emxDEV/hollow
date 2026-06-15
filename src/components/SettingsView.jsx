@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, clearDatabaseAndCloud } from '../db/hollowDb';
+import { db } from '../db/hollowDb';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { showToast } from '../utils/toast';
 import HollowSelect from './HollowSelect';
@@ -122,6 +122,7 @@ const getStatusStyle = (status) => {
       };
   }
 };
+
 import { 
   Settings, 
   User, 
@@ -135,7 +136,14 @@ import {
   X,
   Search,
   ArrowUpDown,
-  CheckCircle2
+  CheckCircle2,
+  Edit2,
+  ChevronRight,
+  TrendingUp,
+  ClipboardCheck,
+  Dumbbell,
+  Users,
+  LogOut
 } from 'lucide-react';
 
 // Playbook Model Card row component
@@ -411,6 +419,25 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(localStorage.getItem('hollowEnableAutoBackup') !== 'false');
   const [backupDirName, setBackupDirName] = useState('Downloads Folder (Default)');
 
+  const [userEmail, setUserEmail] = useState('');
+  const [enableClouds, setEnableClouds] = useState(localStorage.getItem('hollowEnableClouds') !== 'false');
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editMarket, setEditMarket] = useState('Futures');
+  const [editStyle, setEditStyle] = useState('Day Trader');
+  const [editTimezone, setEditTimezone] = useState('Europe/London');
+  const [editBio, setEditBio] = useState('');
+
+  const toggleClouds = () => {
+    const next = !enableClouds;
+    setEnableClouds(next);
+    localStorage.setItem('hollowEnableClouds', String(next));
+    window.dispatchEvent(new Event('hollowSettingsUpdated'));
+  };
+
+  const setView = useUIStore(state => state.setView);
+
   useEffect(() => {
     async function loadBackupSettings() {
       try {
@@ -508,26 +535,51 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     }
   };
 
-  useEffect(() => {
+  const loadProfileSettings = () => {
     setProfileSettings({
-      displayName: localStorage.getItem('hollowDisplayName') || '',
-      traderTitle: localStorage.getItem('hollowTraderTitle') || '',
-      timezone: localStorage.getItem('hollowTimezone') || 'America/New_York',
+      displayName: localStorage.getItem('hollowDisplayName') || 'Unnamed Trader',
+      traderTitle: localStorage.getItem('hollowTraderTitle') || 'Trader · Hollow',
+      timezone: localStorage.getItem('hollowTimezone') || 'Europe/London',
       tradingStyle: localStorage.getItem('hollowTradingStyle') || 'Day Trader',
       bio: localStorage.getItem('hollowBio') || '',
       primaryMarket: localStorage.getItem('hollowPrimaryMarket') || 'Futures'
     });
+  };
+
+  useEffect(() => {
+    loadProfileSettings();
+    window.addEventListener('hollowSettingsUpdated', loadProfileSettings);
+
+    async function fetchUser() {
+      try {
+        const { supabase } = await import('../db/supabaseClient');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserEmail(user.email);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user email:', err);
+      }
+    }
+    fetchUser();
+
+    return () => {
+      window.removeEventListener('hollowSettingsUpdated', loadProfileSettings);
+    };
   }, []);
 
   const handleSaveProfile = () => {
-    localStorage.setItem('hollowDisplayName', profileSettings.displayName.trim());
-    localStorage.setItem('hollowTraderTitle', profileSettings.traderTitle.trim());
-    localStorage.setItem('hollowTimezone', profileSettings.timezone);
-    localStorage.setItem('hollowTradingStyle', profileSettings.tradingStyle);
-    localStorage.setItem('hollowBio', profileSettings.bio.trim());
-    localStorage.setItem('hollowPrimaryMarket', profileSettings.primaryMarket);
+    localStorage.setItem('hollowDisplayName', editName.trim() || 'Unnamed Trader');
+    localStorage.setItem('hollowTraderTitle', editTitle.trim() || 'Trader · Hollow');
+    localStorage.setItem('hollowPrimaryMarket', editMarket);
+    localStorage.setItem('hollowTradingStyle', editStyle);
+    localStorage.setItem('hollowTimezone', editTimezone);
+    localStorage.setItem('hollowBio', editBio.trim());
+    
     window.dispatchEvent(new Event('hollowSettingsUpdated'));
-    showToast('Profile saved successfully!');
+    
+    showToast('Profile updated successfully!', 'success');
+    setShowEditProfile(false);
   };
 
   // 4. Playbook Models State
@@ -2412,163 +2464,227 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           )}
 
           {/* TAB 3: Profile */}
-          {activeTab === 'profile' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-
-              {/* Section Header */}
-              <div>
-                <h3 style={{ fontSize: '16px', color: '#fff', fontWeight: '700' }}>Trader Profile</h3>
-                <p style={{ fontSize: '12px', color: 'var(--colors-stone)', marginTop: '4px', lineHeight: 1.6 }}>
-                  Set your identity and trading context. This information personalises your Hollow experience.
-                </p>
+          {activeTab === 'profile' && (() => {
+            const SectionHeader = ({ title }) => (
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '20px 0 8px' }}>
+                {title}
               </div>
+            );
 
-              {/* Avatar + Name Row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+            const Toggle = ({ value, onToggle }) => (
+              <div
+                onClick={onToggle}
+                style={{
+                  width: 51,
+                  height: 31,
+                  borderRadius: 100,
+                  background: value ? '#30d158' : '#3a3a3c',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background 0.25s',
+                  flexShrink: 0
+                }}
+              >
                 <div style={{
-                  width: '64px', height: '64px', borderRadius: '50%',
-                  background: '#1c1c1e',
-                  border: '1px solid #3a3a3c',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '24px', fontWeight: '800', color: '#fff',
-                  flexShrink: 0, fontFamily: 'var(--font-heading)'
+                  position: 'absolute',
+                  width: 27,
+                  height: 27,
+                  top: 2,
+                  left: value ? 22 : 2,
+                  background: 'white',
+                  borderRadius: '50%',
+                  transition: 'left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
+                }} />
+              </div>
+            );
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '640px', width: '100%', margin: '0 auto', paddingBottom: '40px' }}>
+
+                {/* User card */}
+                <div style={{
+                  background: '#0f0f11',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 20,
+                  padding: '20px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 14
                 }}>
-                  {(profileSettings.displayName || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>{profileSettings.displayName || 'Unnamed Trader'}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--colors-stone)', marginTop: '2px' }}>{profileSettings.traderTitle || 'Trader · Hollow'}</div>
-                </div>
-              </div>
-
-              {/* Form Fields */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                {/* Row 1 */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Display Name</label>
-                    <input
-                      className="hollow-input"
-                      placeholder="e.g. Max Trader"
-                      value={profileSettings.displayName}
-                      onChange={e => setProfileSettings(prev => ({ ...prev, displayName: e.target.value }))}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Trader Title</label>
-                    <input
-                      className="hollow-input"
-                      placeholder="e.g. Prop Trader · Futures Specialist"
-                      value={profileSettings.traderTitle}
-                      onChange={e => setProfileSettings(prev => ({ ...prev, traderTitle: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 2 */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Primary Market</label>
-                    <HollowSelect
-                      value={profileSettings.primaryMarket}
-                      onChange={val => setProfileSettings(prev => ({ ...prev, primaryMarket: val }))}
-                      options={[
-                        { value: 'Futures', label: 'Futures' },
-                        { value: 'Forex', label: 'Forex' },
-                        { value: 'Equities', label: 'Equities' },
-                        { value: 'Crypto', label: 'Crypto' },
-                        { value: 'Options', label: 'Options' }
-                      ]}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Trading Style</label>
-                    <HollowSelect
-                      value={profileSettings.tradingStyle}
-                      onChange={val => setProfileSettings(prev => ({ ...prev, tradingStyle: val }))}
-                      options={[
-                        { value: 'Scalper', label: 'Scalper' },
-                        { value: 'Day Trader', label: 'Day Trader' },
-                        { value: 'Swing Trader', label: 'Swing Trader' },
-                        { value: 'Position Trader', label: 'Position Trader' }
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 3 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Timezone</label>
-                  <HollowSelect
-                    value={profileSettings.timezone}
-                    onChange={val => setProfileSettings(prev => ({ ...prev, timezone: val }))}
-                    options={[
-                      { value: 'America/New_York', label: 'Eastern Time (ET)' },
-                      { value: 'America/Chicago', label: 'Central Time (CT)' },
-                      { value: 'America/Denver', label: 'Mountain Time (MT)' },
-                      { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-                      { value: 'Europe/London', label: 'London (GMT/BST)' },
-                      { value: 'Europe/Berlin', label: 'Central Europe (CET)' },
-                      { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-                      { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-                      { value: 'Australia/Sydney', label: 'Sydney (AEDT)' }
-                    ]}
-                  />
-                </div>
-
-                {/* Bio */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Short Bio</label>
-                  <textarea
-                    className="hollow-input"
-                    placeholder="A few words about your trading approach..."
-                    value={profileSettings.bio}
-                    onChange={e => setProfileSettings(prev => ({ ...prev, bio: e.target.value }))}
-                    rows={3}
-                    style={{ resize: 'vertical', lineHeight: 1.6 }}
-                  />
-                </div>
-              </div>
-
-              {/* Automated Backups */}
-              <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', marginTop: '16px' }}>
-                <h4 style={{ fontSize: '13px', color: '#fff', fontWeight: '700', margin: 0 }}>Automated Sunday Backup</h4>
-                <p style={{ fontSize: '11px', color: 'var(--colors-stone)', marginTop: '4px', lineHeight: 1.5 }}>
-                  Every Sunday, a comprehensive PDF backup containing your complete trading ledger, accounts, daily reviews, and workout history will be generated.
-                </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  {/* Toggle Option */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Enable Weekly Auto-Backup</span>
-                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>Triggers automatically when you open the application on Sunday.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #0a84ff, #bf5af2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 20,
+                      fontWeight: 800,
+                      color: '#fff',
+                      textTransform: 'uppercase',
+                      flexShrink: 0,
+                      fontFamily: 'var(--font-heading)'
+                    }}>
+                      {(profileSettings.displayName ? profileSettings.displayName.trim().charAt(0) : 'H').toUpperCase()}
                     </div>
-                    <label className="hollow-switch-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={autoBackupEnabled} 
-                        onChange={e => handleToggleAutoBackup(e.target.checked)} 
-                        style={{ display: 'none' }}
-                      />
-                      <div className={`hollow-switch-slider ${autoBackupEnabled ? 'active' : ''}`} style={{
-                        width: '36px', height: '20px', borderRadius: '10px',
-                        background: autoBackupEnabled ? 'var(--colors-violet)' : '#2c2c2e',
-                        position: 'relative', transition: 'background-color 0.2s',
-                        border: '1px solid rgba(255,255,255,0.08)'
-                      }}>
-                        <div style={{
-                          width: '14px', height: '14px', borderRadius: '50%',
-                          background: '#fff', position: 'absolute', top: '2px',
-                          left: autoBackupEnabled ? '18px' : '2px', transition: 'left 0.2s'
-                        }} />
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 2 }}>
+                        {profileSettings.displayName || 'Unnamed Trader'}
                       </div>
-                    </label>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>
+                        {profileSettings.traderTitle || 'Trader · Hollow'}
+                      </div>
+                      {userEmail && (
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
+                          {userEmail}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'flex', gap: 6 }}>
+                        <span>{profileSettings.tradingStyle}</span>
+                        <span>·</span>
+                        <span>{profileSettings.primaryMarket}</span>
+                      </div>
+                    </div>
                   </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditName(profileSettings.displayName);
+                      setEditTitle(profileSettings.traderTitle);
+                      setEditMarket(profileSettings.primaryMarket);
+                      setEditStyle(profileSettings.tradingStyle);
+                      setEditTimezone(profileSettings.timezone);
+                      setEditBio(profileSettings.bio);
+                      setShowEditProfile(true);
+                    }}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#fff',
+                      outline: 'none',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                </div>
 
+                {/* Trading Suite Sub-navigation */}
+                <SectionHeader title="Trading Suite" />
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  {[
+                    { label: 'Trading Accounts', desc: 'Manage, select, and edit your trading accounts', icon: CreditCard, view: 'dashboard' },
+                    { label: 'Performance Stats', desc: 'Detailed playbook edge, discipline, and session statistics', icon: TrendingUp, view: 'stats' },
+                    { label: 'Weekly Review', desc: 'Stoic weekly review audit board', icon: ClipboardCheck, view: 'weeklyReview' },
+                    { label: 'Training Journal', desc: 'Workout log, reps, weight, volume curves', icon: Dumbbell, view: 'trainingJournal' },
+                    { label: 'Copy Groups', desc: 'Mirror leader trades to follower accounts', icon: Users, view: 'groups' }
+                  ].map((item, idx, arr) => (
+                    <div
+                      key={item.label}
+                      onClick={() => setView && setView(item.view)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '14px 16px',
+                        borderBottom: idx < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                        gap: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: 'rgba(255,255,255,0.04)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <item.icon size={16} color="rgba(255,255,255,0.6)" />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{item.label}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{item.desc}</div>
+                      </div>
+                      <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* App Settings */}
+                <SectionHeader title="Appearance" />
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  {[
+                    { label: 'Cloud Backdrop', sub: 'Ambient blur clouds', value: enableClouds, onToggle: toggleClouds },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '14px 16px',
+                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                      gap: 12
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{item.label}</div>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{item.sub}</div>
+                      </div>
+                      <Toggle value={item.value} onToggle={item.onToggle} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* About */}
+                <SectionHeader title="About" />
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  {[
+                    { label: 'Version', value: '1.0.0' },
+                    { label: 'Database', value: 'IndexedDB + Supabase' },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                    }}>
+                      <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{item.label}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sunday Backup */}
+                <SectionHeader title="Automated Sunday Backup" />
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '14px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    gap: 12
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>Enable Weekly Auto-Backup</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Triggers automatically when you open the app on Sunday. Saves complete PDF ledger to device.</div>
+                    </div>
+                    <Toggle value={autoBackupEnabled} onToggle={() => handleToggleAutoBackup(!autoBackupEnabled)} />
+                  </div>
+                  
                   {/* Pick Folder Option */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '14px 16px' }}>
                     <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Backup Storage Directory</span>
                     <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 10px 0' }}>
                       Select a folder on your local device to save backups automatically. If unsupported or unconfigured, backups fall back to browser downloads.
@@ -2579,143 +2695,383 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                       </div>
                       {window.showDirectoryPicker && (
                         <>
-                          <button onClick={handleSelectDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: '#fff' }}>
+                          <button type="button" onClick={handleSelectDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: '#fff' }}>
                             Choose Folder
                           </button>
                           {backupDirName !== 'Downloads Folder (Default)' && (
-                            <button onClick={handleResetDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--colors-stone)' }}>
+                            <button type="button" onClick={handleResetDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--colors-stone)' }}>
                               Reset to Default
                             </button>
                           )}
                         </>
                       )}
                     </div>
-                    {!window.showDirectoryPicker && (
-                      <p style={{ fontSize: '10px', color: 'var(--colors-stone)', marginTop: '8px', fontStyle: 'italic' }}>
-                        Note: Directory picking requires a desktop Chromium browser (Chrome, Edge, Opera). Backups will download to your default downloads folder on this device.
-                      </p>
-                    )}
                   </div>
 
-                  {/* Manual Backup Trigger */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Manual Backup</span>
-                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>Trigger a full structured PDF backup of all data immediately.</p>
+                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                      Manually download a complete portable data document (PDF) representing all accounts, journals, trades, and workouts instantly.
                     </div>
-                    <button onClick={handleManualBackup} className="btn-dark" style={{ padding: '8px 16px', fontSize: '12px', color: '#fff' }}>
-                      Generate Backup Now
-                    </button>
-                  </div>
-
-                  {/* Download Last Week's Saved Backup */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Last Week's Local Backup</span>
-                      <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 0 0' }}>
-                        {localStorage.getItem('hollow_previous_week_backup_range')
-                          ? `Saved backup for: ${localStorage.getItem('hollow_previous_week_backup_range')}`
-                          : 'No backup stored in local storage yet.'}
-                      </p>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={handleManualBackup}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 10,
+                          padding: '10px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#fff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Generate Backup Now
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!localStorage.getItem('hollow_previous_week_backup_pdf')}
+                        onClick={() => {
+                          const pdfBase64 = localStorage.getItem('hollow_previous_week_backup_pdf');
+                          if (!pdfBase64) {
+                            showToast('No backup PDF found in local storage.', 'error');
+                            return;
+                          }
+                          try {
+                            const dateRange = localStorage.getItem('hollow_previous_week_backup_range') || 'previous_week';
+                            const cleanedRange = dateRange.replace(/\s+/g, '_');
+                            const link = document.createElement('a');
+                            link.href = pdfBase64;
+                            link.download = `hollow_weekly_backup_${cleanedRange}.pdf`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            showToast("Weekly backup PDF downloaded from local storage!", "success");
+                          } catch (err) {
+                            console.error("Failed to download PDF from localStorage", err);
+                            showToast("Failed to download backup.", "error");
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: 10,
+                          padding: '10px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#fff',
+                          cursor: localStorage.getItem('hollow_previous_week_backup_pdf') ? 'pointer' : 'not-allowed',
+                          opacity: localStorage.getItem('hollow_previous_week_backup_pdf') ? 1 : 0.5
+                        }}
+                      >
+                        Download Local Backup
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={!localStorage.getItem('hollow_previous_week_backup_pdf')}
-                      onClick={() => {
-                        const pdfBase64 = localStorage.getItem('hollow_previous_week_backup_pdf');
-                        if (!pdfBase64) {
-                          showToast('No backup PDF found in local storage.', 'error');
-                          return;
-                        }
-                        try {
-                          const dateRange = localStorage.getItem('hollow_previous_week_backup_range') || 'previous_week';
-                          const cleanedRange = dateRange.replace(/\s+/g, '_');
-                          const link = document.createElement('a');
-                          link.href = pdfBase64;
-                          link.download = `hollow_weekly_backup_${cleanedRange}.pdf`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          showToast("Weekly backup PDF downloaded from local storage!", "success");
-                        } catch (err) {
-                          console.error("Failed to download PDF from localStorage", err);
-                          showToast("Failed to download backup.", "error");
-                        }
-                      }}
-                      className="btn-dark"
-                      style={{
-                        padding: '8px 16px',
-                        fontSize: '12px',
-                        color: '#fff',
-                        opacity: localStorage.getItem('hollow_previous_week_backup_pdf') ? 1 : 0.5,
-                        cursor: localStorage.getItem('hollow_previous_week_backup_pdf') ? 'pointer' : 'not-allowed'
-                      }}
-                    >
-                      Download Local Backup
-                    </button>
                   </div>
                 </div>
-              </div>
 
-              {/* Database Controls */}
-              <div style={{ padding: '20px', background: 'rgba(255, 69, 58, 0.04)', border: '1px solid rgba(255, 69, 58, 0.15)', borderRadius: '16px', marginTop: '16px' }}>
-                <h4 style={{ fontSize: '13px', color: '#ff453a', fontWeight: '700', margin: 0 }}>Reset Database</h4>
-                <p style={{ fontSize: '11px', color: 'var(--colors-stone)', marginTop: '4px', lineHeight: 1.5 }}>
-                  Completely wipe all data locally and in the cloud. This will permanently delete all accounts, trades, executions, daily journals, weekly planners, groups, and workouts. This action cannot be undone.
-                </p>
-                <button 
-                  className="btn-dark" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', marginTop: '12px', borderColor: 'rgba(255, 69, 58, 0.3)', color: '#ff453a' }} 
-                  onClick={async () => {
-                    if (window.confirm('WARNING: Are you sure you want to permanently delete all data locally and on the cloud? This action is irreversible.')) {
-                      try {
-                        await clearDatabaseAndCloud();
-                        showToast('Database cleared successfully.');
-                        setTimeout(() => window.location.reload(), 800);
-                      } catch (err) {
-                        showToast('Clear database failed.', 'error');
+                {/* Account Operations */}
+                <SectionHeader title="Account" />
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Sign out of your Hollow account? Offline cache will be cleared.')) {
+                        const { supabase } = await import('../db/supabaseClient');
+                        await supabase.auth.signOut();
                       }
-                    }
-                  }}
-                >
-                  Delete All Data & Start Fresh
-                </button>
-              </div>
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'none',
+                      border: 'none',
+                      padding: '14px 16px',
+                      color: '#ff453a',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      outline: 'none'
+                    }}
+                  >
+                    <span>Sign Out</span>
+                    <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+                  </button>
+                </div>
 
-              {/* Save Row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  style={{
-                    background: 'rgba(255, 69, 58, 0.1)',
-                    border: '1px solid rgba(255, 69, 58, 0.25)',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    color: '#ff453a',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  onClick={async () => {
-                    if (window.confirm('Are you sure you want to sign out? Your local offline data will be cleared.')) {
-                      const { supabase } = await import('../db/supabaseClient');
-                      await supabase.auth.signOut();
-                    }
-                  }}
-                >
-                  Sign Out Account
-                </button>
-                <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleSaveProfile}>
-                  <Save size={13} /> Save Profile
-                </button>
-              </div>
+                {/* Brand footer */}
+                <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" />
+                    </svg>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.02em' }}>hollow.</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>stoic trading journal</div>
+                </div>
 
-            </div>
-          )}
+                {/* Edit Profile Modal */}
+                <AnimatePresence>
+                  {showEditProfile && (
+                    <div
+                      style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        zIndex: 1500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                      }}
+                      onClick={() => setShowEditProfile(false)}
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          width: '100%',
+                          maxWidth: '520px',
+                          background: '#0f0f11',
+                          borderRadius: '24px',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          padding: '24px',
+                          boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                          maxHeight: '90vh',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '16px'
+                        }}
+                      >
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+                          <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>Edit Profile</span>
+                          <button 
+                            type="button"
+                            onClick={() => setShowEditProfile(false)} 
+                            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 4 }}
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        {/* Scrollable Content */}
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }} className="hollow-menu-scrollbar">
+                          
+                          {/* Display Name */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Display Name</div>
+                            <input
+                              value={editName}
+                              onChange={e => setEditName(e.target.value)}
+                              placeholder="e.g. Max Trader"
+                              style={{
+                                width: '100%',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: 12,
+                                color: '#fff',
+                                fontSize: 15,
+                                padding: '12px 14px',
+                                outline: 'none',
+                                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
+                              }}
+                            />
+                          </div>
+
+                          {/* Trader Title */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trader Title</div>
+                            <input
+                              value={editTitle}
+                              onChange={e => setEditTitle(e.target.value)}
+                              placeholder="e.g. Prop Trader · Futures Specialist"
+                              style={{
+                                width: '100%',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: 12,
+                                color: '#fff',
+                                fontSize: 15,
+                                padding: '12px 14px',
+                                outline: 'none',
+                                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
+                              }}
+                            />
+                          </div>
+
+                          {/* Primary Market */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Primary Market</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {['Futures', 'Forex', 'Equities', 'Crypto', 'Options'].map(market => {
+                                const isActive = editMarket === market;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={market}
+                                    onClick={() => setEditMarket(market)}
+                                    style={{
+                                      background: isActive ? 'rgba(10, 132, 255, 0.15)' : 'rgba(255,255,255,0.02)',
+                                      border: isActive ? '1px solid #0a84ff' : '1px solid rgba(255,255,255,0.06)',
+                                      borderRadius: 20,
+                                      padding: '8px 14px',
+                                      color: isActive ? '#0a84ff' : 'rgba(255,255,255,0.5)',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      outline: 'none'
+                                    }}
+                                  >
+                                    {market}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Trading Style */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Trading Style</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {['Scalper', 'Day Trader', 'Swing Trader', 'Position Trader'].map(style => {
+                                const isActive = editStyle === style;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={style}
+                                    onClick={() => setEditStyle(style)}
+                                    style={{
+                                      background: isActive ? 'rgba(191, 90, 242, 0.15)' : 'rgba(255,255,255,0.02)',
+                                      border: isActive ? '1px solid #bf5af2' : '1px solid rgba(255,255,255,0.06)',
+                                      borderRadius: 20,
+                                      padding: '8px 14px',
+                                      color: isActive ? '#bf5af2' : 'rgba(255,255,255,0.5)',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      outline: 'none'
+                                    }}
+                                  >
+                                    {style}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Timezone */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timezone</div>
+                            <div style={{ position: 'relative' }}>
+                              <select
+                                value={editTimezone}
+                                onChange={e => setEditTimezone(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  background: 'rgba(255,255,255,0.02)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: 12,
+                                  color: '#fff',
+                                  fontSize: 15,
+                                  padding: '12px 14px',
+                                  outline: 'none',
+                                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+                                  appearance: 'none',
+                                  backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundPosition: 'right 14px center',
+                                  backgroundSize: '16px'
+                                }}
+                              >
+                                {[
+                                  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+                                  { value: 'America/Chicago', label: 'Central Time (CT)' },
+                                  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+                                  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+                                  { value: 'Europe/London', label: 'London (GMT/BST)' },
+                                  { value: 'Europe/Berlin', label: 'Central Europe (CET)' },
+                                  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+                                  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+                                  { value: 'Australia/Sydney', label: 'Sydney (AEDT)' }
+                                ].map(tz => (
+                                  <option key={tz.value} value={tz.value} style={{ background: '#1c1c1e', color: '#fff' }}>
+                                    {tz.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Short Bio */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Short Bio</div>
+                            <textarea
+                              value={editBio}
+                              onChange={e => setEditBio(e.target.value)}
+                              placeholder="A few words about your trading approach..."
+                              rows={3}
+                              style={{
+                                width: '100%',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderRadius: 12,
+                                color: '#fff',
+                                fontSize: 15,
+                                padding: '12px 14px',
+                                outline: 'none',
+                                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+                                resize: 'none',
+                                lineHeight: 1.5
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save Button Container */}
+                        <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <button
+                            type="button"
+                            onClick={handleSaveProfile}
+                            style={{
+                              width: '100%',
+                              background: 'linear-gradient(135deg, #0a84ff 0%, #0a84ffd0 100%)',
+                              border: 'none',
+                              borderRadius: 14,
+                              padding: '14px',
+                              fontSize: 15,
+                              fontWeight: 700,
+                              color: '#fff',
+                              cursor: 'pointer',
+                              transition: 'all 0.25s',
+                              boxShadow: '0 4px 20px rgba(10, 132, 255, 0.25)',
+                              outline: 'none'
+                            }}
+                          >
+                            Save Profile
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
+              </div>
+            );
+          })()}
 
         </div>
 
