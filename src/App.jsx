@@ -62,6 +62,38 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
 
+    const syncProfileFromMetadata = (user) => {
+      if (!user || !user.user_metadata) return;
+      const meta = user.user_metadata;
+      let updated = false;
+
+      const keys = [
+        { metaKey: 'displayName', localKey: 'hollowDisplayName' },
+        { metaKey: 'displayName', localKey: 'hollowUsername' },
+        { metaKey: 'traderTitle', localKey: 'hollowTraderTitle' },
+        { metaKey: 'timezone', localKey: 'hollowTimezone' },
+        { metaKey: 'tradingStyle', localKey: 'hollowTradingStyle' },
+        { metaKey: 'bio', localKey: 'hollowBio' },
+        { metaKey: 'primaryMarket', localKey: 'hollowPrimaryMarket' },
+        { metaKey: 'enableClouds', localKey: 'hollowEnableClouds', stringify: true },
+        { metaKey: 'enableAutoBackup', localKey: 'hollowEnableAutoBackup', stringify: true }
+      ];
+
+      keys.forEach(({ metaKey, localKey, stringify }) => {
+        if (meta[metaKey] !== undefined) {
+          const val = stringify ? String(meta[metaKey]) : meta[metaKey];
+          if (localStorage.getItem(localKey) !== val) {
+            localStorage.setItem(localKey, val);
+            updated = true;
+          }
+        }
+      });
+
+      if (updated) {
+        window.dispatchEvent(new Event('hollowSettingsUpdated'));
+      }
+    };
+
     const checkHashForRecovery = () => {
       const hash = window.location.hash;
       if (hash && (hash.includes('type=recovery') || hash.includes('recovery_token') || hash.includes('recovery'))) {
@@ -75,6 +107,9 @@ export default function App() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
+        if (session) {
+          syncProfileFromMetadata(session.user);
+        }
         if (!session) {
           setAppInitialized(true);
         }
@@ -98,6 +133,9 @@ export default function App() {
         if (event === 'SIGNED_IN') {
           await clearDatabase();
           setSession(currentSession);
+          if (currentSession) {
+            syncProfileFromMetadata(currentSession.user);
+          }
           setAppInitialized(false);
         } else if (event === 'SIGNED_OUT') {
           await clearDatabase();
@@ -105,6 +143,9 @@ export default function App() {
           setAppInitialized(true);
         } else {
           setSession(currentSession);
+          if (currentSession) {
+            syncProfileFromMetadata(currentSession.user);
+          }
           if (!currentSession) {
             setAppInitialized(true);
           }

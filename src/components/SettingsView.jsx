@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../db/hollowDb';
+import { supabase } from '../db/supabaseClient';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { showToast } from '../utils/toast';
 import HollowSelect from './HollowSelect';
@@ -429,11 +430,18 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
   const [editTimezone, setEditTimezone] = useState('Europe/London');
   const [editBio, setEditBio] = useState('');
 
-  const toggleClouds = () => {
+  const toggleClouds = async () => {
     const next = !enableClouds;
     setEnableClouds(next);
     localStorage.setItem('hollowEnableClouds', String(next));
     window.dispatchEvent(new Event('hollowSettingsUpdated'));
+    try {
+      await supabase.auth.updateUser({
+        data: { enableClouds: next }
+      });
+    } catch (err) {
+      console.error('Failed to sync cloud backdrop preference:', err);
+    }
   };
 
   const setView = useUIStore(state => state.setView);
@@ -483,9 +491,16 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     }
   };
 
-  const handleToggleAutoBackup = (enabled) => {
+  const handleToggleAutoBackup = async (enabled) => {
     setAutoBackupEnabled(enabled);
     localStorage.setItem('hollowEnableAutoBackup', enabled ? 'true' : 'false');
+    try {
+      await supabase.auth.updateUser({
+        data: { enableAutoBackup: enabled }
+      });
+    } catch (err) {
+      console.error('Failed to sync auto-backup setting:', err);
+    }
     showToast(enabled ? 'Auto-backup enabled.' : 'Auto-backup disabled.');
   };
 
@@ -552,7 +567,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
 
     async function fetchUser() {
       try {
-        const { supabase } = await import('../db/supabaseClient');
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserEmail(user.email);
@@ -568,8 +582,9 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     };
   }, []);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     localStorage.setItem('hollowDisplayName', editName.trim() || 'Unnamed Trader');
+    localStorage.setItem('hollowUsername', editName.trim() || 'Unnamed Trader');
     localStorage.setItem('hollowTraderTitle', editTitle.trim() || 'Trader · Hollow');
     localStorage.setItem('hollowPrimaryMarket', editMarket);
     localStorage.setItem('hollowTradingStyle', editStyle);
@@ -577,6 +592,21 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     localStorage.setItem('hollowBio', editBio.trim());
     
     window.dispatchEvent(new Event('hollowSettingsUpdated'));
+    
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          displayName: editName.trim() || 'Unnamed Trader',
+          traderTitle: editTitle.trim() || 'Trader · Hollow',
+          primaryMarket: editMarket,
+          tradingStyle: editStyle,
+          timezone: editTimezone,
+          bio: editBio.trim()
+        }
+      });
+    } catch (err) {
+      console.error('Failed to sync profile changes to Supabase Auth:', err);
+    }
     
     showToast('Profile updated successfully!', 'success');
     setShowEditProfile(false);
