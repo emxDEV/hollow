@@ -252,11 +252,11 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         paddingRight: '20px',
         paddingBottom: '20px',
         background: isScrolled
-          ? 'rgba(15, 15, 17, 0.55)'
+          ? 'linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.98) 40%, rgba(0, 0, 0, 0.85) 70%, rgba(0, 0, 0, 0) 100%)'
           : 'transparent',
-        backdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
-        WebkitBackdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
-        borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        borderBottom: 'none',
         boxShadow: 'none',
         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         display: 'flex',

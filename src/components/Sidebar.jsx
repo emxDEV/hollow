@@ -62,10 +62,8 @@ export default function Sidebar({
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       style={{
         flexShrink: 0,
-        background: 'rgba(10, 10, 12, 0.45)',
-        backdropFilter: 'blur(24px) saturate(190%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+        background: '#000000',
+        borderRight: '1px solid #1c1c1e',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',

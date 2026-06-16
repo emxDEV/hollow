@@ -1,12 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* iOS Color Palette - Glassified */
+  /* iOS Color Palette */
   --black: #000000;
-  --surface-1: rgba(15, 15, 17, 0.55);
-  --surface-2: rgba(28, 28, 30, 0.65);
-  --surface-3: rgba(44, 44, 46, 0.75);
-  --surface-4: rgba(58, 58, 60, 0.85);
+  --surface-1: #0f0f11;
+  --surface-2: #1c1c1e;
+  --surface-3: #2c2c2e;
+  --surface-4: #3a3a3c;
   
   /* Brand */
   --white: #ffffff;
@@ -106,21 +106,15 @@ body {
 /* Cards */
 .card {
   background: var(--surface-1);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: var(--r-lg);
   border: 1px solid var(--white-06);
   overflow: hidden;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
 }
 
 .card-elevated {
   background: var(--surface-2);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: var(--r-lg);
   border: 1px solid var(--white-10);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
 }
 
 /* Press states */
@@ -150,11 +144,9 @@ body {
 
 .bottom-sheet {
   width: 100%;
-  background: rgba(15, 15, 17, 0.65);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: var(--surface-1);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--white-10);
   border-bottom: none;
   overflow: hidden;
   padding-bottom: var(--safe-bottom);
@@ -179,10 +171,10 @@ body {
   right: 0;
   z-index: 100;
   height: var(--nav-height);
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--white-10);
   display: flex;
   align-items: center;
   justify-content: space-around;

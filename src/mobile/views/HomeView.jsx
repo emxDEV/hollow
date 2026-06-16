@@ -342,11 +342,11 @@ export default function HomeView({
         paddingRight: '20px',
         paddingBottom: '20px',
         background: isScrolled
-          ? 'rgba(15, 15, 17, 0.55)'
+          ? 'linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.98) 40%, rgba(0, 0, 0, 0.85) 70%, rgba(0, 0, 0, 0) 100%)'
           : 'transparent',
-        backdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
-        WebkitBackdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
-        borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        borderBottom: 'none',
         boxShadow: 'none',
         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         display: 'flex',
@@ -421,9 +421,7 @@ export default function HomeView({
                 flexDirection: 'column',
                 maxHeight: '80vh',
                 overflow: 'hidden',
-                background: 'rgba(15, 15, 17, 0.65)',
-                backdropFilter: 'blur(24px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                background: '#0f0f11',
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '24px 24px 0 0',
                 paddingBottom: 'calc(var(--safe-bottom) + 16px)'
@@ -707,10 +705,8 @@ export default function HomeView({
             style={{ padding: '0 16px', marginBottom: 20 }}
           >
             <div style={{
-              background: 'rgba(15, 15, 17, 0.55)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: '#0f0f11',
+              border: '1px solid rgba(255,255,255,0.06)',
               borderRadius: 20,
               padding: '16px',
               position: 'relative',
@@ -933,11 +929,9 @@ export default function HomeView({
         {/* Equity Curve Chart */}
         <div style={{ marginBottom: 20, padding: '0 16px' }}>
           <div style={{
-            background: 'rgba(15, 15, 17, 0.55)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+            background: '#0f0f11',
             borderRadius: 20,
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.06)',
             padding: '16px 0 8px',
             overflow: 'hidden'
           }}>
@@ -987,10 +981,8 @@ export default function HomeView({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  background: 'rgba(15, 15, 17, 0.55)',
-                  backdropFilter: 'blur(20px) saturate(180%)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: '#0f0f11',
+                  border: '1px solid rgba(255,255,255,0.06)',
                   borderRadius: 16,
                   padding: '16px 14px',
                 }}
@@ -1015,14 +1007,7 @@ export default function HomeView({
             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff', marginBottom: 12 }}>
               Trades · {selectedDate === today ? 'Today' : selectedDate}
             </div>
-            <div style={{
-              background: 'rgba(15, 15, 17, 0.55)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-              borderRadius: 16,
-              border: '1px solid rgba(255,255,255,0.08)',
-              overflow: 'hidden'
-            }}>
+            <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
               {dailyTrades.map((t, i) => {
                 const isWin = t.netPnL >= 0;
                 return (
@@ -1201,10 +1186,8 @@ export default function HomeView({
 
           {/* Calendar Grid Container */}
           <div style={{
-            background: 'rgba(15, 15, 17, 0.55)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: '#0f0f11',
+            border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 20,
             padding: '12px 8px',
             display: 'flex',
