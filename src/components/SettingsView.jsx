@@ -2611,48 +2611,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                   </button>
                 </div>
 
-                {/* Trading Suite Sub-navigation */}
-                <SectionHeader title="Trading Suite" />
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                  {[
-                    { label: 'Trading Accounts', desc: 'Manage, select, and edit your trading accounts', icon: CreditCard, view: 'dashboard' },
-                    { label: 'Performance Stats', desc: 'Detailed playbook edge, discipline, and session statistics', icon: TrendingUp, view: 'stats' },
-                    { label: 'Weekly Review', desc: 'Stoic weekly review audit board', icon: ClipboardCheck, view: 'weeklyReview' },
-                    { label: 'Training Journal', desc: 'Workout log, reps, weight, volume curves', icon: Dumbbell, view: 'trainingJournal' },
-                    { label: 'Copy Groups', desc: 'Mirror leader trades to follower accounts', icon: Users, view: 'groups' }
-                  ].map((item, idx, arr) => (
-                    <div
-                      key={item.label}
-                      onClick={() => setView && setView(item.view)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '14px 16px',
-                        borderBottom: idx < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                        gap: 12,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        background: 'rgba(255,255,255,0.04)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <item.icon size={16} color="rgba(255,255,255,0.6)" />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{item.label}</div>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{item.desc}</div>
-                      </div>
-                      <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
-                    </div>
-                  ))}
-                </div>
 
                 {/* App Settings */}
                 <SectionHeader title="Appearance" />

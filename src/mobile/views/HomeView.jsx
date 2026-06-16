@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, ChevronLeft, ChevronRight, ChevronDown,
-  Award, Target, Zap, Clock, Check, X, CreditCard, Users, Layers
+  Award, Target, Zap, Clock, Check, X, CreditCard, Users, Layers, AlertCircle, Calendar
 } from 'lucide-react';
 import DateStrip from '../components/DateStrip';
 import { calculateTradePnL } from '../../utils/tradeMath';
@@ -132,6 +132,89 @@ export default function HomeView({
     const pf = totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? 9.99 : 0;
     return { total, winRate, pf, count: enriched.length };
   }, [enriched]);
+
+  const selectedAccount = useMemo(() => {
+    if (!selectedAccountId || selectedAccountId === 'all') return null;
+    return accounts.find(a => a.id === selectedAccountId);
+  }, [accounts, selectedAccountId]);
+
+  const rulesCompliance = useMemo(() => {
+    if (!selectedAccount) return null;
+
+    const currentBalance = Math.round((selectedAccount.balance || 0) + allStats.total);
+    const capital = selectedAccount.capital || selectedAccount.balance || 0;
+    const profitTargetGoal = selectedAccount.profitTarget || 0;
+    const currentProfit = currentBalance - capital;
+
+    let profitProgress = 0;
+    if (profitTargetGoal > capital) {
+      const targetDifference = profitTargetGoal - capital;
+      profitProgress = Math.max(0, Math.min(100, (currentProfit / targetDifference) * 100));
+    }
+
+    // 1. Unique active days
+    const uniqueDates = new Set(enriched.map(t => t.date));
+    const activeDays = uniqueDates.size;
+    const requiredTradingDays = selectedAccount.minTradingDays || 0;
+
+    // 2. Daily Loss Tracker
+    const acctDailyPnL = dailyPnL;
+    const dailyLossLimit = selectedAccount.maxDailyLoss || 0;
+    let dailyLossBudgetPct = 100;
+    if (dailyLossLimit > 0) {
+      const remainingBudget = Math.max(0, dailyLossLimit + acctDailyPnL);
+      dailyLossBudgetPct = (remainingBudget / dailyLossLimit) * 100;
+    }
+
+    // 3. Trailing Drawdown calculation
+    const chronologicalTrades = [...enriched].sort((a, b) => a.date.localeCompare(b.date));
+    let runningBalance = selectedAccount.balance || 0;
+    let runningPeak = runningBalance;
+
+    chronologicalTrades.forEach(t => {
+      runningBalance += (t.netPnL || 0);
+      if (runningBalance > runningPeak) {
+        runningPeak = runningBalance;
+      }
+    });
+
+    const drawdownLimit = selectedAccount.drawdownLimit || 0;
+    let trailingLimit = runningPeak - drawdownLimit;
+    if (selectedAccount.drawdownType === 'Trailing' && trailingLimit > capital) {
+      trailingLimit = capital;
+    }
+
+    let breachLimit = 0;
+    if (selectedAccount.drawdownType === 'Trailing') {
+      breachLimit = trailingLimit;
+    } else if (selectedAccount.drawdownType === 'Static') {
+      breachLimit = selectedAccount.maxLoss || (capital - drawdownLimit);
+    } else if (selectedAccount.drawdownType === 'Daily') {
+      breachLimit = selectedAccount.maxLoss || (capital - drawdownLimit);
+    } else {
+      breachLimit = selectedAccount.maxLoss || 0;
+    }
+
+    const distanceToBreach = breachLimit > 0 ? (currentBalance - breachLimit) : 0;
+
+    return {
+      currentBalance,
+      capital,
+      profitTargetGoal,
+      currentProfit,
+      profitProgress,
+      activeDays,
+      requiredTradingDays,
+      dailyPnL: acctDailyPnL,
+      dailyLossLimit,
+      dailyLossBudgetPct,
+      runningPeak,
+      breachLimit,
+      distanceToBreach,
+      evalStatus: selectedAccount.evaluationStatus || 'Active',
+      drawdownType: selectedAccount.drawdownType || 'None'
+    };
+  }, [selectedAccount, enriched, allStats.total, dailyPnL]);
 
   // Equity curve (last 30 days)
   const equityCurve = useMemo(() => {
@@ -612,6 +695,214 @@ export default function HomeView({
             </div>
           </div>
         </motion.div>
+
+        {/* Account stats widget on mobile dashboard */}
+        {selectedAccountId && selectedAccountId !== 'all' && !selectedAccountId.startsWith('group-') && selectedAccount && rulesCompliance && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={{ padding: '0 16px', marginBottom: 20 }}
+          >
+            <div style={{
+              background: '#0f0f11',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 20,
+              padding: '16px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {/* Header row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: getTypeStyles(selectedAccount.type || 'Funded').gradient,
+                    border: `1px solid ${getTypeStyles(selectedAccount.type || 'Funded').color}33`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: getTypeStyles(selectedAccount.type || 'Funded').color
+                  }}>
+                    <CreditCard size={14} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', textTransform: 'lowercase' }}>
+                      {selectedAccount.propFirm ? selectedAccount.propFirm.toLowerCase() : 'custom firm'}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)', marginTop: 1, textTransform: 'lowercase' }}>
+                      {selectedAccount.name ? selectedAccount.name.toLowerCase() : 'unnamed'} ({selectedAccount.type ? selectedAccount.type.toLowerCase() : 'account'})
+                    </span>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', textTransform: 'lowercase' }}>account balance</span>
+                  <div style={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>
+                      ${rulesCompliance.currentBalance.toLocaleString()}
+                    </span>
+                    {(() => {
+                      const statusColors = {
+                        active: '#0a84ff',
+                        passed: '#30d158',
+                        failed: '#ff453a',
+                        payout: '#bf5af2'
+                      };
+                      const statusColor = statusColors[rulesCompliance.evalStatus.toLowerCase()] || 'rgba(255,255,255,0.4)';
+                      return (
+                        <span style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          background: `${statusColor}1A`,
+                          border: `1px solid ${statusColor}4D`,
+                          color: statusColor,
+                          padding: '1px 5px',
+                          borderRadius: '8px',
+                          marginLeft: 6,
+                          textTransform: 'lowercase',
+                          lineHeight: 1
+                        }}>
+                          {rulesCompliance.evalStatus.toLowerCase()}.
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <hr style={{ border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.06)', margin: '12px 0' }} />
+
+              {/* Rules List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Profit Target */}
+                {rulesCompliance.profitTargetGoal > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                      <span style={{ color: 'rgba(255,255,255,0.5)', textTransform: 'lowercase' }}>profit target</span>
+                      <span style={{ fontWeight: '600', color: '#fff' }}>
+                        ${Math.round(rulesCompliance.currentProfit).toLocaleString()} / ${(rulesCompliance.profitTargetGoal - rulesCompliance.capital).toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: `${rulesCompliance.profitProgress}%`, height: '100%', background: '#30d158', borderRadius: 2 }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', textTransform: 'lowercase' }}>profit target</span>
+                    <span style={{ fontWeight: '500', color: 'rgba(255,255,255,0.35)' }}>no target set.</span>
+                  </div>
+                )}
+
+                {/* Drawdown limit */}
+                {rulesCompliance.drawdownType !== 'None' ? (
+                  rulesCompliance.drawdownType === 'Daily' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.5)' }}>
+                          <AlertCircle size={11} color="rgba(255,255,255,0.6)" />
+                          <span style={{ textTransform: 'lowercase' }}>daily loss limit</span>
+                        </div>
+                        <span style={{ fontWeight: '600', color: rulesCompliance.dailyPnL < 0 ? '#ff453a' : '#30d158' }}>
+                          {rulesCompliance.dailyPnL >= 0 ? '+' : ''}${Math.round(rulesCompliance.dailyPnL).toLocaleString()} / -${rulesCompliance.dailyLossLimit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${rulesCompliance.dailyLossBudgetPct}%`,
+                          height: '100%',
+                          background: rulesCompliance.dailyLossBudgetPct > 50 
+                            ? '#30d158' 
+                            : (rulesCompliance.dailyLossBudgetPct > 20 ? '#ff9f0a' : '#ff453a'),
+                          borderRadius: 2
+                        }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.5)' }}>
+                          <AlertCircle size={11} color="rgba(255,255,255,0.6)" />
+                          <span style={{ textTransform: 'lowercase' }}>{rulesCompliance.drawdownType.toLowerCase()} limit</span>
+                        </div>
+                        <span style={{ fontWeight: '600', color: '#fff' }}>
+                          limit: ${Math.round(rulesCompliance.breachLimit).toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10, background: 'rgba(255,255,255,0.02)', padding: '5px 8px', borderRadius: 6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 8, textTransform: 'lowercase' }}>
+                            {rulesCompliance.drawdownType === 'Trailing' ? 'peak balance' : 'starting bal'}
+                          </span>
+                          <span style={{ fontWeight: '500', color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>
+                            ${Math.round(rulesCompliance.drawdownType === 'Trailing' ? rulesCompliance.runningPeak : rulesCompliance.capital).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 8, textTransform: 'lowercase' }}>breach distance</span>
+                          <span style={{ 
+                            fontWeight: '700', 
+                            color: rulesCompliance.distanceToBreach > 1000 ? '#30d158' : (rulesCompliance.distanceToBreach > 0 ? '#ff9f0a' : '#ff453a'),
+                            marginTop: 1 
+                          }}>
+                            ${Math.round(rulesCompliance.distanceToBreach).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', textTransform: 'lowercase' }}>drawdown limit</span>
+                    <span style={{ fontWeight: '500', color: 'rgba(255,255,255,0.35)' }}>no drawdown limit.</span>
+                  </div>
+                )}
+
+                {/* Active Trading Days */}
+                {rulesCompliance.requiredTradingDays > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.5)' }}>
+                        <Calendar size={11} color="rgba(255,255,255,0.6)" />
+                        <span style={{ textTransform: 'lowercase' }}>active trading days</span>
+                      </div>
+                      <span style={{ fontWeight: '600', color: '#fff' }}>
+                        {rulesCompliance.activeDays} / {rulesCompliance.requiredTradingDays} days
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 3, width: '100%', marginTop: 1 }}>
+                      {Array.from({ length: rulesCompliance.requiredTradingDays }).map((_, dIdx) => {
+                        const isDayFilled = dIdx < rulesCompliance.activeDays;
+                        return (
+                          <div 
+                            key={dIdx}
+                            style={{
+                              flex: 1,
+                              height: 3,
+                              borderRadius: 1.5,
+                              background: isDayFilled ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.05)',
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', textTransform: 'lowercase' }}>trading days</span>
+                    <span style={{ fontWeight: '500', color: 'rgba(255,255,255,0.35)' }}>no minimum days.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Date Strip */}
         <div style={{ marginBottom: 20, flexShrink: 0 }}>
