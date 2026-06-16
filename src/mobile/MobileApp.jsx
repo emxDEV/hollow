@@ -25,6 +25,16 @@ import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState('home');
+  const [enableClouds, setEnableClouds] = useState(localStorage.getItem('hollowEnableClouds') !== 'false');
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setEnableClouds(localStorage.getItem('hollowEnableClouds') !== 'false');
+    };
+    window.addEventListener('hollowSettingsUpdated', handleSettingsUpdate);
+    return () => window.removeEventListener('hollowSettingsUpdated', handleSettingsUpdate);
+  }, []);
+
   const [prevTab, setPrevTab] = useState('home');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const [activeTradeId, setActiveTradeId] = useState(null);
@@ -315,13 +325,24 @@ export default function MobileApp() {
         display: 'flex', 
         flexDirection: 'column',
         background: '#000',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}>
+        {enableClouds && (
+          <div className="cloudy-backdrop" style={{ zIndex: 0 }}>
+            <div className="cloud-blur cloud-1" />
+            <div className="cloud-blur cloud-2" />
+            <div className="cloud-blur cloud-3" />
+            <div className="cloud-blur cloud-4" />
+          </div>
+        )}
       {/* Main Content */}
       <div style={{ 
         flex: 1, 
         overflow: 'hidden',
-        paddingBottom: 0
+        paddingBottom: 0,
+        position: 'relative',
+        zIndex: 1
       }}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

@@ -127,7 +127,7 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
   ];
 
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: '#000' }}>
+    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: 'transparent' }}>
       {/* Header */}
       <div style={{
         position: 'absolute',
@@ -140,11 +140,11 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
         paddingRight: '20px',
         paddingBottom: '20px',
         background: isScrolled
-          ? 'linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.98) 40%, rgba(0, 0, 0, 0.85) 70%, rgba(0, 0, 0, 0) 100%)'
+          ? 'rgba(15, 15, 17, 0.55)'
           : 'transparent',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
-        borderBottom: 'none',
+        backdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
+        WebkitBackdropFilter: isScrolled ? 'blur(20px) saturate(180%)' : 'none',
+        borderBottom: isScrolled ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
         boxShadow: 'none',
         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         display: 'flex',
