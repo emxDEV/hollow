@@ -109,13 +109,18 @@ export function calculateTradePnL(trade, executions) {
     }
   }
 
-  const netPnL = grossPnL - totalCommissions;
+  const overridePnL = trade && trade.manualPnL !== undefined && trade.manualPnL !== '' && trade.manualPnL !== null
+    ? parseFloat(trade.manualPnL)
+    : null;
+
+  const netPnL = overridePnL !== null ? overridePnL : grossPnL - totalCommissions;
+  const finalGrossPnL = overridePnL !== null ? overridePnL : grossPnL;
 
   return {
     avgEntry,
     avgExit,
     contracts,
-    grossPnL,
+    grossPnL: finalGrossPnL,
     commissions: totalCommissions,
     netPnL
   };

@@ -2135,8 +2135,7 @@ export default function DashboardView({
                               <div style={{ fontSize: '10px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>{day.dateString}</div>
                               <div style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>{day.tradesCount} trade{day.tradesCount !== 1 ? 's' : ''}</div>
                               <div style={{ fontSize: '11px', fontWeight: '800', color: isGain ? '#30d158' : (isStrictBE ? '#ff9f0a' : '#ff453a'), marginTop: '2px' }}>
-                                {!isStrictBE && (isGain ? '+' : '')}${Math.round(day.netPnL).toLocaleString()}
-                                {isStrictBE && 'Breakeven'}
+                                {isGain && !isStrictBE ? '+' : ''}${Math.round(day.netPnL).toLocaleString()}
                               </div>
                               {day.winRate > 0 && <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>win rate: {day.winRate}%</div>}
                             </div>
@@ -2169,8 +2168,7 @@ export default function DashboardView({
                                 color: isGain ? '#28c76f' : (isStrictBE ? '#ff9f0a' : '#ea5455'),
                                 lineHeight: '1.2'
                               }}>
-                                {!isStrictBE && (isGain ? '+' : '')}${Math.round(day.netPnL).toLocaleString()}
-                                {isStrictBE && 'BE'}
+                                {isGain && !isStrictBE ? '+' : ''}${Math.round(day.netPnL).toLocaleString()}
                               </span>
                               <span style={{ fontSize: '8px', color: 'var(--colors-stone)', display: 'flex', justifyContent: 'space-between', lineHeight: '1.1', width: '100%' }}>
                                 <span>{day.tradesCount}t</span>
@@ -2218,10 +2216,10 @@ export default function DashboardView({
                           <div className="mono" style={{ 
                             fontSize: '12px', 
                             fontWeight: '800', 
-                            color: w.daysCount > 0 ? (isGain ? '#28c76f' : (isBE ? '#ff9f0a' : '#ea5455')) : '#fff',
+                            color: w.daysCount > 0 ? (isGain && !isBE ? '#28c76f' : (isBE ? '#ff9f0a' : '#ea5455')) : '#fff',
                             marginTop: '2px' 
                           }}>
-                            {w.daysCount > 0 ? (isBE ? '$0' : `${isGain ? '+' : ''}$${Math.round(w.pnl).toLocaleString()}`) : '$0'}
+                            {w.daysCount > 0 ? `${isGain && !isBE ? '+' : ''}$${Math.round(w.pnl).toLocaleString()}` : '$0'}
                           </div>
                           <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', marginTop: '1px' }}>
                             {w.daysCount} {w.daysCount === 1 ? 'day' : 'days'}
