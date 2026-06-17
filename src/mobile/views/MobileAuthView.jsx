@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../db/supabaseClient';
 import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import HollowLogo from '../../components/HollowLogo';
 
 export default function MobileAuthView({ addToast, initialMode = 'login', onResetComplete }) {
   const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
@@ -123,29 +124,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
       >
         {/* Brand Logo Header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', gap: '8px' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '50%',
-            border: '2.5px solid #fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '4px'
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#fff' }}>
-              <path d="M12 2C12 7.52285 7.52285 12 2 12C7.52285 12 12 16.4771 12 22C12 16.4771 16.4771 12 22 12C16.4771 12 12 7.52285 12 2Z" />
-            </svg>
-          </div>
-          <span style={{
-            fontFamily: 'var(--font)',
-            fontSize: '28px',
-            fontWeight: '800',
-            letterSpacing: '-0.03em',
-            color: '#fff'
-          }}>
-            hollow.
-          </span>
+          <HollowLogo size={42} showText={true} color="#ffffff" style={{ marginBottom: '4px' }} />
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
             {mode === 'login' && 'Melde dich an, um fortzufahren'}
             {mode === 'signup' && 'Erstelle ein neues Konto'}

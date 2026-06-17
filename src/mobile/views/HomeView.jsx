@@ -11,6 +11,7 @@ import DateStrip from '../components/DateStrip';
 import { calculateTradePnL } from '../../utils/tradeMath';
 import { db } from '../../db/hollowDb';
 import { useLiveQuery } from 'dexie-react-hooks';
+import HollowLogo from '../../components/HollowLogo';
 
 const fmt = (n) => {
   if (n === undefined || n === null) return '$0.00';
@@ -362,12 +363,7 @@ export default function HomeView({
           transition: 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           pointerEvents: isScrolled ? 'none' : 'auto'
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="2.5" />
-          </svg>
-          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>
-            hollow.
-          </span>
+          <HollowLogo size={20} showText={true} color="#ffffff" />
         </div>
         {/* Account badge */}
         <div 

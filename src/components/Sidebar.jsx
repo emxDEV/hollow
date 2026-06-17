@@ -13,6 +13,7 @@ import {
   Dumbbell
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import HollowLogo from './HollowLogo';
 
 export default function Sidebar({
   activeView,
@@ -83,37 +84,16 @@ export default function Sidebar({
         height: '36px',
         position: 'relative'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Minimalist Circular Brand Logo */}
-          <svg 
-            key={sidebarCollapsed ? 'collapsed' : 'expanded'}
-            width="22" 
-            height="22" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg"
-            style={{ flexShrink: 0, cursor: isMobile ? 'default' : 'pointer' }}
-            onClick={() => !isMobile && setSidebarCollapsed && setSidebarCollapsed(!sidebarCollapsed)}
-          >
-            <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="2.5" />
-          </svg>
-          
-          <motion.span 
-            animate={{ opacity: sidebarCollapsed ? 0 : 1, width: sidebarCollapsed ? 0 : 'auto' }}
-            transition={{ duration: 0.15 }}
-            style={{ 
-              fontFamily: 'var(--font-logo)', 
-              fontWeight: '800', 
-              fontSize: '22px', 
-              letterSpacing: '0.5px', 
-              textTransform: 'lowercase',
-              color: '#fff',
-              lineHeight: 1,
-              ...labelTransitionStyle
-            }}
-          >
-            hollow.
-          </motion.span>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isMobile ? 'default' : 'pointer', overflow: 'hidden' }}
+          onClick={() => !isMobile && setSidebarCollapsed && setSidebarCollapsed(!sidebarCollapsed)}
+        >
+          {/* Mark only when collapsed; full logo when expanded */}
+          <HollowLogo
+            size={22}
+            showText={!sidebarCollapsed}
+            color="#ffffff"
+          />
         </div>
         
         <button 

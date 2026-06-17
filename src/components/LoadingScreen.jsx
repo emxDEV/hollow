@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { syncWithSupabase, seedDatabaseIfEmpty } from '../db/hollowDb';
+import HollowLogo from './HollowLogo';
 
 export default function LoadingScreen({ session, onComplete }) {
   const [status, setStatus] = useState('initializing hollow...');
@@ -128,17 +129,7 @@ export default function LoadingScreen({ session, onComplete }) {
           zIndex: 10
         }}
       >
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="8" stroke="white" strokeWidth="2.5" />
-        </svg>
-        <span style={{ 
-          fontSize: 22, 
-          fontWeight: 800, 
-          color: '#ffffff', 
-          letterSpacing: '-0.03em' 
-        }}>
-          hollow.
-        </span>
+        <HollowLogo size={44} showText={true} color="#ffffff" />
       </motion.div>
 
       {/* Progress Bar Container */}
