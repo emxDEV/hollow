@@ -40,6 +40,7 @@ export default function TradeDetailDrawer({
   const [accountId, setAccountId] = useState('');
   const [po3, setPo3] = useState('');
   const [entryTf, setEntryTf] = useState('');
+  const [session, setSession] = useState('NY AM');
   const [dol, setDol] = useState('');
 
   // Narrative inputs
@@ -100,6 +101,7 @@ export default function TradeDetailDrawer({
       setManualPnL(trade.manualPnL || '');
       setPo3(trade.po3Time || '');
       setEntryTf(trade.entryTf || '');
+      setSession(trade.session || 'NY AM');
       
       try {
         setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
@@ -312,6 +314,9 @@ export default function TradeDetailDrawer({
   // Save Trade details back to IndexedDB
   const handleSaveChanges = () => {
     const finalSymbol = symbol === 'CUSTOM' ? (customSymbol.toUpperCase() || 'CUSTOM') : symbol;
+    const isBEOutcome = wl.toLowerCase().includes('be') || wl.toLowerCase() === 'tape';
+    const finalManualPnL = isBEOutcome && (manualPnL === '' || manualPnL === undefined || manualPnL === null) ? '0' : manualPnL;
+
     const updatedTrade = {
       ...trade,
       accountId,
@@ -323,7 +328,8 @@ export default function TradeDetailDrawer({
       model,
       wl,
       rr: 0,
-      manualPnL,
+      manualPnL: finalManualPnL,
+      session: session || 'NY AM',
       po3,
       entryTf,
       dol,
@@ -869,6 +875,62 @@ export default function TradeDetailDrawer({
                 </div>
               </div>
 
+              {/* Row 8: Session Selection */}
+              <div style={styles.inputGroup}>
+                <label style={styles.inputLabel}>Session</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {['Asia', 'London', 'NY AM', 'NY PM'].map(s => {
+                    const isSelected = session === s;
+                    let color = '#fff';
+                    let bg = 'rgba(255,255,255,0.04)';
+                    let border = '1px solid rgba(255,255,255,0.06)';
+                    
+                    if (s === 'Asia') {
+                      color = '#ff453a';
+                      if (isSelected) {
+                        bg = 'rgba(255, 69, 58, 0.15)';
+                        border = '1px solid rgba(255, 69, 58, 0.4)';
+                      }
+                    } else if (s === 'London') {
+                      color = '#0a84ff';
+                      if (isSelected) {
+                        bg = 'rgba(10, 132, 255, 0.15)';
+                        border = '1px solid rgba(10, 132, 255, 0.4)';
+                      }
+                    } else if (s === 'NY AM') {
+                      color = '#ff2d55';
+                      if (isSelected) {
+                        bg = 'rgba(255, 45, 85, 0.15)';
+                        border = '1px solid rgba(255, 45, 85, 0.4)';
+                      }
+                    } else if (s === 'NY PM') {
+                      color = '#af52de';
+                      if (isSelected) {
+                        bg = 'rgba(175, 82, 222, 0.15)';
+                        border = '1px solid rgba(175, 82, 222, 0.4)';
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSession(s)}
+                        style={{
+                          ...styles.pillBtn,
+                          background: bg,
+                          border: border,
+                          color: isSelected ? color : 'rgba(255,255,255,0.5)',
+                          fontWeight: isSelected ? '700' : '500',
+                          padding: '6px 14px'
+                        }}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

@@ -97,6 +97,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   const [showCustomConfluenceInput, setShowCustomConfluenceInput] = useState(false);
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
+  const [session, setSession] = useState('NY AM');
   const [model, setModel] = useState('');
   const [playbookTags, setPlaybookTags] = useState([]);
   const [outcome, setOutcome] = useState('Win');
@@ -160,6 +161,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       setShowCustomSymbolInput(false);
       setPo3Time('');
       setEntryTf('');
+      setSession('NY AM');
       setModel('');
       setOutcome('Win');
       setBias('LONG');
@@ -463,20 +465,25 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       else if (finalSymbol === 'EURUSD') entryPrice = 1.08;
 
       let pnlVal = parseFloat(manualPnL);
-      if (isNaN(pnlVal) && outcome !== 'BE') {
-        // Calculate based on outcome
-        const baseRisk = 300;
-        const lowOutcome = outcome.toLowerCase();
-        if (lowOutcome.includes('win')) {
-          pnlVal = baseRisk * 2; // Default 2R since rr is removed
-        } else if (lowOutcome.includes('loss')) {
-          pnlVal = -baseRisk;
-        } else {
+      const isBEOutcome = outcome.toLowerCase().includes('be') || outcome.toLowerCase() === 'tape';
+      if (isNaN(pnlVal)) {
+        if (isBEOutcome) {
           pnlVal = 0;
+        } else {
+          // Calculate based on outcome
+          const baseRisk = 300;
+          const lowOutcome = outcome.toLowerCase();
+          if (lowOutcome.includes('win')) {
+            pnlVal = baseRisk * 2; // Default 2R since rr is removed
+          } else if (lowOutcome.includes('loss')) {
+            pnlVal = -baseRisk;
+          } else {
+            pnlVal = 0;
+          }
         }
-      } else if (outcome === 'BE') {
-        pnlVal = 0;
       }
+
+      const savedManualPnL = isNaN(parseFloat(manualPnL)) && isBEOutcome ? "0" : manualPnL;
 
 
       // Determine target account IDs
@@ -516,7 +523,8 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             setupRating: rating.toUpperCase(),
             wl: outcome,
             rr: 0,
-            manualPnL,
+            manualPnL: savedManualPnL,
+            session: session || 'NY AM',
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -1253,6 +1261,63 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                           onChange={e => setEntryTf(e.target.value)}
                           style={styles.input}
                         />
+                      </div>
+                    </div>
+
+                    {/* Session Option Selector */}
+                    <div>
+                      <label style={styles.label}>session</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                        {['Asia', 'London', 'NY AM', 'NY PM'].map(s => {
+                          const isSelected = session === s;
+                          let color = '#fff';
+                          let bg = 'rgba(255,255,255,0.04)';
+                          let border = '1px solid rgba(255,255,255,0.06)';
+                          
+                          if (s === 'Asia') {
+                            color = '#ff453a';
+                            if (isSelected) {
+                              bg = 'rgba(255, 69, 58, 0.15)';
+                              border = '1px solid rgba(255, 69, 58, 0.4)';
+                            }
+                          } else if (s === 'London') {
+                            color = '#0a84ff';
+                            if (isSelected) {
+                              bg = 'rgba(10, 132, 255, 0.15)';
+                              border = '1px solid rgba(10, 132, 255, 0.4)';
+                            }
+                          } else if (s === 'NY AM') {
+                            color = '#ff2d55';
+                            if (isSelected) {
+                              bg = 'rgba(255, 45, 85, 0.15)';
+                              border = '1px solid rgba(255, 45, 85, 0.4)';
+                            }
+                          } else if (s === 'NY PM') {
+                            color = '#af52de';
+                            if (isSelected) {
+                              bg = 'rgba(175, 82, 222, 0.15)';
+                              border = '1px solid rgba(175, 82, 222, 0.4)';
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setSession(s)}
+                              style={{
+                                ...styles.pillBtn,
+                                background: bg,
+                                border: border,
+                                color: isSelected ? color : 'rgba(255,255,255,0.5)',
+                                fontWeight: isSelected ? '700' : '500',
+                                padding: '6px 14px'
+                              }}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 

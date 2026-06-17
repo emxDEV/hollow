@@ -113,6 +113,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [showCustomConfluenceInput, setShowCustomConfluenceInput] = useState(false);
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
+  const [session, setSession] = useState('NY AM');
   const [model, setModel] = useState('');
   const [playbookTags, setPlaybookTags] = useState([]);
   const [dol, setDol] = useState('');
@@ -433,20 +434,25 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       else if (finalSymbol === 'CL') entryPrice = 80;
 
       let pnlVal = parseFloat(manualPnL);
-      if (isNaN(pnlVal) && outcome !== 'BE') {
-        // Calculate based on outcome
-        const baseRisk = 300;
-        const lowOutcome = outcome.toLowerCase();
-        if (lowOutcome.includes('win')) {
-          pnlVal = baseRisk * 2;
-        } else if (lowOutcome.includes('loss')) {
-          pnlVal = -baseRisk;
-        } else {
+      const isBEOutcome = outcome.toLowerCase().includes('be') || outcome.toLowerCase() === 'tape';
+      if (isNaN(pnlVal)) {
+        if (isBEOutcome) {
           pnlVal = 0;
+        } else {
+          // Calculate based on outcome
+          const baseRisk = 300;
+          const lowOutcome = outcome.toLowerCase();
+          if (lowOutcome.includes('win')) {
+            pnlVal = baseRisk * 2;
+          } else if (lowOutcome.includes('loss')) {
+            pnlVal = -baseRisk;
+          } else {
+            pnlVal = 0;
+          }
         }
-      } else if (outcome === 'BE') {
-        pnlVal = 0;
       }
+
+      const savedManualPnL = isNaN(parseFloat(manualPnL)) && isBEOutcome ? "0" : manualPnL;
 
 
       // Determine target account IDs
@@ -486,7 +492,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             setupRating: rating.toUpperCase(),
             wl: outcome,
             rr: 0,
-            manualPnL,
+            manualPnL: savedManualPnL,
+            session: session || 'NY AM',
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -1293,6 +1300,66 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                           boxSizing: 'border-box'
                         }}
                       />
+                    </div>
+                  </div>
+
+                  {/* Session Option Selector */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>session</div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {['Asia', 'London', 'NY AM', 'NY PM'].map(s => {
+                        const isSelected = session === s;
+                        let color = '#fff';
+                        let bg = 'rgba(255,255,255,0.04)';
+                        let border = '1px solid rgba(255,255,255,0.06)';
+                        
+                        if (s === 'Asia') {
+                          color = '#ff453a';
+                          if (isSelected) {
+                            bg = 'rgba(255, 69, 58, 0.15)';
+                            border = '1px solid rgba(255, 69, 58, 0.4)';
+                          }
+                        } else if (s === 'London') {
+                          color = '#0a84ff';
+                          if (isSelected) {
+                            bg = 'rgba(10, 132, 255, 0.15)';
+                            border = '1px solid rgba(10, 132, 255, 0.4)';
+                          }
+                        } else if (s === 'NY AM') {
+                          color = '#ff2d55';
+                          if (isSelected) {
+                            bg = 'rgba(255, 45, 85, 0.15)';
+                            border = '1px solid rgba(255, 45, 85, 0.4)';
+                          }
+                        } else if (s === 'NY PM') {
+                          color = '#af52de';
+                          if (isSelected) {
+                            bg = 'rgba(175, 82, 222, 0.15)';
+                            border = '1px solid rgba(175, 82, 222, 0.4)';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setSession(s)}
+                            style={{
+                              background: bg,
+                              border: border,
+                              borderRadius: 20,
+                              padding: '5px 12px',
+                              color: isSelected ? color : 'rgba(255,255,255,0.5)',
+                              fontSize: 11,
+                              fontWeight: isSelected ? 700 : 500,
+                              cursor: 'pointer',
+                              fontFamily: 'var(--font)'
+                            }}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

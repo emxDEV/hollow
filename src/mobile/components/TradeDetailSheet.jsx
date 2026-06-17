@@ -115,6 +115,7 @@ export default function TradeDetailSheet({
         po3Time: trade.po3Time || '',
         entryTf: trade.entryTf || '',
         dol: trade.dol || '',
+        session: trade.session || 'NY AM',
         imageLTF: trade.images?.[0] || null,
         imageMTF: trade.images?.[1] || null,
         imageHTF: trade.images?.[2] || null,
@@ -434,6 +435,17 @@ export default function TradeDetailSheet({
     }
   };
 
+  const getSessionColor = (s) => {
+    if (!s) return '#fff';
+    switch (s) {
+      case 'Asia': return '#ff453a';
+      case 'London': return '#0a84ff';
+      case 'NY AM': return '#ff2d55';
+      case 'NY PM': return '#af52de';
+      default: return '#fff';
+    }
+  };
+
   const toggleMistake = (tag) => {
     setForm(f => {
       const isSelected = f.mistakes.includes(tag);
@@ -469,6 +481,9 @@ export default function TradeDetailSheet({
   };
 
   const handleSave = async () => {
+    const isBEOutcome = form.outcome.toLowerCase().includes('be') || form.outcome.toLowerCase() === 'tape';
+    const finalManualPnL = isBEOutcome && (form.manualPnL === '' || form.manualPnL === undefined || form.manualPnL === null) ? '0' : form.manualPnL;
+
     const updatedTrade = {
       ...trade,
       symbol: form.symbol,
@@ -478,7 +493,8 @@ export default function TradeDetailSheet({
       setupRating: form.setupRating.toUpperCase(),
       wl: form.outcome,
       rr: 0,
-      manualPnL: form.manualPnL,
+      manualPnL: finalManualPnL,
+      session: form.session || 'NY AM',
       po3Time: form.po3Time,
       entryTf: form.entryTf,
       dol: form.dol,
@@ -1060,6 +1076,66 @@ export default function TradeDetailSheet({
                       </div>
                     </div>
 
+                    {/* Session Option Selector */}
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 4 }}>session</div>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        {['Asia', 'London', 'NY AM', 'NY PM'].map(s => {
+                          const isSelected = form.session === s;
+                          let color = '#fff';
+                          let bg = 'rgba(255,255,255,0.04)';
+                          let border = '1px solid rgba(255,255,255,0.06)';
+                          
+                          if (s === 'Asia') {
+                            color = '#ff453a';
+                            if (isSelected) {
+                              bg = 'rgba(255, 69, 58, 0.15)';
+                              border = '1px solid rgba(255, 69, 58, 0.4)';
+                            }
+                          } else if (s === 'London') {
+                            color = '#0a84ff';
+                            if (isSelected) {
+                              bg = 'rgba(10, 132, 255, 0.15)';
+                              border = '1px solid rgba(10, 132, 255, 0.4)';
+                            }
+                          } else if (s === 'NY AM') {
+                            color = '#ff2d55';
+                            if (isSelected) {
+                              bg = 'rgba(255, 45, 85, 0.15)';
+                              border = '1px solid rgba(255, 45, 85, 0.4)';
+                            }
+                          } else if (s === 'NY PM') {
+                            color = '#af52de';
+                            if (isSelected) {
+                              bg = 'rgba(175, 82, 222, 0.15)';
+                              border = '1px solid rgba(175, 82, 222, 0.4)';
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, session: s }))}
+                              style={{
+                                background: bg,
+                                border: border,
+                                borderRadius: 20,
+                                padding: '5px 12px',
+                                color: isSelected ? color : 'rgba(255,255,255,0.5)',
+                                fontSize: 11,
+                                fontWeight: isSelected ? 700 : 500,
+                                cursor: 'pointer',
+                                fontFamily: 'var(--font)'
+                              }}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* R-Multiple & Manual P&L Override */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div>
@@ -1474,7 +1550,8 @@ export default function TradeDetailSheet({
                   { label: 'Account / Group', value: accountOrGroupName },
                   { label: 'Date', value: trade.date },
                   { label: 'Ticker', value: trade.symbol.toUpperCase() },
-                  { label: 'Setup Rating', value: (trade.setupRating || '—').toUpperCase(), color: getRatingColor(trade.setupRating || '') }
+                  { label: 'Setup Rating', value: (trade.setupRating || '—').toUpperCase(), color: getRatingColor(trade.setupRating || '') },
+                  { label: 'Session', value: trade.session || '—', color: getSessionColor(trade.session || '') }
                 ].map((row, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>{row.label}</span>

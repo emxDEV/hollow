@@ -600,34 +600,46 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
     tradeMetrics.forEach(t => {
       const model = t.model || 'Unmapped Setups';
       if (!grid[model]) return;
-
       let session = 'NY Open Morning'; // Default fallback
 
-      const tradeExecs = executions.filter(e => e.tradeId === t.id && e.type === 'ENTRY');
-      if (tradeExecs.length > 0) {
-        const date = new Date(tradeExecs[0].timestamp);
-        if (!isNaN(date.getTime())) {
-          const utcHour = date.getUTCHours();
-          if (utcHour >= 7 && utcHour < 13) {
-            session = 'London Session';
-          } else if (utcHour >= 13 && utcHour < 17) {
-            session = 'NY Open Morning';
-          } else if (utcHour >= 17 && utcHour < 21) {
-            session = 'NY Close Session';
-          } else {
-            session = 'Asia Session';
-          }
+      if (t.session) {
+        const sNorm = t.session.trim().toUpperCase();
+        if (sNorm === 'ASIA') {
+          session = 'Asia Session';
+        } else if (sNorm === 'LONDON') {
+          session = 'London Session';
+        } else if (sNorm === 'NY AM') {
+          session = 'NY Open Morning';
+        } else if (sNorm === 'NY PM') {
+          session = 'NY Close Session';
         }
       } else {
-        const text = ((t.commentBias || '') + ' ' + (t.confluences || []).join(' ')).toLowerCase();
-        if (text.includes('london') || text.includes('lnd')) {
-          session = 'London Session';
-        } else if (text.includes('afternoon') || text.includes('pm') || text.includes('close')) {
-          session = 'NY Close Session';
-        } else if (text.includes('asia') || text.includes('tokyo') || text.includes('sydney')) {
-          session = 'Asia Session';
+        const tradeExecs = executions.filter(e => e.tradeId === t.id && e.type === 'ENTRY');
+        if (tradeExecs.length > 0) {
+          const date = new Date(tradeExecs[0].timestamp);
+          if (!isNaN(date.getTime())) {
+            const utcHour = date.getUTCHours();
+            if (utcHour >= 7 && utcHour < 13) {
+              session = 'London Session';
+            } else if (utcHour >= 13 && utcHour < 17) {
+              session = 'NY Open Morning';
+            } else if (utcHour >= 17 && utcHour < 21) {
+              session = 'NY Close Session';
+            } else {
+              session = 'Asia Session';
+            }
+          }
         } else {
-          session = 'NY Open Morning';
+          const text = ((t.commentBias || '') + ' ' + (t.confluences || []).join(' ')).toLowerCase();
+          if (text.includes('london') || text.includes('lnd')) {
+            session = 'London Session';
+          } else if (text.includes('afternoon') || text.includes('pm') || text.includes('close')) {
+            session = 'NY Close Session';
+          } else if (text.includes('asia') || text.includes('tokyo') || text.includes('sydney')) {
+            session = 'Asia Session';
+          } else {
+            session = 'NY Open Morning';
+          }
         }
       }
 
@@ -758,6 +770,7 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       const eligibleCount = b.wins + b.losses;
       return {
         ...b,
+        name: b.label,
         winRate: eligibleCount > 0 ? Math.round((b.wins / eligibleCount) * 100) : 0,
         pnl: Math.round(b.pnl)
       };

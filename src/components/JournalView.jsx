@@ -1440,6 +1440,15 @@ export default function JournalView() {
                               {!isBE && pnlData.grossPnL > 0 ? '+' : ''}${Math.abs(pnlData.grossPnL || 0).toFixed(2)}
                             </span>
                           </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.45)' }}>Session</span>
+                            <span style={{ 
+                              color: trade.session === 'Asia' ? '#ff453a' : trade.session === 'London' ? '#0a84ff' : trade.session === 'NY AM' ? '#ff2d55' : trade.session === 'NY PM' ? '#af52de' : '#fff', 
+                              fontWeight: '600' 
+                            }}>
+                              {trade.session || '—'}
+                            </span>
+                          </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: 'rgba(255,255,255,0.45)' }}>Setup Rating</span>
                             <span style={{ color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a', fontWeight: '700' }}>{trade.setupRating || '—'}</span>
