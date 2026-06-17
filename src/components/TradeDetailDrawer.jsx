@@ -290,7 +290,7 @@ export default function TradeDetailDrawer({
   }
 
   // Mathematics derived from live executions
-  const stats = calculateTradePnL(trade, executions);
+  const stats = calculateTradePnL(trade, tradeExecs);
   const isBETrade = isTradeBE({ wl, netPnL: stats.netPnL });
   const isGain = !isBETrade && stats.netPnL > 0;
   const isLoss = !isBETrade && stats.netPnL < 0;
@@ -505,19 +505,17 @@ export default function TradeDetailDrawer({
             alignItems: isMobile ? 'flex-start' : 'center',
             gap: isMobile ? '12px' : '0',
             boxShadow: 'none',
-            background: isGain 
-              ? 'rgba(48, 209, 88, 0.08)' 
-              : isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(255, 159, 10, 0.08)',
-            border: isGain ? '1px solid rgba(48, 209, 88, 0.2)' : isLoss ? '1px solid rgba(255, 69, 58, 0.2)' : '1px solid rgba(255, 159, 10, 0.2)'
+            background: getWlGradient(wl),
+            border: getWlBorder(wl)
           }}>
             <div>
               <div style={styles.pnlLabel}>Net Realized PnL</div>
               <h1 style={{
                 ...styles.pnlVal,
-                color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a',
+                color: getWlColor(wl),
                 textShadow: 'none'
               }}>
-                {!isBETrade && isGain ? '+' : ''}${Math.abs(stats.netPnL).toFixed(2)}
+                {stats.netPnL > 0 ? '+' : (stats.netPnL < 0 ? '-' : '')}${Math.abs(stats.netPnL).toFixed(2)}
               </h1>
             </div>
             

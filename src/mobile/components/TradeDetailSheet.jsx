@@ -350,6 +350,90 @@ export default function TradeDetailSheet({
     return '#ffffff';
   };
 
+  const getWlGradient = (s) => {
+    if (!s) return 'rgba(255, 255, 255, 0.04)';
+    if (pillGradients[s]) return pillGradients[s];
+    const norm = s.toLowerCase();
+    switch (norm) {
+      case 'win': return 'rgba(48, 209, 88, 0.08)';
+      case 'be -> win': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(48, 209, 88, 0.08) 100%)';
+      case 'loss': return 'rgba(255, 69, 58, 0.08)';
+      case 'be -> loss': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(255, 69, 58, 0.08) 100%)';
+      case 'tape': return 'rgba(153, 153, 153, 0.08)';
+      case 'be': return 'rgba(255, 159, 10, 0.08)';
+      default: return 'rgba(255, 255, 255, 0.04)';
+    }
+  };
+
+  const getWlBorder = (s) => {
+    if (!s) return '1px solid rgba(255, 255, 255, 0.08)';
+    const norm = s.toLowerCase();
+    switch (norm) {
+      case 'win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'be -> win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'be -> loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'tape': return '1px solid rgba(153, 153, 153, 0.25)';
+      case 'be': return '1px solid rgba(255, 159, 10, 0.25)';
+      default: return '1px solid rgba(255, 255, 255, 0.08)';
+    }
+  };
+
+  const getWlColor = (s) => {
+    if (!s) return '#ffffff';
+    const norm = s.toLowerCase();
+    switch (norm) {
+      case 'win':
+      case 'be -> win':
+        return '#30d158';
+      case 'loss':
+      case 'be -> loss':
+        return '#ff453a';
+      case 'tape':
+        return '#999999';
+      case 'be':
+        return '#ff9f0a';
+      default:
+        return '#ffffff';
+    }
+  };
+  const getWlCardBackground = (s) => {
+    if (!s) return 'linear-gradient(135deg, #1c1c1e, #2c2c2e)';
+    const norm = s.toLowerCase();
+    switch (norm) {
+      case 'win':
+        return 'linear-gradient(135deg, #0d2b1a 0%, #0f3320 100%)';
+      case 'loss':
+        return 'linear-gradient(135deg, #2b0d0d 0%, #331010 100%)';
+      case 'be -> win':
+        return 'linear-gradient(135deg, #2b230d 0%, #0d2b1a 100%)';
+      case 'be -> loss':
+        return 'linear-gradient(135deg, #2b230d 0%, #2b0d0d 100%)';
+      case 'tape':
+      case 'be':
+      default:
+        return 'linear-gradient(135deg, #1c1c1e, #2c2c2e)';
+    }
+  };
+
+  const getWlCardBorder = (s) => {
+    if (!s) return '1px solid rgba(255, 255, 255, 0.1)';
+    const norm = s.toLowerCase();
+    switch (norm) {
+      case 'win':
+      case 'be -> win':
+        return '1px solid rgba(48, 209, 88, 0.2)';
+      case 'loss':
+      case 'be -> loss':
+        return '1px solid rgba(255, 69, 58, 0.2)';
+      case 'be':
+        return '1px solid rgba(255, 159, 10, 0.2)';
+      case 'tape':
+      default:
+        return '1px solid rgba(255, 255, 255, 0.1)';
+    }
+  };
+
   const toggleMistake = (tag) => {
     setForm(f => {
       const isSelected = f.mistakes.includes(tag);
@@ -1361,12 +1445,8 @@ export default function TradeDetailSheet({
               margin: '0 16px',
               padding: '20px',
               borderRadius: 20,
-              background: isWin
-                ? 'linear-gradient(135deg, #0d2b1a 0%, #0f3320 100%)'
-                : isLoss
-                  ? 'linear-gradient(135deg, #2b0d0d 0%, #331010 100%)'
-                  : 'linear-gradient(135deg, #1c1c1e, #2c2c2e)',
-              border: `1px solid ${isWin ? 'rgba(48,209,88,0.2)' : isLoss ? 'rgba(255,69,58,0.2)' : 'rgba(255,255,255,0.1)'}`,
+              background: getWlCardBackground(trade.wl),
+              border: getWlCardBorder(trade.wl),
               position: 'relative',
               overflow: 'hidden'
             }}>
@@ -1377,11 +1457,15 @@ export default function TradeDetailSheet({
                 width: 120,
                 height: 120,
                 borderRadius: '50%',
-                background: isWin ? 'rgba(48,209,88,0.07)' : isLoss ? 'rgba(255,69,58,0.07)' : 'transparent',
+                background: (trade.wl || '').toLowerCase().includes('win')
+                  ? 'rgba(48,209,88,0.07)'
+                  : (trade.wl || '').toLowerCase().includes('loss')
+                    ? 'rgba(255,69,58,0.07)'
+                    : 'transparent',
                 filter: 'blur(20px)'
               }} />
 
-              <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.04em', color: isWin ? '#30d158' : isLoss ? '#ff453a' : 'rgba(255,255,255,0.5)', marginBottom: 8, lineHeight: 1, position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.04em', color: getWlColor(trade.wl), marginBottom: 8, lineHeight: 1, position: 'relative', zIndex: 1 }}>
                 {fmt(pnlData.netPnL)}
               </div>
               
