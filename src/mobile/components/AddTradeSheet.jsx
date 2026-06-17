@@ -47,6 +47,24 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Reset form states on mount / open
+  React.useEffect(() => {
+    try {
+      setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
+    } catch {
+      setPlaybookTags([]);
+    }
+    setActiveTab('execution');
+    setName('');
+    setDate(new Date().toISOString().split('T')[0]);
+    
+    const defaultId = selectedAccountId === 'all' 
+      ? (accounts[0]?.id || '') 
+      : (selectedAccountId || '');
+    setTargetAccountId(defaultId);
+    setTargetType(defaultId && defaultId.startsWith('group-') ? 'group' : 'account');
+  }, [selectedAccountId, accounts]);
+
   // Default Account Selection Sync
   React.useEffect(() => {
     if (targetType === 'group' && groups.length > 0) {
@@ -96,15 +114,12 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
   const [model, setModel] = useState('');
-  const [playbookTags] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('playbookTags') || 'null') || []; }
-    catch { return []; }
-  });
+  const [playbookTags, setPlaybookTags] = useState([]);
   const [dol, setDol] = useState('');
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
-  const [rr, setRr] = useState(2);
   const [manualPnL, setManualPnL] = useState('');
+  const [isBE, setIsBE] = useState(false);
 
   // Form State Page 2: Reflections & Mistakes
   const [reflections, setReflections] = useState('');
@@ -372,19 +387,20 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       else if (finalSymbol === 'GC') entryPrice = 2300;
       else if (finalSymbol === 'CL') entryPrice = 80;
 
-      let pnlVal = parseFloat(manualPnL);
-      if (isNaN(pnlVal)) {
+      let pnlVal = isBE ? 0 : parseFloat(manualPnL);
+      if (isNaN(pnlVal) && !isBE) {
         // Calculate based on outcome
         const baseRisk = 300;
         const lowOutcome = outcome.toLowerCase();
         if (lowOutcome.includes('win')) {
-          pnlVal = baseRisk * rr;
+          pnlVal = baseRisk * 2;
         } else if (lowOutcome.includes('loss')) {
           pnlVal = -baseRisk;
         } else {
           pnlVal = 0;
         }
       }
+
 
       // Determine target account IDs
       let targetAccountIds = [];
@@ -421,8 +437,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             status: 'CLOSED',
             confluences: selectedConfluences,
             setupRating: rating.toUpperCase(),
-            wl: outcome,
-            rr: parseFloat(rr) || 0,
+            wl: isBE ? 'BE' : outcome,
+            rr: 0,
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -1231,45 +1247,25 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                     </div>
                   </div>
 
-                  {/* R-Multiple & Manual P&L */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>r-multiple</div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="50"
-                        step="0.1"
-                        placeholder="e.g. 2.5"
-                        value={rr}
-                        onChange={e => setRr(parseFloat(e.target.value) || 0)}
-                        style={{
-                          width: '100%',
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: 8,
-                          color: '#fff',
-                          fontFamily: 'var(--font)',
-                          fontSize: 12,
-                          padding: '8px 10px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>manual p&l ($)</div>
+                  {/* PNL & BE */}
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>PNL</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <input
                         type="number"
                         placeholder="optional override"
                         value={manualPnL}
-                        onChange={e => setManualPnL(e.target.value)}
+                        onChange={e => {
+                          setManualPnL(e.target.value);
+                          if (e.target.value !== '' && parseFloat(e.target.value) !== 0) setIsBE(false);
+                          if (parseFloat(e.target.value) === 0) setIsBE(true);
+                        }}
                         style={{
                           width: '100%',
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 8,
-                          color: '#fff',
+                          color: isBE ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : (parseFloat(manualPnL) < 0 ? '#ff453a' : '#ff9f0a'))),
                           fontFamily: 'var(--font)',
                           fontSize: 12,
                           padding: '8px 10px',
@@ -1277,6 +1273,27 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                           boxSizing: 'border-box'
                         }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsBE(!isBE);
+                          if (!isBE) setManualPnL('0');
+                          else setManualPnL('');
+                        }}
+                        style={{
+                          padding: '0 16px',
+                          borderRadius: 8,
+                          border: isBE ? '1px solid rgba(255,159,10,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                          background: isBE ? 'rgba(255,159,10,0.1)' : 'rgba(255,255,255,0.04)',
+                          color: isBE ? '#ff9f0a' : '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        BE
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -98,14 +98,11 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
   const [model, setModel] = useState('');
-  const [playbookTags] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('playbookTags') || 'null') || []; }
-    catch { return []; }
-  });
+  const [playbookTags, setPlaybookTags] = useState([]);
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
-  const [rr, setRr] = useState(2);
   const [manualPnL, setManualPnL] = useState('');
+  const [isBE, setIsBE] = useState(false);
 
   // Form State Page 2: Reflections & Mistakes
   const [reflections, setReflections] = useState('');
@@ -129,6 +126,11 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   // Reset form states on modal open
   useEffect(() => {
     if (isOpen) {
+      try {
+        setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
+      } catch {
+        setPlaybookTags([]);
+      }
       setActiveTab('execution');
       setName('');
       setDate(new Date().toISOString().split('T')[0]);
@@ -158,12 +160,12 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       setCustomSymbol('');
       setShowCustomSymbolInput(false);
       setPo3Time('');
-      setModel('');
       setEntryTf('');
+      setModel('');
       setOutcome('Win');
       setBias('LONG');
-      setRr(2);
       setManualPnL('');
+      setIsBE(false);
       setReflections('');
       setSelectedMistakes([]);
       setCustomMistake('');
@@ -416,19 +418,20 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       else if (finalSymbol === 'CL') entryPrice = 80;
       else if (finalSymbol === 'EURUSD') entryPrice = 1.08;
 
-      let pnlVal = parseFloat(manualPnL);
-      if (isNaN(pnlVal)) {
+      let pnlVal = isBE ? 0 : parseFloat(manualPnL);
+      if (isNaN(pnlVal) && !isBE) {
         // Calculate based on outcome
         const baseRisk = 300;
         const lowOutcome = outcome.toLowerCase();
         if (lowOutcome.includes('win')) {
-          pnlVal = baseRisk * rr;
+          pnlVal = baseRisk * 2; // Default 2R since rr is removed
         } else if (lowOutcome.includes('loss')) {
           pnlVal = -baseRisk;
         } else {
           pnlVal = 0;
         }
       }
+
 
       // Determine target account IDs
       let targetAccountIds = [];
@@ -465,8 +468,8 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             status: 'CLOSED',
             confluences: selectedConfluences,
             setupRating: rating.toUpperCase(),
-            wl: outcome,
-            rr: parseFloat(rr) || 0,
+            wl: isBE ? 'BE' : outcome,
+            rr: 0,
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -1200,30 +1203,48 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                       </div>
                     </div>
 
-                    {/* R-Multiple & Manual P&L */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    {/* PNL & BE */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                       <div>
-                        <label style={styles.label}>r-multiple</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="50"
-                          step="0.1"
-                          placeholder="e.g. 2.5"
-                          value={rr}
-                          onChange={e => setRr(parseFloat(e.target.value) || 0)}
-                          style={styles.input}
-                        />
-                      </div>
-                      <div>
-                        <label style={styles.label}>manual p&l ($)</label>
-                        <input
-                          type="number"
-                          placeholder="optional override"
-                          value={manualPnL}
-                          onChange={e => setManualPnL(e.target.value)}
-                          style={styles.input}
-                        />
+                        <label style={styles.label}>PNL</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type="number"
+                            placeholder="optional override"
+                            value={manualPnL}
+                            onChange={e => {
+                              setManualPnL(e.target.value);
+                              if (e.target.value !== '' && parseFloat(e.target.value) !== 0) setIsBE(false);
+                              if (parseFloat(e.target.value) === 0) setIsBE(true);
+                            }}
+                            style={{ 
+                              ...styles.input, 
+                              flex: 1, 
+                              color: isBE ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : (parseFloat(manualPnL) < 0 ? '#ff453a' : '#ff9f0a')))
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsBE(!isBE);
+                              if (!isBE) setManualPnL('0');
+                              else setManualPnL('');
+                            }}
+                            style={{
+                              padding: '0 16px',
+                              borderRadius: '8px',
+                              border: isBE ? '1px solid rgba(255,159,10,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                              background: isBE ? 'rgba(255,159,10,0.1)' : 'rgba(255,255,255,0.04)',
+                              color: isBE ? '#ff9f0a' : '#fff',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            BE
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

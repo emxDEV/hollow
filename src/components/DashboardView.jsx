@@ -2061,7 +2061,10 @@ export default function DashboardView({
                       let border = '1px solid rgba(255, 255, 255, 0.03)';
                       
                       if (hasTrades) {
-                        if (isGain) {
+                        if (day.netPnL === 0) {
+                          bg = isHovered ? 'rgba(255, 159, 10, 0.22)' : 'rgba(255, 159, 10, 0.12)';
+                          border = '1px solid rgba(255, 159, 10, 0.25)';
+                        } else if (isGain) {
                           bg = isHovered ? 'rgba(40, 199, 111, 0.22)' : 'rgba(40, 199, 111, 0.12)';
                           border = '1px solid rgba(40, 199, 111, 0.25)';
                         } else {
@@ -2069,6 +2072,7 @@ export default function DashboardView({
                           border = '1px solid rgba(234, 84, 85, 0.25)';
                         }
                       }
+
 
                       return (
                         <div

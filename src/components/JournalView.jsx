@@ -1429,10 +1429,7 @@ export default function JournalView() {
                             <span style={{ color: 'rgba(255,255,255,0.45)' }}>Ticker</span>
                             <span style={{ color: '#fff', fontWeight: '500' }}>{trade.symbol}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
-                            <span style={{ color: 'rgba(255,255,255,0.45)' }}>Contracts</span>
-                            <span style={{ color: '#fff', fontWeight: '500' }}>{pnlData.contracts ?? '—'}</span>
-                          </div>
+
                           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
                             <span style={{ color: 'rgba(255,255,255,0.45)' }}>Gross PnL</span>
                             <span style={{ color: pnlData.grossPnL >= 0 ? '#30d158' : '#ff453a', fontWeight: '600' }}>
