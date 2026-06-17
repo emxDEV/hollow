@@ -31,7 +31,7 @@ function sanitizeForSupabase(tableName, obj) {
   }
   if (tableName === 'trades') {
     // Exclude local-only properties not in Supabase schema
-    const { dol, po3, po3Time, entryTf, rr, sl, tp, manualPnL, wl, rating, problems, problemInput, commentExecution, commentFazit, ...rest } = obj;
+    const { dol, po3, po3Time, entryTf, rr, sl, tp, manualPnL, wl, rating, problems, problemInput, commentExecution, commentFazit, session, ...rest } = obj;
     return rest;
   }
   return obj;
