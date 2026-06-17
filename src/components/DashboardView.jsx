@@ -649,20 +649,21 @@ export default function DashboardView({
   // Average Win and Average Loss calculators
   const avgWin = useMemo(() => {
     const wins = filteredAccountTrades.filter(t => t.netPnL > 0);
-    if (wins.length === 0) return 951; 
+    if (wins.length === 0) return 0; 
     return Math.round(wins.reduce((sum, t) => sum + t.netPnL, 0) / wins.length);
   }, [filteredAccountTrades]);
 
   const avgLoss = useMemo(() => {
     const losses = filteredAccountTrades.filter(t => t.netPnL < 0);
-    if (losses.length === 0) return 322; 
+    if (losses.length === 0) return 0; 
     return Math.round(Math.abs(losses.reduce((sum, t) => sum + t.netPnL, 0) / losses.length));
   }, [filteredAccountTrades]);
 
   const avgWinLossRatio = useMemo(() => {
-    if (avgLoss === 0) return 2.95;
+    if (filteredAccountTrades.length === 0) return '0.00';
+    if (avgLoss === 0) return avgWin > 0 ? avgWin.toFixed(2) : '0.00';
     return (avgWin / avgLoss).toFixed(2);
-  }, [avgWin, avgLoss]);
+  }, [avgWin, avgLoss, filteredAccountTrades]);
 
   // Discipline Rate (clean trades without mistakes)
   const cleanTradesCount = useMemo(() => {
@@ -670,7 +671,7 @@ export default function DashboardView({
   }, [filteredAccountTrades]);
 
   const disciplineRate = useMemo(() => {
-    if (filteredAccountTrades.length === 0) return 85; 
+    if (filteredAccountTrades.length === 0) return 0; 
     return Math.round((cleanTradesCount / filteredAccountTrades.length) * 100);
   }, [filteredAccountTrades, cleanTradesCount]);
 
@@ -681,21 +682,22 @@ export default function DashboardView({
     const dispWeight = disciplineRate * 0.3;
     const score = wrWeight + pfWeight + dispWeight;
     
-    if (filteredAccountTrades.length === 0) return 82.61; 
+    if (filteredAccountTrades.length === 0) return 0; 
     return Math.min(Number(score.toFixed(2)), 100);
   }, [stats, disciplineRate, filteredAccountTrades]);
 
   // Hollow Score Radar Chart Data
   const radarData = useMemo(() => {
+    const hasTrades = filteredAccountTrades.length > 0;
     return [
-      { subject: 'Consistency', A: disciplineRate, fullMark: 100 },
-      { subject: 'Win %', A: Math.round(stats.winRate), fullMark: 100 },
-      { subject: 'Profit factor', A: Math.round(Math.min(stats.profitFactor * 35, 100)), fullMark: 100 },
-      { subject: 'Avg win/loss', A: Math.round(Math.min((avgWin / (avgLoss || 1)) * 25, 100)), fullMark: 100 },
-      { subject: 'Recovery factor', A: Math.round(Math.min(stats.profitFactor * 30, 100)), fullMark: 100 },
-      { subject: 'Max drawdown', A: 85, fullMark: 100 }
+      { subject: 'Consistency', A: hasTrades ? disciplineRate : 0, fullMark: 100 },
+      { subject: 'Win %', A: hasTrades ? Math.round(stats.winRate) : 0, fullMark: 100 },
+      { subject: 'Profit factor', A: hasTrades ? Math.round(Math.min(stats.profitFactor * 35, 100)) : 0, fullMark: 100 },
+      { subject: 'Avg win/loss', A: hasTrades ? Math.round(Math.min((avgWin / (avgLoss || 1)) * 25, 100)) : 0, fullMark: 100 },
+      { subject: 'Recovery factor', A: hasTrades ? Math.round(Math.min(stats.profitFactor * 30, 100)) : 0, fullMark: 100 },
+      { subject: 'Max drawdown', A: hasTrades ? 85 : 0, fullMark: 100 }
     ];
-  }, [stats, disciplineRate, avgWin, avgLoss]);
+  }, [stats, disciplineRate, avgWin, avgLoss, filteredAccountTrades]);
 
   // Calendar daily calculations — dynamic month/year (Mon-Sat, Sunday skipped)
   const calendarDays = useMemo(() => {
@@ -782,32 +784,23 @@ export default function DashboardView({
           pnlSum += dayTrades.reduce((sum, t) => sum + t.netPnL, 0);
         }
       }
-      const mockPnLs = [0, 1050, 1610, 1980, 488, 0];
-      const mockDays = [0, 1, 4, 5, 3, 0];
-      const isDefaultMonth = calendarYear === 2024 && calendarMonth === 5;
-      const hasFiltersActive = filterSymbol || filterBias || (filterOutcome && filterOutcome !== 'all') || (filterModel && filterModel !== 'all') || (filterMistake && filterMistake !== 'all') || (filterDatePreset && filterDatePreset !== 'all');
       weeks.push({
         name: `Week ${row + 1}`,
-        pnl: hasTrades ? pnlSum : (isDefaultMonth && !hasFiltersActive ? mockPnLs[row] : 0),
-        daysCount: hasTrades ? activeDays : (isDefaultMonth && !hasFiltersActive ? mockDays[row] : 0)
+        pnl: hasTrades ? pnlSum : 0,
+        daysCount: hasTrades ? activeDays : 0
       });
       day += 6;
     }
     return weeks;
-  }, [filteredAccountTrades, calendarYear, calendarMonth, filterSymbol, filterBias, filterOutcome, filterModel, filterMistake, filterDatePreset]);
+  }, [filteredAccountTrades, calendarYear, calendarMonth]);
 
   // Dynamic monthly statistics for calendar header pill
   const calendarMonthlyStats = useMemo(() => {
     const monthTrades = filteredAccountTrades.filter(t => t.date.startsWith(calendarPrefix));
     const totalPnL = monthTrades.reduce((sum, t) => sum + t.netPnL, 0);
     const activeDaysCount = new Set(monthTrades.map(t => t.date)).size;
-    const isDefaultMonth = calendarYear === 2024 && calendarMonth === 5;
-    const hasFiltersActive = filterSymbol || filterBias || (filterOutcome && filterOutcome !== 'all') || (filterModel && filterModel !== 'all') || (filterMistake && filterMistake !== 'all') || (filterDatePreset && filterDatePreset !== 'all');
-    if (monthTrades.length === 0 && isDefaultMonth && !hasFiltersActive) {
-      return { pnl: 5130, days: 13 };
-    }
     return { pnl: totalPnL, days: activeDaysCount };
-  }, [filteredAccountTrades, calendarPrefix, calendarYear, calendarMonth, filterSymbol, filterBias, filterOutcome, filterModel, filterMistake, filterDatePreset]);
+  }, [filteredAccountTrades, calendarPrefix]);
 
   // Notifications — data-driven alerts derived from trade data
   const notifications = useMemo(() => {
@@ -860,27 +853,29 @@ export default function DashboardView({
     return items.slice(0, 5);
   }, [filteredAccountTrades, selectedAccount, stats]);
 
-  // Double Area Chart Data matching the mockup exactly
-  const mockupTrendData = [
-    { day: 'Monday', wins: 800, losses: 430 },
-    { day: 'Tuesday', wins: 750, losses: 260 },
-    { day: 'Wednesday', wins: 350, losses: 700 },
-    { day: 'Thursday', wins: 150, losses: 80 },
-    { day: 'Friday', wins: 750, losses: 280 },
-    { day: 'Saturday', wins: 850, losses: 220 },
-    { day: 'Sunday', wins: 200, losses: 500 }
-  ];
+  // Double Area Chart Data calculated from actual trade wins/losses by weekday
+  const pnlTrendData = useMemo(() => {
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const data = daysOfWeek.map(day => ({ day, wins: 0, losses: 0 }));
+    
+    filteredAccountTrades.forEach(t => {
+      if (!t.date) return;
+      const dObj = new Date(t.date);
+      const wDay = dObj.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      if (t.netPnL > 0) {
+        data[wDay].wins += t.netPnL;
+      } else if (t.netPnL < 0) {
+        data[wDay].losses += Math.abs(t.netPnL);
+      }
+    });
+    
+    // Shift so Monday is the first index, Sunday is the last
+    const mondayFirst = [...data.slice(1), data[0]];
+    return mondayFirst;
+  }, [filteredAccountTrades]);
 
   // Recent closed trades
   const recentClosedTrades = useMemo(() => {
-    if (filteredAccountTrades.length === 0) {
-      return [
-        { id: 'mock-1', symbol: 'NQ', bias: 'LONG', model: 'Opening Range Breakout', netPnL: 825, date: '2024-06-24' },
-        { id: 'mock-2', symbol: 'ES', bias: 'LONG', model: 'Volume Profile POC', netPnL: 900, date: '2024-06-25' },
-        { id: 'mock-3', symbol: 'NQ', bias: 'SHORT', model: 'Opening Range Breakout', netPnL: -37.5, date: '2024-06-26' },
-        { id: 'mock-4', symbol: 'ES', bias: 'LONG', model: 'Opening Range Breakout', netPnL: -300, date: '2024-06-25' }
-      ];
-    }
     return [...filteredAccountTrades]
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 4);
@@ -912,16 +907,21 @@ export default function DashboardView({
     }
   };
 
-  const profitFactorRingData = [
-    { name: 'Wins', value: winsCount || 14, fill: 'var(--colors-gain)' },
-    { name: 'Losses', value: lossesCount || 19, fill: 'var(--colors-loss)' }
-  ];
+  const hasTrades = tradesWithCalculations.length > 0;
+  const profitFactorRingData = hasTrades 
+    ? [
+        { name: 'Wins', value: winsCount, fill: 'var(--colors-gain)' },
+        { name: 'Losses', value: lossesCount, fill: 'var(--colors-loss)' }
+      ]
+    : [{ name: 'Empty', value: 1, fill: 'rgba(255, 255, 255, 0.05)' }];
 
-  const winRateGaugeData = [
-    { name: 'Wins', value: tradesWithCalculations.length > 0 ? winsCount : 14, fill: 'var(--colors-gain)' },
-    { name: 'Break-evens', value: tradesWithCalculations.length > 0 ? breakEvenCount : 2, fill: 'var(--colors-stone)' },
-    { name: 'Losses', value: tradesWithCalculations.length > 0 ? lossesCount : 19, fill: 'var(--colors-loss)' }
-  ];
+  const winRateGaugeData = hasTrades
+    ? [
+        { name: 'Wins', value: winsCount, fill: 'var(--colors-gain)' },
+        { name: 'Break-evens', value: breakEvenCount, fill: 'var(--colors-stone)' },
+        { name: 'Losses', value: lossesCount, fill: 'var(--colors-loss)' }
+      ]
+    : [{ name: 'Empty', value: 1, fill: 'rgba(255, 255, 255, 0.05)' }];
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -1513,7 +1513,7 @@ export default function DashboardView({
                     fontWeight: 'bold',
                     marginLeft: '2px'
                   }}>
-                    {accountTrades.length || 35}
+                    {accountTrades.length}
                   </span>
                 </div>
                 <div style={{ 
@@ -1523,11 +1523,7 @@ export default function DashboardView({
                   marginTop: '2px',
                   fontFamily: 'var(--font-heading)'
                 }}>
-                  {tradesWithCalculations.length > 0 ? (
-                    `$${Math.round(stats.totalNetPnL).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                  ) : (
-                    '$7,183.75'
-                  )}
+                  {`$${Math.round(stats.totalNetPnL).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                 </div>
               </div>
             </div>
@@ -1562,7 +1558,7 @@ export default function DashboardView({
                   <span>Profit factor</span>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '2px', fontFamily: 'var(--font-heading)' }}>
-                  {tradesWithCalculations.length > 0 ? stats.profitFactor.toFixed(2) : '2.17'}
+                  {stats.profitFactor.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -1619,11 +1615,11 @@ export default function DashboardView({
                   <span>Trade win %</span>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '2px', fontFamily: 'var(--font-heading)' }}>
-                  {tradesWithCalculations.length > 0 ? `${stats.winRate.toFixed(2)}%` : '42.42%'}
+                  {tradesWithCalculations.length > 0 ? `${stats.winRate.toFixed(2)}%` : '0.00%'}
                 </div>
               </div>
             </div>
-
+ 
             <div style={{ width: '66px', height: '40px', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '44px', height: '24px', marginTop: '-6px' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -1658,7 +1654,7 @@ export default function DashboardView({
                   alignItems: 'center',
                   justifyContent: 'center'
                 }} title="Wins">
-                  {tradesWithCalculations.length > 0 ? winsCount : 14}
+                  {winsCount}
                 </div>
                 <div style={{
                   width: '14px',
@@ -1671,7 +1667,7 @@ export default function DashboardView({
                   alignItems: 'center',
                   justifyContent: 'center'
                 }} title="Break-Evens">
-                  {tradesWithCalculations.length > 0 ? breakEvenCount : 2}
+                  {breakEvenCount}
                 </div>
                 <div style={{
                   width: '14px',
@@ -1684,12 +1680,12 @@ export default function DashboardView({
                   alignItems: 'center',
                   justifyContent: 'center'
                 }} title="Losses">
-                  {tradesWithCalculations.length > 0 ? lossesCount : 19}
+                  {lossesCount}
                 </div>
               </div>
             </div>
           </div>
-
+ 
           {/* Widget 4: Avg Win/Loss */}
           <div className="hollow-card" style={{
             display: 'flex',
@@ -1723,13 +1719,13 @@ export default function DashboardView({
                 </div>
               </div>
             </div>
-
+ 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '70px' }}>
               <div style={{ display: 'flex', width: '100%', height: '5px', borderRadius: '3px', overflow: 'hidden', background: '#ea5455', position: 'relative' }}>
-                <div style={{ width: '70%', background: '#28c76f', height: '100%' }} />
+                <div style={{ width: `${tradesWithCalculations.length > 0 ? (avgWin / (avgWin + avgLoss || 1)) * 100 : 50}%`, background: '#28c76f', height: '100%' }} />
                 <div style={{
                   position: 'absolute',
-                  left: '70%',
+                  left: `${tradesWithCalculations.length > 0 ? (avgWin / (avgWin + avgLoss || 1)) * 100 : 50}%`,
                   top: '0',
                   width: '2px',
                   height: '5px',
@@ -1737,8 +1733,8 @@ export default function DashboardView({
                 }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', fontWeight: '800' }}>
-                <span style={{ color: '#28c76f' }}>${tradesWithCalculations.length > 0 ? avgWin : 951}</span>
-                <span style={{ color: '#ea5455' }}>-${tradesWithCalculations.length > 0 ? avgLoss : 322}</span>
+                <span style={{ color: '#28c76f' }}>${avgWin}</span>
+                <span style={{ color: '#ea5455' }}>-${avgLoss}</span>
               </div>
             </div>
           </div>
@@ -2309,7 +2305,7 @@ export default function DashboardView({
               {/* Exact Double Area Chart matching mockup */}
               <div style={{ width: '100%', height: '150px' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockupTrendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+                  <AreaChart data={pnlTrendData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorWins" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#28c76f" stopOpacity={0.25} />

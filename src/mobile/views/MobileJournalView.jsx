@@ -48,12 +48,12 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
   // Compute week ID from selectedDate
   const selectedWeekId = useMemo(() => {
     const d = new Date(selectedDate);
-    if (isNaN(d.getTime())) return '2024-W25';
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-    return `${d.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    const dateToUse = isNaN(d.getTime()) ? new Date() : d;
+    dateToUse.setHours(0, 0, 0, 0);
+    dateToUse.setDate(dateToUse.getDate() + 4 - (dateToUse.getDay() || 7));
+    const yearStart = new Date(dateToUse.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((dateToUse - yearStart) / 86400000) + 1) / 7);
+    return `${dateToUse.getFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
   }, [selectedDate]);
 
   const dailyLog = useLiveQuery(() => db.dailyJournals.get(selectedDate), [selectedDate]);

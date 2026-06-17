@@ -183,12 +183,6 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
       }
     });
 
-    // Fallback/Ensure active mock weeks are present
-    weeksSet.add('2024-W23');
-    weeksSet.add('2024-W24');
-    weeksSet.add('2024-W25');
-    weeksSet.add('2024-W26');
-
     // Convert to list, sort descending
     const sorted = Array.from(weeksSet).sort().reverse();
     

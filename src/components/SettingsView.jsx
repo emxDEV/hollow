@@ -2791,6 +2791,36 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                     <span>Sign Out</span>
                     <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
                   </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('WARNING: Are you sure you want to delete your profile account and permanently wipe all data? This will erase all local and cloud data. This action cannot be undone.')) {
+                        const { clearDatabaseAndCloud } = await import('../db/hollowDb');
+                        const { supabase } = await import('../db/supabaseClient');
+                        await clearDatabaseAndCloud();
+                        await supabase.auth.signOut();
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'none',
+                      border: 'none',
+                      padding: '14px 16px',
+                      color: '#ff453a',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      outline: 'none',
+                      borderTop: '1px solid rgba(255,255,255,0.06)'
+                    }}
+                  >
+                    <span>Delete Account & Data</span>
+                    <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+                  </button>
                 </div>
 
                 {/* Brand footer */}
