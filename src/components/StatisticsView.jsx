@@ -6,10 +6,8 @@ import {
 import {
   Award, Compass, ShieldAlert, Zap, TrendingUp, TrendingDown,
   Clock, Activity, AlertCircle, Calendar, Sparkles, CheckCircle,
-  Camera, RotateCw, Download, ChevronDown, ChevronUp, PieChart, RefreshCw, BarChart2, Target, DollarSign, Hash, Percent, ArrowUpRight, ArrowDownRight, Filter, Crosshair, HelpCircle, FileText, Smartphone, Tablet, Monitor
+  Camera, RotateCw, Download
 } from 'lucide-react';
-import HollowSelect from './HollowSelect';
-import { exportToPDF } from '../utils/pdfExport';
 import { calculateTradePnL, isTradeBE, isTradeWinRateEligible } from '../utils/tradeMath';
 import useUIStore from '../store/useUIStore';
 
