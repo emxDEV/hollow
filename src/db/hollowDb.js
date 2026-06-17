@@ -30,9 +30,28 @@ function sanitizeForSupabase(tableName, obj) {
     return cleaned;
   }
   if (tableName === 'trades') {
-    // Exclude local-only properties not in Supabase schema
-    const { dol, po3, po3Time, entryTf, rr, sl, tp, manualPnL, wl, rating, problems, problemInput, commentExecution, commentFazit, session, ...rest } = obj;
-    return rest;
+    // Exclude local-only properties not in Supabase schema, but pack them into commentFazit
+    const {
+      dol, po3, po3Time, entryTf, rr, sl, tp, manualPnL, wl, rating, problems, problemInput, session,
+      commentExecution, commentFazit,
+      ...rest
+    } = obj;
+
+    const meta = {};
+    const metaKeys = ['dol', 'po3', 'po3Time', 'entryTf', 'rr', 'sl', 'tp', 'manualPnL', 'wl', 'rating', 'problems', 'problemInput', 'session'];
+    metaKeys.forEach(k => {
+      if (obj[k] !== undefined) meta[k] = obj[k];
+    });
+
+    const originalFazit = commentFazit || '';
+    const serializedMeta = JSON.stringify(meta);
+    const updatedFazit = `${originalFazit}\n\n__HOLLOW_META__:${serializedMeta}`;
+
+    return {
+      ...rest,
+      commentExecution: commentExecution || '',
+      commentFazit: updatedFazit
+    };
   }
   return obj;
 }
@@ -266,6 +285,22 @@ export function unprefixRecord(obj, userId, tableName) {
   } else if (tableName === 'trades') {
     clean.id = strip(clean.id);
     clean.accountId = strip(clean.accountId);
+    
+    // Unpack metadata from commentFazit if present
+    if (clean.commentFazit && typeof clean.commentFazit === 'string') {
+      const parts = clean.commentFazit.split('\n\n__HOLLOW_META__:');
+      if (parts.length > 1) {
+        const originalFazit = parts[0];
+        const serializedMeta = parts[1];
+        try {
+          const meta = JSON.parse(serializedMeta);
+          Object.assign(clean, meta);
+        } catch (e) {
+          console.error("Failed to parse hollow metadata:", e);
+        }
+        clean.commentFazit = originalFazit;
+      }
+    }
   } else if (tableName === 'executions') {
     clean.id = strip(clean.id);
     clean.tradeId = strip(clean.tradeId);

@@ -84,6 +84,7 @@ export default function TradeDetailDrawer({
     if (trade) {
       setName(trade.commentBias || ''); // commentBias holds name inside Add Trade system
       setDate(trade.date || '');
+      setAccountId(trade.accountId || '');
       
       const loadedSymbol = trade.symbol || '';
       if (symbols.includes(loadedSymbol) && loadedSymbol !== 'CUSTOM') {
