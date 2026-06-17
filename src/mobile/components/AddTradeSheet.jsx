@@ -96,6 +96,10 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
   const [model, setModel] = useState('');
+  const [playbookTags] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('playbookTags') || 'null') || []; }
+    catch { return []; }
+  });
   const [dol, setDol] = useState('');
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
@@ -1116,27 +1120,69 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                     )}
                   </div>
 
-                  {/* Model */}
+                  {/* Model — playbook pill selector */}
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>model</div>
-                    <input
-                      type="text"
-                      placeholder="e.g. fvg retest"
-                      value={model}
-                      onChange={e => setModel(e.target.value)}
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 8,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 12,
-                        padding: '8px 10px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 6 }}>model</div>
+                    {playbookTags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: (!playbookTags.includes(model) && model) ? 6 : 0 }}>
+                        {playbookTags.map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setModel(model === tag ? '' : tag)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 20,
+                              border: model === tag ? '1px solid rgba(255,255,255,0.55)' : '1px solid rgba(255,255,255,0.1)',
+                              background: model === tag ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                              color: model === tag ? '#fff' : 'rgba(255,255,255,0.45)',
+                              fontSize: 11,
+                              fontWeight: model === tag ? 700 : 500,
+                              cursor: 'pointer',
+                              letterSpacing: '-0.01em',
+                              transition: 'all 0.15s ease',
+                              fontFamily: 'var(--font)',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 20,
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            background: 'transparent',
+                            color: 'rgba(255,255,255,0.28)',
+                            fontSize: 11,
+                            cursor: 'text',
+                            fontFamily: 'var(--font)',
+                          }}
+                        >custom</button>
+                      </div>
+                    )}
+                    {(!playbookTags.includes(model) || playbookTags.length === 0) && (
+                      <input
+                        type="text"
+                        placeholder={playbookTags.length > 0 ? 'or type a custom model…' : 'e.g. fvg retest'}
+                        value={playbookTags.includes(model) ? '' : model}
+                        onChange={e => setModel(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 8,
+                          color: '#fff',
+                          fontFamily: 'var(--font)',
+                          fontSize: 12,
+                          padding: '8px 10px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    )}
                   </div>
 
                   {/* PO3 Time & Entry TF */}

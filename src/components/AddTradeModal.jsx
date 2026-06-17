@@ -98,6 +98,10 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   const [po3Time, setPo3Time] = useState('');
   const [entryTf, setEntryTf] = useState('');
   const [model, setModel] = useState('');
+  const [playbookTags] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('playbookTags') || 'null') || []; }
+    catch { return []; }
+  });
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
   const [rr, setRr] = useState(2);
@@ -1114,16 +1118,62 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                       )}
                     </div>
 
-                    {/* Model */}
+                    {/* Model — playbook pill selector */}
                     <div>
                       <label style={styles.label}>model</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. fvg retest"
-                        value={model}
-                        onChange={e => setModel(e.target.value)}
-                        style={styles.input}
-                      />
+                      {playbookTags.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: model && !playbookTags.includes(model) ? '8px' : 0 }}>
+                          {playbookTags.map(tag => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => setModel(model === tag ? '' : tag)}
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '20px',
+                                border: model === tag ? '1px solid rgba(255,255,255,0.6)' : '1px solid rgba(255,255,255,0.12)',
+                                background: model === tag ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                                color: model === tag ? '#fff' : 'rgba(255,255,255,0.5)',
+                                fontSize: '11px',
+                                fontWeight: model === tag ? 700 : 500,
+                                cursor: 'pointer',
+                                letterSpacing: '-0.01em',
+                                transition: 'all 0.15s ease',
+                                fontFamily: 'var(--font-body)',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setModel(playbookTags.includes(model) ? '' : model)}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: '20px',
+                              border: !playbookTags.includes(model) && model ? '1px solid rgba(255,255,255,0.6)' : '1px solid rgba(255,255,255,0.08)',
+                              background: !playbookTags.includes(model) && model ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              color: 'rgba(255,255,255,0.35)',
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              cursor: 'text',
+                              fontFamily: 'var(--font-body)',
+                            }}
+                          >
+                            custom
+                          </button>
+                        </div>
+                      ) : null}
+                      {(!playbookTags.includes(model) || playbookTags.length === 0) && (
+                        <input
+                          type="text"
+                          placeholder={playbookTags.length > 0 ? 'or type a custom model…' : 'e.g. fvg retest'}
+                          value={playbookTags.includes(model) ? '' : model}
+                          onChange={e => setModel(e.target.value)}
+                          style={{ ...styles.input, marginTop: playbookTags.length > 0 ? '6px' : 0 }}
+                        />
+                      )}
                     </div>
 
                     {/* PO3 Time & Entry TF */}
