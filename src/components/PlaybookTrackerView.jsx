@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Compass, Award } from 'lucide-react';
-import { calculateTradePnL } from '../utils/tradeMath';
+import { ChevronRight, Filter, ChevronDown, Check, Activity, Target, Zap, Clock, TrendingUp, Search } from 'lucide-react';
+import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
+import HollowSelect from './HollowSelect';
 
 export default function PlaybookTrackerView({ trades, executions, selectedAccountId }) {
   
@@ -36,10 +38,13 @@ export default function PlaybookTrackerView({ trades, executions, selectedAccoun
       });
       groups[modelName].totalPnL += netPnL;
       
-      if (netPnL > 0) {
-        groups[modelName].wins++;
-      } else if (netPnL < 0) {
-        groups[modelName].losses++;
+      const virtualTrade = { ...trade, netPnL };
+      if (isTradeWinRateEligible(virtualTrade)) {
+        if (netPnL > 0) {
+          groups[modelName].wins++;
+        } else if (netPnL < 0) {
+          groups[modelName].losses++;
+        }
       }
     });
 
@@ -54,12 +59,12 @@ export default function PlaybookTrackerView({ trades, executions, selectedAccoun
         curve.push({ value: Math.round(runningSum) });
       });
 
-      const total = group.wins + group.losses;
-      const winRate = total > 0 ? (group.wins / total) * 100 : 0;
+      const eligibleTradesCount = group.wins + group.losses;
+      const winRate = eligibleTradesCount > 0 ? (group.wins / eligibleTradesCount) * 100 : 0;
 
       return {
         name: group.name,
-        totalTrades: total,
+        totalTrades: group.trades.length,
         wins: group.wins,
         losses: group.losses,
         winRate,
@@ -102,15 +107,20 @@ export default function PlaybookTrackerView({ trades, executions, selectedAccoun
         });
 
         let wins = 0;
+        let eligibleTrades = 0;
         relatedTrades.forEach(t => {
           const tExecs = executions.filter(e => e.tradeId === t.id);
           const { netPnL } = calculateTradePnL(t, tExecs);
-          if (netPnL > 0) wins++;
+          const virtualTrade = { ...t, netPnL };
+          if (isTradeWinRateEligible(virtualTrade)) {
+            eligibleTrades++;
+            if (netPnL > 0) wins++;
+          }
         });
 
         grid[model][session] = {
           tradesCount: relatedTrades.length,
-          winRate: relatedTrades.length > 0 ? Math.round((wins / relatedTrades.length) * 100) : null
+          winRate: eligibleTrades > 0 ? Math.round((wins / eligibleTrades) * 100) : null
         };
       });
     });

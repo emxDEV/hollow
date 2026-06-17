@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { showToast } from '../utils/toast';
 import HollowSelect from './HollowSelect';
 import HollowGroupedSelect from './HollowGroupedSelect';
-import { calculateTradePnL } from '../utils/tradeMath';
+import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import useUIStore from '../store/useUIStore';
@@ -649,16 +649,22 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     let totalPnL = 0;
     let wins = 0;
     let losses = 0;
+    let eligibleCount = 0;
     
     modelTrades.forEach(trade => {
       const tradeExecs = executions.filter(e => e.tradeId === trade.id);
       const math = calculateTradePnL(trade, tradeExecs);
       totalPnL += math.netPnL;
-      if (math.netPnL > 0) wins++;
-      else if (math.netPnL < 0) losses++;
+      
+      const virtualTrade = { ...trade, netPnL: math.netPnL };
+      if (isTradeWinRateEligible(virtualTrade)) {
+        eligibleCount++;
+        if (math.netPnL > 0) wins++;
+        else if (math.netPnL < 0) losses++;
+      }
     });
     
-    const winRate = modelTrades.length > 0 ? Math.round((wins / modelTrades.length) * 100) : 0;
+    const winRate = eligibleCount > 0 ? Math.round((wins / eligibleCount) * 100) : 0;
     
     return {
       tradesCount: modelTrades.length,

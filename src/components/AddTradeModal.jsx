@@ -1214,7 +1214,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                           onChange={e => setManualPnL(e.target.value)}
                           style={{ 
                             ...styles.input, 
-                            color: outcome === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
+                            color: (outcome || '').toLowerCase().includes('be') || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
                           }}
                         />
                       </div>

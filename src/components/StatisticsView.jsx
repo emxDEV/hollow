@@ -6,9 +6,11 @@ import {
 import {
   Award, Compass, ShieldAlert, Zap, TrendingUp, TrendingDown,
   Clock, Activity, AlertCircle, Calendar, Sparkles, CheckCircle,
-  Camera, RotateCw, Download
+  Camera, RotateCw, Download, ChevronDown, ChevronUp, PieChart, RefreshCw, BarChart2, Target, DollarSign, Hash, Percent, ArrowUpRight, ArrowDownRight, Filter, Crosshair, HelpCircle, FileText, Smartphone, Tablet, Monitor
 } from 'lucide-react';
-import { calculateTradePnL } from '../utils/tradeMath';
+import HollowSelect from './HollowSelect';
+import { exportToPDF } from '../utils/pdfExport';
+import { calculateTradePnL, isTradeBE, isTradeWinRateEligible } from '../utils/tradeMath';
 import useUIStore from '../store/useUIStore';
 
 
@@ -100,8 +102,10 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       const record = dailyMap[dateKey];
       record.netPnL += t.netPnL;
       record.tradesCount += 1;
-      if (t.netPnL > 0) {
-        record.winCount += 1;
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) {
+          record.winCount += 1;
+        }
       }
       if (t.netPnL > record.bestReturn) {
         record.bestReturn = t.netPnL;
@@ -140,8 +144,10 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       const record = weeklyMap[mondayKey];
       record.netPnL += t.netPnL;
       record.tradesCount += 1;
-      if (t.netPnL > 0) {
-        record.winCount += 1;
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) {
+          record.winCount += 1;
+        }
       }
       if (t.netPnL > record.bestReturn) {
         record.bestReturn = t.netPnL;
@@ -311,26 +317,30 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       totalCommissions += t.commissions;
       totalContracts += t.contracts;
 
-      if (t.netPnL > 0) {
-        winCount++;
-        totalWinPnL += t.netPnL;
-        if (t.netPnL > maxWin) maxWin = t.netPnL;
-        totalHoldTimeMs += t.holdTimeMs;
-        totalWinHoldTimeMs += t.holdTimeMs;
-      } else if (t.netPnL < 0) {
-        lossCount++;
-        totalLossPnL += Math.abs(t.netPnL);
-        if (t.netPnL < maxLoss) maxLoss = t.netPnL;
-        totalHoldTimeMs += t.holdTimeMs;
-        totalLossHoldTimeMs += t.holdTimeMs;
-      } else {
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) {
+          winCount++;
+          totalWinPnL += t.netPnL;
+          if (t.netPnL > maxWin) maxWin = t.netPnL;
+          totalHoldTimeMs += t.holdTimeMs;
+          totalWinHoldTimeMs += t.holdTimeMs;
+        } else if (t.netPnL < 0) {
+          lossCount++;
+          totalLossPnL += Math.abs(t.netPnL);
+          if (t.netPnL < maxLoss) maxLoss = t.netPnL;
+          totalHoldTimeMs += t.holdTimeMs;
+          totalLossHoldTimeMs += t.holdTimeMs;
+        }
+      }
+      
+      if (isTradeBE(t)) {
         beCount++;
       }
     });
 
-    const winRate = (winCount / totalTrades) * 100;
     const activeTradesCount = winCount + lossCount;
-    const activeWinRate = activeTradesCount > 0 ? (winCount / activeTradesCount) * 100 : 0;
+    const winRate = activeTradesCount > 0 ? (winCount / activeTradesCount) * 100 : 0;
+    const activeWinRate = winRate;
     const profitFactor = totalLossPnL > 0 ? (totalWinPnL / totalLossPnL) : (totalWinPnL > 0 ? 9.99 : 0);
     const expectancy = totalTrades > 0 ? (totalNetPnL / totalTrades) : 0;
 
@@ -475,12 +485,14 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       g.totalPnL += t.netPnL;
       g.totalHoldTimeMs += t.holdTimeMs;
 
-      if (t.netPnL > 0) {
-        g.wins++;
-        g.grossWins += t.netPnL;
-      } else if (t.netPnL < 0) {
-        g.losses++;
-        g.grossLosses += Math.abs(t.netPnL);
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) {
+          g.wins++;
+          g.grossWins += t.netPnL;
+        } else if (t.netPnL < 0) {
+          g.losses++;
+          g.grossLosses += Math.abs(t.netPnL);
+        }
       } else {
         g.be++;
       }
@@ -488,7 +500,8 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
 
     return Object.values(groups).map(g => {
       const totalTrades = g.trades.length;
-      const winRate = totalTrades > 0 ? (g.wins / totalTrades) * 100 : 0;
+      const eligibleTradesCount = g.wins + g.losses;
+      const winRate = eligibleTradesCount > 0 ? (g.wins / eligibleTradesCount) * 100 : 0;
       const activeTrades = g.wins + g.losses;
       const activeWinRate = activeTrades > 0 ? (g.wins / activeTrades) * 100 : 0;
       const profitFactor = g.grossLosses > 0 ? (g.grossWins / g.grossLosses) : (g.grossWins > 0 ? 9.99 : 0);
@@ -537,12 +550,14 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
         const stat = ratings[r];
         stat.count++;
         stat.pnl += t.netPnL;
-        if (t.netPnL > 0) {
-          stat.wins++;
-          stat.grossWins += t.netPnL;
-        } else if (t.netPnL < 0) {
-          stat.losses++;
-          stat.grossLosses += Math.abs(t.netPnL);
+        if (isTradeWinRateEligible(t)) {
+          if (t.netPnL > 0) {
+            stat.wins++;
+            stat.grossWins += t.netPnL;
+          } else if (t.netPnL < 0) {
+            stat.losses++;
+            stat.grossLosses += Math.abs(t.netPnL);
+          }
         } else {
           stat.be++;
         }
@@ -550,10 +565,11 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
     });
 
     return Object.values(ratings).map(stat => {
+      const eligibleTradesCount = stat.wins + stat.losses;
       const activeCount = stat.wins + stat.losses;
       return {
         ...stat,
-        winRate: stat.count > 0 ? (stat.wins / stat.count) * 100 : 0,
+        winRate: eligibleTradesCount > 0 ? (stat.wins / eligibleTradesCount) * 100 : 0,
         activeWinRate: activeCount > 0 ? (stat.wins / activeCount) * 100 : 0,
         profitFactor: stat.grossLosses > 0 ? (stat.grossWins / stat.grossLosses) : (stat.grossWins > 0 ? 9.99 : 0)
       };
@@ -620,8 +636,10 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       const cell = grid[model][session];
       cell.tradesCount++;
       cell.pnl += t.netPnL;
-      if (t.netPnL > 0) cell.wins++;
-      else if (t.netPnL < 0) cell.losses++;
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) cell.wins++;
+        else if (t.netPnL < 0) cell.losses++;
+      }
     });
 
     models.forEach(model => {
@@ -639,13 +657,13 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
   const dayOfWeekStats = useMemo(() => {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const days = {
-      'Sunday': { name: 'Sun', pnl: 0, trades: 0, wins: 0 },
-      'Monday': { name: 'Mon', pnl: 0, trades: 0, wins: 0 },
-      'Tuesday': { name: 'Tue', pnl: 0, trades: 0, wins: 0 },
-      'Wednesday': { name: 'Wed', pnl: 0, trades: 0, wins: 0 },
-      'Thursday': { name: 'Thu', pnl: 0, trades: 0, wins: 0 },
-      'Friday': { name: 'Fri', pnl: 0, trades: 0, wins: 0 },
-      'Saturday': { name: 'Sat', pnl: 0, trades: 0, wins: 0 }
+      'Sunday': { name: 'Sun', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Monday': { name: 'Mon', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Tuesday': { name: 'Tue', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Wednesday': { name: 'Wed', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Thursday': { name: 'Thu', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Friday': { name: 'Fri', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Saturday': { name: 'Sat', pnl: 0, trades: 0, wins: 0, losses: 0 }
     };
 
     tradeMetrics.forEach(t => {
@@ -656,24 +674,30 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       if (days[dayName]) {
         days[dayName].pnl += t.netPnL;
         days[dayName].trades++;
-        if (t.netPnL > 0) days[dayName].wins++;
+        if (isTradeWinRateEligible(t)) {
+          if (t.netPnL > 0) days[dayName].wins++;
+          else if (t.netPnL < 0) days[dayName].losses++;
+        }
       }
     });
 
     return Object.values(days)
       .filter(d => d.trades > 0 || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(d.name))
-      .map(d => ({
-        ...d,
-        winRate: d.trades > 0 ? Math.round((d.wins / d.trades) * 100) : 0,
-        pnl: Math.round(d.pnl)
-      }));
+      .map(d => {
+        const eligibleTrades = d.wins + d.losses;
+        return {
+          ...d,
+          winRate: eligibleTrades > 0 ? Math.round((d.wins / eligibleTrades) * 100) : 0,
+          pnl: Math.round(d.pnl)
+        };
+      });
   }, [tradeMetrics]);
 
   // 11. Hour of Day execution density
   const hourlyStats = useMemo(() => {
     const hoursMap = {};
     for (let i = 8; i <= 17; i++) {
-      hoursMap[i] = { hour: `${i}:00`, pnl: 0, tradesCount: 0, wins: 0 };
+      hoursMap[i] = { hour: `${i}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
     }
 
     tradeMetrics.forEach(t => {
@@ -683,11 +707,14 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
         if (!isNaN(date.getTime())) {
           const hr = date.getHours(); // Local hour
           if (!hoursMap[hr]) {
-            hoursMap[hr] = { hour: `${hr}:00`, pnl: 0, tradesCount: 0, wins: 0 };
+            hoursMap[hr] = { hour: `${hr}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
           }
           hoursMap[hr].pnl += t.netPnL;
           hoursMap[hr].tradesCount++;
-          if (t.netPnL > 0) hoursMap[hr].wins++;
+          if (isTradeWinRateEligible(t)) {
+            if (t.netPnL > 0) hoursMap[hr].wins++;
+            else if (t.netPnL < 0) hoursMap[hr].losses++;
+          }
         }
       }
     });
@@ -705,10 +732,10 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
   // 12. Hold Time Bucket calculations
   const holdTimeBuckets = useMemo(() => {
     const buckets = [
-      { name: 'Scalp (< 5m)', pnl: 0, count: 0, wins: 0 },
-      { name: 'Short Hold (5m-15m)', pnl: 0, count: 0, wins: 0 },
-      { name: 'Medium Hold (15m-1h)', pnl: 0, count: 0, wins: 0 },
-      { name: 'Long Hold (> 1h)', pnl: 0, count: 0, wins: 0 }
+      { label: 'Scalp (< 5m)', pnl: 0, count: 0, wins: 0, losses: 0 },
+      { label: 'Short Hold (5m-15m)', pnl: 0, count: 0, wins: 0, losses: 0 },
+      { label: 'Medium Hold (15m-1h)', pnl: 0, count: 0, wins: 0, losses: 0 },
+      { label: 'Long Hold (> 1h)', pnl: 0, count: 0, wins: 0, losses: 0 }
     ];
 
     tradeMetrics.forEach(t => {
@@ -723,14 +750,20 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
 
       b.pnl += t.netPnL;
       b.count++;
-      if (t.netPnL > 0) b.wins++;
+      if (isTradeWinRateEligible(t)) {
+        if (t.netPnL > 0) b.wins++;
+        else if (t.netPnL < 0) b.losses++;
+      }
     });
 
-    return buckets.map(b => ({
-      ...b,
-      winRate: b.count > 0 ? Math.round((b.wins / b.count) * 100) : 0,
-      pnl: Math.round(b.pnl)
-    }));
+    return buckets.map(b => {
+      const eligibleCount = b.wins + b.losses;
+      return {
+        ...b,
+        winRate: eligibleCount > 0 ? Math.round((b.wins / eligibleCount) * 100) : 0,
+        pnl: Math.round(b.pnl)
+      };
+    });
   }, [tradeMetrics]);
 
   // Helper calculations for Day of Week insights

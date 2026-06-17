@@ -31,6 +31,7 @@ export default function TradeDetailDrawer({
   const [date, setDate] = useState('');
   const [symbol, setSymbol] = useState('');
   const [customSymbol, setCustomSymbol] = useState('');
+  const [bias, setBias] = useState('LONG');
   const [rating, setRating] = useState('B');
   const [model, setModel] = useState('');
   const [playbookTags, setPlaybookTags] = useState([]);
@@ -804,7 +805,7 @@ export default function TradeDetailDrawer({
                     onChange={e => setManualPnL(e.target.value)} 
                     style={{ 
                       ...styles.textInput, 
-                      color: wl === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
+                      color: (wl || '').toLowerCase().includes('be') || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
                     }}
                   />
                 </div>

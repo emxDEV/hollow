@@ -3,7 +3,7 @@ import { useUIStore } from '../store/useUIStore';
 import HollowSelect from './HollowSelect';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/hollowDb';
-import { calculateTradePnL } from '../utils/tradeMath';
+import { calculateTradePnL, isTradeBE } from '../utils/tradeMath';
 import { getISOWeekId } from '../utils/dateUtils';
 import { 
   ClipboardList, 
@@ -1318,7 +1318,10 @@ export default function JournalView() {
                   const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
                   const pnlData = calculateTradePnL(trade, tradeExecs);
                   const realPnL = pnlData.netPnL || 0;
-                  const isGain = realPnL >= 0;
+                  const virtualTrade = { ...trade, netPnL: realPnL };
+                  const isBE = isTradeBE(virtualTrade);
+                  const isGain = !isBE && realPnL > 0;
+                  const isLoss = !isBE && realPnL < 0;
                   const accName = accounts.find(a => a.id === trade.accountId)?.name || 'Apex Funded #1 (50K)';
                   
                   // Map pre/post values to labels
@@ -1398,8 +1401,9 @@ export default function JournalView() {
                       <div style={{
                         background: isGain 
                           ? 'linear-gradient(135deg, rgba(48, 209, 88, 0.12) 0%, rgba(48, 209, 88, 0.03) 100%)' 
-                          : 'linear-gradient(135deg, rgba(255, 69, 58, 0.12) 0%, rgba(255, 69, 58, 0.03) 100%)',
-                        border: isGain ? '1px solid rgba(48, 209, 88, 0.2)' : '1px solid rgba(255, 69, 58, 0.2)',
+                          : isLoss ? 'linear-gradient(135deg, rgba(255, 69, 58, 0.12) 0%, rgba(255, 69, 58, 0.03) 100%)'
+                          : 'linear-gradient(135deg, rgba(255, 159, 10, 0.12) 0%, rgba(255, 159, 10, 0.03) 100%)',
+                        border: isGain ? '1px solid rgba(48, 209, 88, 0.2)' : isLoss ? '1px solid rgba(255, 69, 58, 0.2)' : '1px solid rgba(255, 159, 10, 0.2)',
                         borderRadius: '20px',
                         padding: '20px',
                         display: 'flex',
@@ -1409,11 +1413,11 @@ export default function JournalView() {
                         <div style={{ 
                           fontSize: '38px', 
                           fontWeight: '800', 
-                          color: isGain ? '#30d158' : '#ff453a',
+                          color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a',
                           letterSpacing: '-0.02em',
                           lineHeight: 1
                         }}>
-                          {isGain ? '+' : ''}${Math.round(realPnL).toLocaleString()}
+                          {!isBE && isGain ? '+' : ''}${Math.abs(realPnL).toFixed(2)}
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
@@ -1432,13 +1436,13 @@ export default function JournalView() {
 
                           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '6px' }}>
                             <span style={{ color: 'rgba(255,255,255,0.45)' }}>Gross PnL</span>
-                            <span style={{ color: pnlData.grossPnL >= 0 ? '#30d158' : '#ff453a', fontWeight: '600' }}>
-                              {pnlData.grossPnL >= 0 ? '+' : ''}${Math.round(pnlData.grossPnL || 0).toLocaleString()}
+                            <span style={{ color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a', fontWeight: '600' }}>
+                              {!isBE && pnlData.grossPnL > 0 ? '+' : ''}${Math.abs(pnlData.grossPnL || 0).toFixed(2)}
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: 'rgba(255,255,255,0.45)' }}>Setup Rating</span>
-                            <span style={{ color: isGain ? '#30d158' : '#ff453a', fontWeight: '700' }}>{trade.setupRating || '—'}</span>
+                            <span style={{ color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a', fontWeight: '700' }}>{trade.setupRating || '—'}</span>
                           </div>
                         </div>
                       </div>

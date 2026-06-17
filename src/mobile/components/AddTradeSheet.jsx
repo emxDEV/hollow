@@ -1262,7 +1262,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 8,
-                          color: outcome === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a')),
+                          color: (outcome || '').toLowerCase().includes('be') || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a')),
                           fontFamily: 'var(--font)',
                           fontSize: 12,
                           padding: '8px 10px',

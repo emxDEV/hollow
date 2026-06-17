@@ -43,7 +43,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { PropFirmBadge, PropFirmLogo } from './PropFirmBadge';
-import { calculateTradePnL, calculateAccountStatistics } from '../utils/tradeMath';
+import { calculateTradePnL, calculateAccountStatistics, isTradeWinRateEligible, isTradeBE } from '../utils/tradeMath';
 import { showToast } from '../utils/toast';
 import { getISOWeekId } from '../utils/dateUtils';
 import { db } from '../db/hollowDb';
@@ -638,13 +638,13 @@ export default function DashboardView({
   }, []);
 
   // Win/Loss metrics
-  const winsCount = useMemo(() => filteredAccountTrades.filter(t => t.netPnL > 0).length, [filteredAccountTrades]);
-  const lossesCount = useMemo(() => filteredAccountTrades.filter(t => t.netPnL < 0).length, [filteredAccountTrades]);
-  const breakEvenCount = useMemo(() => filteredAccountTrades.filter(t => t.netPnL === 0).length, [filteredAccountTrades]);
+  const winsCount = useMemo(() => filteredAccountTrades.filter(t => isTradeWinRateEligible(t) && t.netPnL > 0).length, [filteredAccountTrades]);
+  const lossesCount = useMemo(() => filteredAccountTrades.filter(t => isTradeWinRateEligible(t) && t.netPnL < 0).length, [filteredAccountTrades]);
+  const breakEvenCount = useMemo(() => filteredAccountTrades.filter(t => isTradeBE(t)).length, [filteredAccountTrades]);
 
   // Average Win and Average Loss calculators
   const avgWin = useMemo(() => {
-    const wins = filteredAccountTrades.filter(t => t.netPnL > 0);
+    const wins = filteredAccountTrades.filter(t => isTradeWinRateEligible(t) && t.netPnL > 0);
     if (wins.length === 0) return 0; 
     return Math.round(wins.reduce((sum, t) => sum + t.netPnL, 0) / wins.length);
   }, [filteredAccountTrades]);
@@ -724,10 +724,14 @@ export default function DashboardView({
     activeDays.forEach(day => {
       const dayTrades = filteredAccountTrades.filter(t => t.date === day.dateStr);
       const dayNetPnL = dayTrades.reduce((sum, t) => sum + t.netPnL, 0);
-      let winCount = 0;
-      dayTrades.forEach(t => { if (t.netPnL > 0) winCount++; });
-      const winPct = dayTrades.length > 0 ? Math.round((winCount / dayTrades.length) * 100) : 0;
+      
       const hasNotes = dayTrades.some(t => t.commentBias && t.commentBias.length > 0);
+      
+      // Calculate win rate for the day using eligible trades
+      const eligibleTrades = dayTrades.filter(t => isTradeWinRateEligible(t));
+      const wins = eligibleTrades.filter(t => t.netPnL > 0).length;
+      const winPct = eligibleTrades.length > 0 ? Math.round((wins / eligibleTrades.length) * 100) : 0;
+
       days.push({
         isPadding: false,
         dayNum: day.dayNum,
@@ -811,9 +815,10 @@ export default function DashboardView({
       }
     }
 
-    // Win streak (last 3+ trades all wins)
-    if (sorted.length >= 3 && sorted.slice(0, 3).every(t => t.netPnL > 0)) {
-      items.push({ id: 'streak', icon: '🔥', color: 'var(--colors-stone)', title: 'Win streak active', body: `Last ${Math.min(sorted.filter(t => t.netPnL > 0).length, 5)} trades all profitable`, time: sorted[0]?.date || '' });
+    // 1. Win Streak (3+ eligible profitable trades)
+    const eligibleSorted = sorted.filter(t => isTradeWinRateEligible(t));
+    if (eligibleSorted.length >= 3 && eligibleSorted.slice(0, 3).every(t => t.netPnL > 0)) {
+      items.push({ id: 'streak', icon: '🔥', color: 'var(--colors-stone)', title: 'Win streak active', body: `Last ${Math.min(eligibleSorted.filter(t => t.netPnL > 0).length, 5)} eligible trades all profitable`, time: sorted[0]?.date || '' });
     }
 
     // Daily drawdown warning — any day with loss > $500
@@ -855,7 +860,7 @@ export default function DashboardView({
     const data = daysOfWeek.map(day => ({ day, wins: 0, losses: 0 }));
     
     filteredAccountTrades.forEach(t => {
-      if (!t.date) return;
+      if (!t.date || !isTradeWinRateEligible(t)) return;
       const dObj = new Date(t.date);
       const wDay = dObj.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
       if (t.netPnL > 0) {
@@ -2054,14 +2059,21 @@ export default function DashboardView({
                       }
 
                       const hasTrades = day.tradesCount > 0;
-                      const isGain = day.netPnL >= 0;
                       const isHovered = hoveredDay === day.key;
 
-                      let bg = 'rgba(255, 255, 255, 0.015)';
+                      // A day is considered "BE" if the netPnL is exactly 0 and it has trades, 
+                      // OR if at least one trade in the day has an outcome classified as BE.
+                      const tradesForDay = filteredAccountTrades.filter(t => t.date === day.dateString);
+                      const hasBETrade = tradesForDay.some(t => isTradeBE(t));
+                      const isStrictBE = hasTrades && (day.netPnL === 0 || hasBETrade);
+                      const isGain = hasTrades && !isStrictBE && day.netPnL > 0;
+                      const isLoss = hasTrades && !isStrictBE && day.netPnL < 0;
+
+                      let bg = isHovered ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.015)';
                       let border = '1px solid rgba(255, 255, 255, 0.03)';
                       
                       if (hasTrades) {
-                        if (day.netPnL === 0) {
+                        if (isStrictBE) {
                           bg = isHovered ? 'rgba(255, 159, 10, 0.22)' : 'rgba(255, 159, 10, 0.12)';
                           border = '1px solid rgba(255, 159, 10, 0.25)';
                         } else if (isGain) {
@@ -2072,7 +2084,6 @@ export default function DashboardView({
                           border = '1px solid rgba(234, 84, 85, 0.25)';
                         }
                       }
-
 
                       return (
                         <div
@@ -2123,8 +2134,9 @@ export default function DashboardView({
                             }}>
                               <div style={{ fontSize: '10px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>{day.dateString}</div>
                               <div style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>{day.tradesCount} trade{day.tradesCount !== 1 ? 's' : ''}</div>
-                              <div style={{ fontSize: '11px', fontWeight: '800', color: isGain ? '#30d158' : '#ff453a', marginTop: '2px' }}>
-                                {isGain ? '+' : ''}${Math.round(day.netPnL).toLocaleString()}
+                              <div style={{ fontSize: '11px', fontWeight: '800', color: isGain ? '#30d158' : (isStrictBE ? '#ff9f0a' : '#ff453a'), marginTop: '2px' }}>
+                                {!isStrictBE && (isGain ? '+' : '')}${Math.round(day.netPnL).toLocaleString()}
+                                {isStrictBE && 'Breakeven'}
                               </div>
                               {day.winRate > 0 && <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>win rate: {day.winRate}%</div>}
                             </div>
@@ -2154,14 +2166,15 @@ export default function DashboardView({
                               <span className="mono" style={{
                                 fontSize: '11px',
                                 fontWeight: '800',
-                                color: isGain ? '#28c76f' : '#ea5455',
+                                color: isGain ? '#28c76f' : (isStrictBE ? '#ff9f0a' : '#ea5455'),
                                 lineHeight: '1.2'
                               }}>
-                                {isGain ? '+' : ''}${Math.round(day.netPnL).toLocaleString()}
+                                {!isStrictBE && (isGain ? '+' : '')}${Math.round(day.netPnL).toLocaleString()}
+                                {isStrictBE && 'BE'}
                               </span>
                               <span style={{ fontSize: '8px', color: 'var(--colors-stone)', display: 'flex', justifyContent: 'space-between', lineHeight: '1.1', width: '100%' }}>
                                 <span>{day.tradesCount}t</span>
-                                <span style={{ color: day.winRate >= 50 ? '#28c76f' : '#ea5455' }}>{day.winRate}%</span>
+                                {!isStrictBE && <span style={{ color: day.winRate >= 50 ? '#28c76f' : '#ea5455' }}>{day.winRate}%</span>}
                               </span>
                             </div>
                           )}
@@ -2185,7 +2198,8 @@ export default function DashboardView({
                     minWidth: 0 
                   }}>
                     {weeklyRollups.map((w) => {
-                      const isGain = w.pnl >= 0;
+                      const isGain = w.pnl > 0;
+                      const isBE = w.pnl === 0 && w.daysCount > 0;
                       
                       return (
                         <div key={w.name} style={{
@@ -2204,10 +2218,10 @@ export default function DashboardView({
                           <div className="mono" style={{ 
                             fontSize: '12px', 
                             fontWeight: '800', 
-                            color: w.daysCount > 0 ? (isGain ? '#28c76f' : '#ea5455') : '#fff',
+                            color: w.daysCount > 0 ? (isGain ? '#28c76f' : (isBE ? '#ff9f0a' : '#ea5455')) : '#fff',
                             marginTop: '2px' 
                           }}>
-                            {w.pnl !== 0 ? `${isGain ? '+' : ''}$${Math.round(w.pnl).toLocaleString()}` : '$0'}
+                            {w.daysCount > 0 ? (isBE ? '$0' : `${isGain ? '+' : ''}$${Math.round(w.pnl).toLocaleString()}`) : '$0'}
                           </div>
                           <div style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', marginTop: '1px' }}>
                             {w.daysCount} {w.daysCount === 1 ? 'day' : 'days'}
@@ -2361,7 +2375,18 @@ export default function DashboardView({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }} className="hollow-menu-scrollbar">
                 {recentClosedTrades.map((trade, idx) => {
-                  const isGain = trade.netPnL >= 0;
+                  const isGain = !isTradeBE(trade) && trade.netPnL > 0;
+                  const isLoss = !isTradeBE(trade) && trade.netPnL < 0;
+                  
+                  let valueColor = '#fff';
+                  if (isTradeBE(trade)) {
+                    valueColor = '#ff9f0a';
+                  } else if (isGain) {
+                    valueColor = '#30d158';
+                  } else if (isLoss) {
+                    valueColor = '#ff453a';
+                  }
+
                   return (
                     <div
                       key={trade.id}
@@ -2408,8 +2433,8 @@ export default function DashboardView({
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: isGain ? 'var(--colors-gain)' : 'var(--colors-loss)' }}>
-                          {isGain ? '+' : ''}${Math.round(trade.netPnL).toLocaleString()}
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: valueColor }}>
+                          {!isTradeBE(trade) && isGain ? '+' : ''}${Math.abs(trade.netPnL).toFixed(2)}
                         </div>
                         <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)' }}>{formatDate(trade.date)}</span>
                       </div>
@@ -2481,7 +2506,18 @@ export default function DashboardView({
                   </tr>
                 ) : (
                   filteredTrades.map((trade) => {
-                    const isGain = trade.netPnL >= 0;
+                    const isGain = !isTradeBE(trade) && trade.netPnL > 0;
+                    const isLoss = !isTradeBE(trade) && trade.netPnL < 0;
+                    
+                    let valueColor = '#fff';
+                    if (isTradeBE(trade)) {
+                      valueColor = '#ff9f0a';
+                    } else if (isGain) {
+                      valueColor = '#30d158';
+                    } else if (isLoss) {
+                      valueColor = '#ff453a';
+                    }
+
                     return (
                       <tr
                         key={trade.id}

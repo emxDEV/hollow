@@ -10,6 +10,36 @@ export function getSymbolMultiplier(symbol) {
   }
 }
 
+export function isTradeBE(trade) {
+  if (!trade) return false;
+  const wl = (trade.wl || '').toLowerCase();
+  if (wl.includes('be')) return true;
+  // Fallback for older trades without wl populated
+  if (trade.netPnL === 0 && trade.status === 'CLOSED') return true;
+  return false;
+}
+
+export function isTradeWinRateEligible(trade) {
+  if (!trade) return false;
+  const wl = (trade.wl || '').toLowerCase();
+  
+  // Explicitly ignore these
+  if (wl.includes('be') || wl === 'tape') {
+    return false;
+  }
+  
+  // If it's explicitly 'win' or 'loss', it counts
+  if (wl === 'win' || wl === 'loss') {
+    return true;
+  }
+  
+  // Fallback for older trades without wl explicitly set but with netPnL
+  if (trade.netPnL !== undefined && trade.netPnL !== 0) {
+    return true;
+  }
+  return false;
+}
+
 export function calculateTradePnL(trade, executions) {
   if (!executions || executions.length === 0) {
     return {
@@ -98,6 +128,7 @@ export function calculateAccountStatistics(trades, allExecutions) {
   let totalLossPnL = 0;
   let totalNetPnL = 0;
   let totalRMultiple = 0;
+  let eligibleTradesCount = 0;
 
   trades.forEach(trade => {
     const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
@@ -105,12 +136,22 @@ export function calculateAccountStatistics(trades, allExecutions) {
     
     totalNetPnL += netPnL;
 
+    // We augment the trade object temporarily so helpers can work directly on it
+    const virtualTrade = { ...trade, netPnL };
+
     if (netPnL > 0) {
-      winCount++;
       totalWinPnL += netPnL;
     } else if (netPnL < 0) {
-      lossCount++;
       totalLossPnL += Math.abs(netPnL);
+    }
+
+    if (isTradeWinRateEligible(virtualTrade)) {
+      eligibleTradesCount++;
+      if (netPnL > 0) {
+        winCount++;
+      } else if (netPnL < 0) {
+        lossCount++;
+      }
     }
 
     // Estimate R-Multiple based on mock parameters if populated
@@ -127,8 +168,7 @@ export function calculateAccountStatistics(trades, allExecutions) {
   });
 
   const totalTrades = trades.length;
-  const decTrades = winCount + lossCount;
-  const winRate = decTrades > 0 ? (winCount / decTrades) * 100 : 0;
+  const winRate = eligibleTradesCount > 0 ? (winCount / eligibleTradesCount) * 100 : 0;
   const profitFactor = totalLossPnL > 0 ? (totalWinPnL / totalLossPnL) : (totalWinPnL > 0 ? 9.99 : 0);
   const avgRMultiple = totalTrades > 0 ? (totalRMultiple / totalTrades) : 0;
 

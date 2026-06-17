@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/hollowDb';
-import { calculateTradePnL } from '../utils/tradeMath';
+import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
 import { getISOWeekId, getWeekDates } from '../utils/dateUtils';
 import HollowSelect from './HollowSelect';
 import useUIStore from '../store/useUIStore';
@@ -230,25 +230,27 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
         return isAccountMatch && t.date === day.date;
       });
 
-      let netPnL = 0;
       let wins = 0;
-      let losses = 0;
-
+      let eligibleTrades = 0;
       dayTrades.forEach(t => {
-        const execs = executions.filter(e => e.tradeId === t.id);
-        const pnlDetails = calculateTradePnL(t, execs);
-        netPnL += pnlDetails.netPnL;
-        if (pnlDetails.netPnL > 0) wins++;
-        else if (pnlDetails.netPnL < 0) losses++;
+        const tExecs = executions.filter(e => e.tradeId === t.id);
+        const pnlDetails = calculateTradePnL(t, tExecs);
+        
+        const virtualTrade = { ...t, netPnL: pnlDetails.netPnL };
+        if (isTradeWinRateEligible(virtualTrade)) {
+          eligibleTrades++;
+          if (pnlDetails.netPnL > 0) wins++;
+        }
       });
+      
+      const winRate = eligibleTrades > 0 ? (wins / eligibleTrades) * 100 : 0;
 
       return {
         ...day,
         journal,
         tradesCount: dayTrades.length,
-        netPnL,
         wins,
-        losses,
+        winRate,
         hasJournal: !!journal
       };
     });
@@ -261,50 +263,57 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
       return isAccountMatch && t.date >= weekDates.start && t.date <= weekDates.end;
     });
 
-    let totalPnL = 0;
-    let wins = 0;
-    let losses = 0;
-    let be = 0;
-    let grossGains = 0;
-    let grossLosses = 0;
-    let totalMistakes = 0;
-    let totalContracts = 0;
-
-    weekTrades.forEach(trade => {
+    const tradesWithCalculations = weekTrades.map(trade => {
       const tradeExecs = executions.filter(e => e.tradeId === trade.id);
-      const { netPnL, contracts } = calculateTradePnL(trade, tradeExecs);
-      
-      totalPnL += netPnL;
-      totalContracts += contracts;
-      totalMistakes += (trade.mistakes || []).length;
-
-      if (netPnL > 0) {
-        wins++;
-        grossGains += netPnL;
-      } else if (netPnL < 0) {
-        losses++;
-        grossLosses += Math.abs(netPnL);
-      } else {
-        be++;
-      }
+      return { ...trade, ...calculateTradePnL(trade, tradeExecs) };
     });
 
-    const totalTrades = wins + losses;
-    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-    const activeWinRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
-    const profitFactor = grossLosses > 0 ? (grossGains / grossLosses) : grossGains > 0 ? 9.99 : 0;
-    const expectancy = weekTrades.length > 0 ? (totalPnL / weekTrades.length) : 0;
+    let totalPnL = 0;
+    let totalContracts = 0;
+    let totalMistakes = 0;
+    let totalNetPnL = 0;
+    let totalCommissions = 0;
+    let grossWins = 0;
+    let grossLosses = 0;
+    let wins = 0;
+    let losses = 0;
+    let bestTrade = 0;
+    
+    tradesWithCalculations.forEach(t => {
+      totalNetPnL += t.netPnL;
+      totalCommissions += t.commissions;
+      totalContracts += t.contracts;
+      totalMistakes += (t.mistakes || []).length;
+      
+      const virtualTrade = { ...t, netPnL: t.netPnL };
+      if (isTradeWinRateEligible(virtualTrade)) {
+        if (t.netPnL > 0) {
+          wins++;
+          grossWins += t.netPnL;
+        } else if (t.netPnL < 0) {
+          losses++;
+          grossLosses += Math.abs(t.netPnL);
+        }
+      }
+      
+      if (t.netPnL > bestTrade) bestTrade = t.netPnL;
+    });
+
+    const eligibleTrades = wins + losses;
+    const winRate = eligibleTrades > 0 ? (wins / eligibleTrades) * 100 : 0;
+    const activeWinRate = winRate;
+    const profitFactor = grossLosses > 0 ? (grossWins / grossLosses) : grossWins > 0 ? 9.99 : 0;
+    const expectancy = weekTrades.length > 0 ? (totalNetPnL / weekTrades.length) : 0;
 
     return {
       totalTrades: weekTrades.length,
       wins,
       losses,
-      be,
       winRate,
       activeWinRate,
       profitFactor,
       expectancy,
-      totalPnL,
+      totalPnL: totalNetPnL,
       totalMistakes,
       totalContracts
     };
@@ -425,14 +434,20 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
       const g = groups[model];
       g.count++;
       g.pnl += t.netPnL;
-      if (t.netPnL > 0) g.wins++;
-      else if (t.netPnL < 0) g.losses++;
+      const virtualTrade = { ...t, netPnL: t.netPnL };
+      if (isTradeWinRateEligible(virtualTrade)) {
+        if (t.netPnL > 0) g.wins++;
+        else if (t.netPnL < 0) g.losses++;
+      }
     });
 
-    return Object.values(groups).map(g => ({
-      ...g,
-      winRate: g.count > 0 ? (g.wins / g.count) * 100 : 0
-    })).sort((a, b) => b.pnl - a.pnl);
+    return Object.values(groups).map(g => {
+      const eligibleCount = g.wins + g.losses;
+      return {
+        ...g,
+        winRate: eligibleCount > 0 ? (g.wins / eligibleCount) * 100 : 0
+      };
+    }).sort((a, b) => b.pnl - a.pnl);
   }, [weeklyTradesList]);
 
   // Compute Health & Behavior correlations (sleep, focus, habits vs PnL)

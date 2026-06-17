@@ -1010,7 +1010,7 @@ export default function TradeDetailSheet({
                             background: 'rgba(255,255,255,0.04)',
                             border: '1px solid rgba(255,255,255,0.08)',
                             borderRadius: 8,
-                            color: '#fff',
+                            color: (form.wl || '').toLowerCase().includes('be') || (form.manualPnL !== '' && parseFloat(form.manualPnL) === 0) ? '#ff9f0a' : (form.manualPnL === '' ? '#fff' : (parseFloat(form.manualPnL) > 0 ? '#30d158' : '#ff453a')),
                             fontFamily: 'var(--font)',
                             fontSize: 12,
                             padding: '6px 8px',
