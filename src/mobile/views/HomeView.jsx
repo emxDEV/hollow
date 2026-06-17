@@ -8,7 +8,7 @@ import {
   Award, Target, Zap, Clock, Check, X, CreditCard, Users, Layers, AlertCircle, Calendar
 } from 'lucide-react';
 import DateStrip from '../components/DateStrip';
-import { calculateTradePnL } from '../../utils/tradeMath';
+import { calculateTradePnL, isTradeBE } from '../../utils/tradeMath';
 import { db } from '../../db/hollowDb';
 import { useLiveQuery } from 'dexie-react-hooks';
 import HollowLogo from '../../components/HollowLogo';
@@ -1005,7 +1005,28 @@ export default function HomeView({
             </div>
             <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
               {dailyTrades.map((t, i) => {
-                const isWin = t.netPnL >= 0;
+                const isBE = isTradeBE(t);
+                const isWin = !isBE && t.netPnL > 0;
+                const isLoss = !isBE && t.netPnL < 0;
+
+                let iconBg = 'rgba(255,255,255,0.06)';
+                let iconColor = 'rgba(255,255,255,0.4)';
+                let valueColor = 'rgba(255,255,255,0.5)';
+
+                if (isWin) {
+                  iconBg = 'rgba(48,209,88,0.12)';
+                  iconColor = '#30d158';
+                  valueColor = '#30d158';
+                } else if (isLoss) {
+                  iconBg = 'rgba(255,69,58,0.12)';
+                  iconColor = '#ff453a';
+                  valueColor = '#ff453a';
+                } else if (isBE) {
+                  iconBg = 'rgba(255,159,10,0.12)';
+                  iconColor = '#ff9f0a';
+                  valueColor = '#ff9f0a';
+                }
+
                 return (
                   <button
                     key={t.id}
@@ -1028,16 +1049,21 @@ export default function HomeView({
                       width: 36,
                       height: 36,
                       borderRadius: 10,
-                      background: isWin ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.12)',
+                      background: iconBg,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0
                     }}>
-                      {isWin
-                        ? <TrendingUp size={16} color="#30d158" />
-                        : <TrendingDown size={16} color="#ff453a" />
-                      }
+                      {isWin ? (
+                        <TrendingUp size={16} color={iconColor} />
+                      ) : isLoss ? (
+                        <TrendingDown size={16} color={iconColor} />
+                      ) : isBE ? (
+                        <div style={{ fontSize: 10, fontWeight: 800, color: iconColor }}>BE</div>
+                      ) : (
+                        <div style={{ width: 8, height: 2, background: iconColor, borderRadius: 1 }} />
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>
@@ -1050,8 +1076,8 @@ export default function HomeView({
                         {t.model || '—'}
                       </div>
                     </div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: isWin ? '#30d158' : '#ff453a', letterSpacing: '-0.01em', flexShrink: 0 }}>
-                      {fmt(t.netPnL)}
+                    <div style={{ fontSize: 16, fontWeight: 700, color: valueColor, letterSpacing: '-0.01em', flexShrink: 0 }}>
+                      {isBE && t.netPnL === 0 ? '$0.00' : fmt(t.netPnL)}
                     </div>
                   </button>
                 );
@@ -1205,14 +1231,21 @@ export default function HomeView({
                 }
 
                 const hasTrades = day.tradesCount > 0;
-                const isGain = day.netPnL >= 0;
+                const tradesForDay = enriched.filter(t => t.date === day.dateString);
+                const hasBETrade = tradesForDay.some(t => isTradeBE(t));
+                const isStrictBE = hasTrades && (day.netPnL === 0 || hasBETrade);
+                const isGain = hasTrades && !isStrictBE && day.netPnL > 0;
+                const isLoss = hasTrades && !isStrictBE && day.netPnL < 0;
                 const isSelected = selectedDate === day.dateString;
 
                 let bg = 'rgba(255, 255, 255, 0.02)';
                 let border = '1px solid rgba(255, 255, 255, 0.05)';
 
                 if (hasTrades) {
-                  if (isGain) {
+                  if (isStrictBE) {
+                    bg = isSelected ? 'rgba(255, 159, 10, 0.25)' : 'rgba(255, 159, 10, 0.12)';
+                    border = `1px solid ${isSelected ? '#ff9f0a' : 'rgba(255, 159, 10, 0.25)'}`;
+                  } else if (isGain) {
                     bg = isSelected ? 'rgba(48, 209, 88, 0.25)' : 'rgba(48, 209, 88, 0.12)';
                     border = `1px solid ${isSelected ? '#30d158' : 'rgba(48, 209, 88, 0.25)'}`;
                   } else {
@@ -1226,6 +1259,7 @@ export default function HomeView({
 
                 const fmtCompactPnL = (val) => {
                   const abs = Math.round(Math.abs(val));
+                  if (isStrictBE && val === 0) return '$0';
                   if (abs >= 1000) return `${val >= 0 ? '+' : '-'}${(abs / 1000).toFixed(1)}k`;
                   return `${val >= 0 ? '+' : '-'}$${abs}`;
                 };
@@ -1267,7 +1301,7 @@ export default function HomeView({
                       <span style={{
                         fontSize: 8,
                         fontWeight: '800',
-                        color: isGain ? '#30d158' : '#ff453a',
+                        color: isGain ? '#30d158' : (isStrictBE ? '#ff9f0a' : '#ff453a'),
                         lineHeight: 1.1,
                         letterSpacing: '-0.02em',
                         overflow: 'hidden',

@@ -410,8 +410,10 @@ export default function TradeDetailSheet({
         return 'linear-gradient(135deg, #2b230d 0%, #0d2b1a 100%)';
       case 'be -> loss':
         return 'linear-gradient(135deg, #2b230d 0%, #2b0d0d 100%)';
-      case 'tape':
       case 'be':
+        return 'linear-gradient(135deg, #2b230d 0%, #352c10 100%)';
+      case 'tape':
+        return 'linear-gradient(135deg, #1c1c1e 0%, #252527 100%)';
       default:
         return 'linear-gradient(135deg, #1c1c1e, #2c2c2e)';
     }

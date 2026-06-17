@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, TrendingUp, TrendingDown, ChevronRight, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
-import { calculateTradePnL } from '../../utils/tradeMath';
+import { calculateTradePnL, isTradeBE } from '../../utils/tradeMath';
 
 const fmt = (n) => {
   if (!n && n !== 0) return '$0.00';
@@ -243,8 +243,9 @@ export default function TradesView({ trades, executions, accounts, selectedAccou
         ) : (
           <div style={{ padding: '0 16px' }}>
             {filtered.map((t, i) => {
-              const isWin = t.netPnL > 0;
-              const isLoss = t.netPnL < 0;
+              const isBE = isTradeBE(t);
+              const isWin = !isBE && t.netPnL > 0;
+              const isLoss = !isBE && t.netPnL < 0;
               return (
                 <motion.button
                   key={t.id}
@@ -271,18 +272,21 @@ export default function TradesView({ trades, executions, accounts, selectedAccou
                     width: 40,
                     height: 40,
                     borderRadius: 12,
-                    background: isWin ? 'rgba(48,209,88,0.12)' : isLoss ? 'rgba(255,69,58,0.12)' : 'rgba(255,255,255,0.06)',
+                    background: isWin ? 'rgba(48,209,88,0.12)' : isLoss ? 'rgba(255,69,58,0.12)' : isBE ? 'rgba(255,159,10,0.12)' : 'rgba(255,255,255,0.06)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0
                   }}>
-                    {isWin
-                      ? <TrendingUp size={18} color="#30d158" />
-                      : isLoss
-                        ? <TrendingDown size={18} color="#ff453a" />
-                        : <div style={{ width: 8, height: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
-                    }
+                    {isWin ? (
+                      <TrendingUp size={18} color="#30d158" />
+                    ) : isLoss ? (
+                      <TrendingDown size={18} color="#ff453a" />
+                    ) : isBE ? (
+                      <div style={{ fontSize: 10, fontWeight: 800, color: '#ff9f0a' }}>BE</div>
+                    ) : (
+                      <div style={{ width: 8, height: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
+                    )}
                   </div>
 
                   {/* Info */}
@@ -309,8 +313,8 @@ export default function TradesView({ trades, executions, accounts, selectedAccou
 
                   {/* PnL */}
                   <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: isWin ? '#30d158' : isLoss ? '#ff453a' : 'rgba(255,255,255,0.5)' }}>
-                      {fmt(t.netPnL)}
+                    <div style={{ fontSize: 16, fontWeight: 700, color: isWin ? '#30d158' : isLoss ? '#ff453a' : isBE ? '#ff9f0a' : 'rgba(255,255,255,0.5)' }}>
+                      {isBE && t.netPnL === 0 ? '$0.00' : fmt(t.netPnL)}
                     </div>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>net</div>
                   </div>

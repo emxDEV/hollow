@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
-  BarChart, Bar, Cell, PieChart, Pie
+  BarChart, Bar, Cell, PieChart, Pie, CartesianGrid
 } from 'recharts';
-import { TrendingUp, TrendingDown, Award, Target, Zap, Clock, Shield, BookOpen, Camera, ChevronDown, ChevronLeft } from 'lucide-react';
-import { calculateTradePnL } from '../../utils/tradeMath';
+import { TrendingUp, TrendingDown, Award, Target, Zap, Clock, Shield, BookOpen, Camera, ChevronDown, ChevronLeft, Calendar, Sparkles } from 'lucide-react';
+import { calculateTradePnL, isTradeWinRateEligible } from '../../utils/tradeMath';
 
 const fmt = (n) => {
   if (!n && n !== 0) return '$0';
@@ -19,6 +19,7 @@ const STAT_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'playbook', label: 'Playbook' },
   { id: 'discipline', label: 'Discipline' },
+  { id: 'time', label: 'Time' },
 ];
 
 export default function MobileStatsView({ trades, executions, selectedAccountId, onSharePnL, onBack, onScrollChange }) {
@@ -106,6 +107,102 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
     });
     return Object.entries(freq).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
   }, [enriched]);
+
+  // Day of Week performance
+  const dayOfWeekStats = useMemo(() => {
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = {
+      'Sunday': { name: 'Sun', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Monday': { name: 'Mon', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Tuesday': { name: 'Tue', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Wednesday': { name: 'Wed', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Thursday': { name: 'Thu', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Friday': { name: 'Fri', pnl: 0, trades: 0, wins: 0, losses: 0 },
+      'Saturday': { name: 'Sat', pnl: 0, trades: 0, wins: 0, losses: 0 }
+    };
+
+    enriched.forEach(t => {
+      if (!t.date) return;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return;
+      const dayName = dayNames[d.getDay()];
+      if (days[dayName]) {
+        days[dayName].pnl += t.netPnL;
+        days[dayName].trades++;
+        if (isTradeWinRateEligible(t)) {
+          if (t.netPnL > 0) days[dayName].wins++;
+          else if (t.netPnL < 0) days[dayName].losses++;
+        }
+      }
+    });
+
+    return Object.values(days)
+      .filter(d => d.trades > 0 || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(d.name))
+      .map(d => {
+        const eligibleTrades = d.wins + d.losses;
+        return {
+          ...d,
+          winRate: eligibleTrades > 0 ? Math.round((d.wins / eligibleTrades) * 100) : 0,
+          pnl: Math.round(d.pnl)
+        };
+      });
+  }, [enriched]);
+
+  // Hour of Day performance
+  const hourlyStats = useMemo(() => {
+    const hoursMap = {};
+    for (let i = 8; i <= 17; i++) {
+      hoursMap[i] = { hour: `${i}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
+    }
+
+    enriched.forEach(t => {
+      const tradeExecs = executions.filter(e => e.tradeId === t.id && e.type === 'ENTRY');
+      if (tradeExecs.length > 0) {
+        const date = new Date(tradeExecs[0].timestamp);
+        if (!isNaN(date.getTime())) {
+          const hr = date.getHours();
+          if (!hoursMap[hr]) {
+            hoursMap[hr] = { hour: `${hr}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
+          }
+          hoursMap[hr].pnl += t.netPnL;
+          hoursMap[hr].tradesCount++;
+          if (isTradeWinRateEligible(t)) {
+            if (t.netPnL > 0) hoursMap[hr].wins++;
+            else if (t.netPnL < 0) hoursMap[hr].losses++;
+          }
+        }
+      }
+    });
+
+    return Object.values(hoursMap).sort((a, b) => {
+      const aHr = parseInt(a.hour.split(':')[0]);
+      const bHr = parseInt(b.hour.split(':')[0]);
+      return aHr - bHr;
+    }).map(h => ({
+      ...h,
+      pnl: Math.round(h.pnl)
+    }));
+  }, [enriched, executions]);
+
+  const dayOfWeekInsights = useMemo(() => {
+    const activeDays = dayOfWeekStats.filter(d => d.trades > 0);
+    if (activeDays.length === 0) return { best: null, worst: null };
+    const sorted = [...activeDays].sort((a, b) => b.pnl - a.pnl);
+    return {
+      best: sorted[0].pnl > 0 ? sorted[0] : null,
+      worst: sorted[sorted.length - 1].pnl < 0 ? sorted[sorted.length - 1] : null
+    };
+  }, [dayOfWeekStats]);
+
+  const hourlyInsights = useMemo(() => {
+    const activeHours = hourlyStats.filter(h => h.tradesCount > 0);
+    if (activeHours.length === 0) return { best: null, worst: null };
+    const sorted = [...activeHours].sort((a, b) => b.pnl - a.pnl);
+    return {
+      best: sorted[0].pnl > 0 ? sorted[0] : null,
+      worst: sorted[sorted.length - 1].pnl < 0 ? sorted[sorted.length - 1] : null
+    };
+  }, [hourlyStats]);
 
   const isPositive = stats.total >= 0;
   const [isScrolled, setIsScrolled] = useState(false);
@@ -525,6 +622,218 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
                     No mistakes logged yet — great discipline!
                   </div>
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'time' && (
+            <motion.div key="time" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                
+                {/* Day of Week PnL */}
+                <div style={{ background: '#0f0f11', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', padding: '16px' }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={14} color="var(--colors-primary)" /> Weekday PnL Performance
+                  </h3>
+                  
+                  {/* Chart */}
+                  <div style={{ height: 180, width: '100%', marginBottom: 16 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dayOfWeekStats} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="mobileGainGradientDay" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#30d158" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#30d158" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="mobileLossGradientDay" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#ff453a" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#ff453a" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} />
+                        <YAxis stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                        <Tooltip
+                          contentStyle={{ background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 11 }}
+                          formatter={(v) => [`$${v}`, 'PnL']}
+                        />
+                        <Bar dataKey="pnl" barSize={14} radius={3}>
+                          {dayOfWeekStats.map((entry, index) => {
+                            const isGain = entry.pnl >= 0;
+                            return (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={isGain ? 'url(#mobileGainGradientDay)' : 'url(#mobileLossGradientDay)'}
+                                stroke={isGain ? '#30d158' : '#ff453a'}
+                                strokeWidth={1}
+                              />
+                            );
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Insights */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Insights</div>
+                    
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1, background: 'rgba(48,209,88,0.05)', border: '1px solid rgba(48,209,88,0.12)', padding: '10px', borderRadius: 12 }}>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Best Weekday</div>
+                        {dayOfWeekInsights.best ? (
+                          <>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#30d158' }}>{dayOfWeekInsights.best.name}</div>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{dayOfWeekInsights.best.winRate}% wr · {dayOfWeekInsights.best.trades} tr</div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, background: 'rgba(255,69,58,0.05)', border: '1px solid rgba(255,69,58,0.12)', padding: '10px', borderRadius: 12 }}>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Worst Weekday</div>
+                        {dayOfWeekInsights.worst ? (
+                          <>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#ff453a' }}>{dayOfWeekInsights.worst.name}</div>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{dayOfWeekInsights.worst.winRate}% wr · {dayOfWeekInsights.worst.trades} tr</div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recommendation */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      marginTop: 4
+                    }}>
+                      <Sparkles size={13} color="var(--colors-primary)" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+                        {dayOfWeekInsights.best && dayOfWeekInsights.worst ? (
+                          <>Focus on trading <strong>{dayOfWeekInsights.best.name}</strong> where profitability peaks. Tighten risk on <strong>{dayOfWeekInsights.worst.name}</strong>.</>
+                        ) : dayOfWeekInsights.best ? (
+                          <>Your weekday profile is solid. Tuesday and Wednesday remain your core profitability drivers.</>
+                        ) : dayOfWeekInsights.worst ? (
+                          <>Weekday execution underperforming on <strong>{dayOfWeekInsights.worst.name}</strong>. Review these trade setups.</>
+                        ) : (
+                          <>Gather more weekday trading data to unlock schedules and performance recommendations.</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hour of Day PnL */}
+                <div style={{ background: '#0f0f11', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', padding: '16px' }}>
+                  <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Zap size={14} color="var(--colors-primary)" /> Hourly PnL Performance
+                  </h3>
+                  
+                  {/* Chart */}
+                  <div style={{ height: 180, width: '100%', marginBottom: 16 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={hourlyStats.filter(h => h.tradesCount > 0)} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="mobileGainGradientHour" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#30d158" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#30d158" stopOpacity={0.05} />
+                          </linearGradient>
+                          <linearGradient id="mobileLossGradientHour" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#ff453a" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="#ff453a" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="hour" stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} />
+                        <YAxis stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                        <Tooltip
+                          contentStyle={{ background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 11 }}
+                          formatter={(v) => [`$${v}`, 'PnL']}
+                        />
+                        <Bar dataKey="pnl" barSize={12} radius={3}>
+                          {hourlyStats.filter(h => h.tradesCount > 0).map((entry, index) => {
+                            const isGain = entry.pnl >= 0;
+                            return (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={isGain ? 'url(#mobileGainGradientHour)' : 'url(#mobileLossGradientHour)'}
+                                stroke={isGain ? '#30d158' : '#ff453a'}
+                                strokeWidth={1}
+                              />
+                            );
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Insights */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Insights</div>
+                    
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1, background: 'rgba(48,209,88,0.05)', border: '1px solid rgba(48,209,88,0.12)', padding: '10px', borderRadius: 12 }}>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Best Hour</div>
+                        {hourlyInsights.best ? (
+                          <>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#30d158' }}>{hourlyInsights.best.hour}</div>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                              {hourlyInsights.best.tradesCount} tr · {Math.round((hourlyInsights.best.wins / hourlyInsights.best.tradesCount) * 100)}% wr
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, background: 'rgba(255,69,58,0.05)', border: '1px solid rgba(255,69,58,0.12)', padding: '10px', borderRadius: 12 }}>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Worst Hour</div>
+                        {hourlyInsights.worst ? (
+                          <>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#ff453a' }}>{hourlyInsights.worst.hour}</div>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                              {hourlyInsights.worst.tradesCount} tr · {Math.round((hourlyInsights.worst.wins / hourlyInsights.worst.tradesCount) * 100)}% wr
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recommendation */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      marginTop: 4
+                    }}>
+                      <Sparkles size={13} color="var(--colors-primary)" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+                        {hourlyInsights.best && hourlyInsights.worst ? (
+                          <>Peak performance occurs around <strong>{hourlyInsights.best.hour}</strong>. Review discipline or fatigue levels at <strong>{hourlyInsights.worst.hour}</strong>.</>
+                        ) : hourlyInsights.best ? (
+                          <>Trading executions are highly optimal at <strong>{hourlyInsights.best.hour}</strong>. Keep running this session routine.</>
+                        ) : hourlyInsights.worst ? (
+                          <>Execution leakage concentrated at <strong>{hourlyInsights.worst.hour}</strong>. Consider sitting out or reducing risk during this period.</>
+                        ) : (
+                          <>Awaiting execution timestamp logs to isolate hourly execution efficiency.</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </motion.div>
           )}
