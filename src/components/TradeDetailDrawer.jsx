@@ -7,7 +7,7 @@ import {
   PenTool, Eraser, RefreshCw, FileText, Activity, 
   Image as ImageIcon, Sparkles, Smile, ShieldAlert
 } from 'lucide-react';
-import { calculateTradePnL } from '../utils/tradeMath';
+import { calculateTradePnL, isTradeBE } from '../utils/tradeMath';
 import HollowSelect from './HollowSelect';
 import useUIStore from '../store/useUIStore';
 
@@ -164,10 +164,11 @@ export default function TradeDetailDrawer({
     if (pillGradients[s]) return pillGradients[s];
     switch (s) {
       case 'Win': return 'rgba(48, 209, 88, 0.08)';
-      case 'BE -> Win': return 'rgba(48, 209, 88, 0.04)';
+      case 'BE -> Win': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(48, 209, 88, 0.08) 100%)';
       case 'Loss': return 'rgba(255, 69, 58, 0.08)';
-      case 'BE -> Loss': return 'rgba(255, 69, 58, 0.04)';
-      case 'Tape': return 'rgba(255, 255, 255, 0.04)';
+      case 'BE -> Loss': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(255, 69, 58, 0.08) 100%)';
+      case 'Tape': return 'rgba(153, 153, 153, 0.08)';
+      case 'BE': return 'rgba(255, 159, 10, 0.08)';
       default: return 'rgba(255, 255, 255, 0.04)';
     }
   };
@@ -175,10 +176,11 @@ export default function TradeDetailDrawer({
   const getWlBorder = (s) => {
     switch (s) {
       case 'Win': return '1px solid rgba(48, 209, 88, 0.25)';
-      case 'BE -> Win': return '1px solid rgba(48, 209, 88, 0.15)';
+      case 'BE -> Win': return '1px solid rgba(48, 209, 88, 0.25)';
       case 'Loss': return '1px solid rgba(255, 69, 58, 0.25)';
-      case 'BE -> Loss': return '1px solid rgba(255, 69, 58, 0.15)';
-      case 'Tape': return '1px solid rgba(255, 255, 255, 0.15)';
+      case 'BE -> Loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'Tape': return '1px solid rgba(153, 153, 153, 0.25)';
+      case 'BE': return '1px solid rgba(255, 159, 10, 0.25)';
       default: return '1px solid rgba(255, 255, 255, 0.08)';
     }
   };
@@ -191,6 +193,10 @@ export default function TradeDetailDrawer({
       case 'Loss':
       case 'BE -> Loss':
         return '#ff453a';
+      case 'Tape':
+        return '#999999';
+      case 'BE':
+        return '#ff9f0a';
       default:
         return '#ffffff';
     }
@@ -284,8 +290,10 @@ export default function TradeDetailDrawer({
   }
 
   // Mathematics derived from live executions
-  const stats = calculateTradePnL(trade, tradeExecs);
-  const isWin = stats.netPnL >= 0;
+  const stats = calculateTradePnL(trade, executions);
+  const isBETrade = isTradeBE({ wl, netPnL: stats.netPnL });
+  const isGain = !isBETrade && stats.netPnL > 0;
+  const isLoss = !isBETrade && stats.netPnL < 0;
 
   // Add behavioral mistake tag
   const handleAddMistake = () => {
@@ -497,19 +505,19 @@ export default function TradeDetailDrawer({
             alignItems: isMobile ? 'flex-start' : 'center',
             gap: isMobile ? '12px' : '0',
             boxShadow: 'none',
-            background: isWin 
+            background: isGain 
               ? 'rgba(48, 209, 88, 0.08)' 
-              : 'rgba(255, 69, 58, 0.08)',
-            border: isWin ? '1px solid rgba(48, 209, 88, 0.2)' : '1px solid rgba(255, 69, 58, 0.2)'
+              : isLoss ? 'rgba(255, 69, 58, 0.08)' : 'rgba(255, 159, 10, 0.08)',
+            border: isGain ? '1px solid rgba(48, 209, 88, 0.2)' : isLoss ? '1px solid rgba(255, 69, 58, 0.2)' : '1px solid rgba(255, 159, 10, 0.2)'
           }}>
             <div>
               <div style={styles.pnlLabel}>Net Realized PnL</div>
               <h1 style={{
                 ...styles.pnlVal,
-                color: isWin ? '#30d158' : '#ff453a',
+                color: isGain ? '#30d158' : isLoss ? '#ff453a' : '#ff9f0a',
                 textShadow: 'none'
               }}>
-                {stats.netPnL >= 0 ? '+' : ''}${Math.round(stats.netPnL).toLocaleString()}
+                {!isBETrade && isGain ? '+' : ''}${Math.abs(stats.netPnL).toFixed(2)}
               </h1>
             </div>
             

@@ -694,27 +694,31 @@ export default function TradeDetailSheet({
                       </div>
                       <div>
                         <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>outcome (w/l)</div>
-                        <select
-                          value={form.outcome}
-                          onChange={e => setForm(f => ({ ...f, outcome: e.target.value }))}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 8,
-                            color: '#fff',
-                            fontFamily: 'var(--font)',
-                            fontSize: 12,
-                            padding: '6px 8px',
-                            outline: 'none',
-                            appearance: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        >
-                          {OUTCOMES.map(o => (
-                            <option key={o} value={o} style={{ background: '#1c1c1e' }}>{o.toLowerCase()}</option>
-                          ))}
-                        </select>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {OUTCOMES.map(o => {
+                            const isSelected = form.outcome === o;
+                            return (
+                              <button
+                                key={o}
+                                type="button"
+                                onClick={() => setForm(f => ({ ...f, outcome: o }))}
+                                style={{
+                                  background: isSelected ? getWlGradient(o) : 'rgba(255,255,255,0.04)',
+                                  border: isSelected ? getWlBorder(o) : '1px solid rgba(255,255,255,0.06)',
+                                  borderRadius: 20,
+                                  padding: '5px 12px',
+                                  color: isSelected ? getWlColor(o) : '#fff',
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? 700 : 500,
+                                  cursor: 'pointer',
+                                  fontFamily: 'var(--font)'
+                                }}
+                              >
+                                {o.toLowerCase()}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 

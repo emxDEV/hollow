@@ -366,16 +366,62 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       if (hex.length === 3) {
         hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
       }
-      if (hex.length === 6) {
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness > 125 ? '#000000' : '#ffffff';
+    }
+    if (bg.startsWith('rgb')) {
+      const match = bg.match(/\d+/g);
+      if (match && match.length >= 3) {
+        const r = parseInt(match[0]);
+        const g = parseInt(match[1]);
+        const b = parseInt(match[2]);
         const brightness = (r * 299 + g * 587 + b * 114) / 1000;
         return brightness > 125 ? '#000000' : '#ffffff';
       }
     }
     return '#ffffff';
   };
+
+  const getWlGradient = (s) => {
+    switch (s) {
+      case 'Win': return 'rgba(48, 209, 88, 0.08)';
+      case 'BE -> Win': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(48, 209, 88, 0.08) 100%)';
+      case 'Loss': return 'rgba(255, 69, 58, 0.08)';
+      case 'BE -> Loss': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(255, 69, 58, 0.08) 100%)';
+      case 'Tape': return 'rgba(153, 153, 153, 0.08)';
+      case 'BE': return 'rgba(255, 159, 10, 0.08)';
+      default: return 'rgba(255, 255, 255, 0.04)';
+    }
+  };
+
+  const getWlBorder = (s) => {
+    switch (s) {
+      case 'Win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'BE -> Win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'Loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'BE -> Loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'Tape': return '1px solid rgba(153, 153, 153, 0.25)';
+      case 'BE': return '1px solid rgba(255, 159, 10, 0.25)';
+      default: return '1px solid rgba(255, 255, 255, 0.08)';
+    }
+  };
+
+  const getWlColor = (s) => {
+    switch (s) {
+      case 'Win':
+      case 'BE -> Win': return '#30d158';
+      case 'Loss':
+      case 'BE -> Loss': return '#ff453a';
+      case 'Tape': return '#999999';
+      case 'BE': return '#ff9f0a';
+      default: return '#ffffff';
+    }
+  };
+
+
 
   const toggleMistake = (tag) => {
     if (selectedMistakes.includes(tag)) {
@@ -470,6 +516,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             setupRating: rating.toUpperCase(),
             wl: outcome,
             rr: 0,
+            manualPnL,
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -973,21 +1020,27 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                       </div>
                       <div>
                         <label style={styles.label}>outcome (w/l)</label>
-                        <div style={{ position: 'relative' }}>
-                          <select
-                            value={outcome}
-                            onChange={e => setOutcome(e.target.value)}
-                            style={{
-                              ...styles.input,
-                              appearance: 'none',
-                              paddingRight: '30px'
-                            }}
-                          >
-                            {OUTCOMES.map(o => (
-                              <option key={o} value={o} style={{ background: '#1c1c1e' }}>{o.toLowerCase()}</option>
-                            ))}
-                          </select>
-                          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>▼</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {OUTCOMES.map(o => {
+                            const isSelected = outcome === o;
+                            return (
+                              <button
+                                key={o}
+                                type="button"
+                                onClick={() => setOutcome(o)}
+                                style={{
+                                  ...styles.pillBtn,
+                                  background: isSelected ? getWlGradient(o) : 'rgba(255,255,255,0.04)',
+                                  border: isSelected ? getWlBorder(o) : '1px solid rgba(255,255,255,0.06)',
+                                  color: isSelected ? getWlColor(o) : '#fff',
+                                  fontWeight: isSelected ? '700' : '500',
+                                  padding: '6px 14px'
+                                }}
+                              >
+                                {o.toLowerCase()}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

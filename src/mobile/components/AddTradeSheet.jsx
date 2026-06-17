@@ -344,7 +344,53 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
         return brightness > 125 ? '#000000' : '#ffffff';
       }
     }
+    if (bg.startsWith('rgb')) {
+      const match = bg.match(/\d+/g);
+      if (match && match.length >= 3) {
+        const r = parseInt(match[0]);
+        const g = parseInt(match[1]);
+        const b = parseInt(match[2]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 125 ? '#000000' : '#ffffff';
+      }
+    }
     return '#ffffff';
+  };
+
+  const getWlGradient = (s) => {
+    switch (s) {
+      case 'Win': return 'rgba(48, 209, 88, 0.08)';
+      case 'BE -> Win': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(48, 209, 88, 0.08) 100%)';
+      case 'Loss': return 'rgba(255, 69, 58, 0.08)';
+      case 'BE -> Loss': return 'linear-gradient(90deg, rgba(255, 159, 10, 0.08) 0%, rgba(255, 69, 58, 0.08) 100%)';
+      case 'Tape': return 'rgba(153, 153, 153, 0.08)';
+      case 'BE': return 'rgba(255, 159, 10, 0.08)';
+      default: return 'rgba(255, 255, 255, 0.04)';
+    }
+  };
+
+  const getWlBorder = (s) => {
+    switch (s) {
+      case 'Win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'BE -> Win': return '1px solid rgba(48, 209, 88, 0.25)';
+      case 'Loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'BE -> Loss': return '1px solid rgba(255, 69, 58, 0.25)';
+      case 'Tape': return '1px solid rgba(153, 153, 153, 0.25)';
+      case 'BE': return '1px solid rgba(255, 159, 10, 0.25)';
+      default: return '1px solid rgba(255, 255, 255, 0.08)';
+    }
+  };
+
+  const getWlColor = (s) => {
+    switch (s) {
+      case 'Win':
+      case 'BE -> Win': return '#30d158';
+      case 'Loss':
+      case 'BE -> Loss': return '#ff453a';
+      case 'Tape': return '#999999';
+      case 'BE': return '#ff9f0a';
+      default: return '#ffffff';
+    }
   };
 
   const toggleMistake = (tag) => {
@@ -440,6 +486,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             setupRating: rating.toUpperCase(),
             wl: outcome,
             rr: 0,
+            manualPnL,
             tp: null,
             sl: null,
             po3: po3Time || '',
@@ -972,29 +1019,30 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                     </div>
                     <div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>outcome (w/l)</div>
-                      <div style={{ position: 'relative' }}>
-                        <select
-                          value={outcome}
-                          onChange={e => setOutcome(e.target.value)}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 8,
-                            color: '#fff',
-                            fontFamily: 'var(--font)',
-                            fontSize: 12,
-                            padding: '8px 10px',
-                            outline: 'none',
-                            appearance: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        >
-                          {OUTCOMES.map(o => (
-                            <option key={o} value={o} style={{ background: '#1c1c1e' }}>{o.toLowerCase()}</option>
-                          ))}
-                        </select>
-                        <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>▼</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {OUTCOMES.map(o => {
+                          const isSelected = outcome === o;
+                          return (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() => setOutcome(o)}
+                              style={{
+                                background: isSelected ? getWlGradient(o) : 'rgba(255,255,255,0.04)',
+                                border: isSelected ? getWlBorder(o) : '1px solid rgba(255,255,255,0.06)',
+                                borderRadius: 20,
+                                padding: '6px 14px',
+                                color: isSelected ? getWlColor(o) : '#fff',
+                                fontSize: 11,
+                                fontWeight: isSelected ? 700 : 500,
+                                cursor: 'pointer',
+                                fontFamily: 'var(--font)'
+                              }}
+                            >
+                              {o.toLowerCase()}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
