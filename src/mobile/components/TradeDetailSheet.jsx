@@ -484,7 +484,7 @@ export default function TradeDetailSheet({
 
   const handleSave = async () => {
     const isBEOutcome = form.outcome.toLowerCase().includes('be') || form.outcome.toLowerCase() === 'tape';
-    const finalManualPnL = isBEOutcome && (form.manualPnL === '' || form.manualPnL === undefined || form.manualPnL === null) ? '0' : form.manualPnL;
+    const finalManualPnL = form.manualPnL;
 
     const updatedTrade = {
       ...trade,

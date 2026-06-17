@@ -483,7 +483,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
         }
       }
 
-      const savedManualPnL = isNaN(parseFloat(manualPnL)) && isBEOutcome ? "0" : manualPnL;
+      const savedManualPnL = manualPnL;
 
 
       // Determine target account IDs

@@ -452,7 +452,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
         }
       }
 
-      const savedManualPnL = isNaN(parseFloat(manualPnL)) && isBEOutcome ? "0" : manualPnL;
+      const savedManualPnL = manualPnL;
 
 
       // Determine target account IDs

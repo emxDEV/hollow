@@ -316,7 +316,7 @@ export default function TradeDetailDrawer({
   const handleSaveChanges = () => {
     const finalSymbol = symbol === 'CUSTOM' ? (customSymbol.toUpperCase() || 'CUSTOM') : symbol;
     const isBEOutcome = wl.toLowerCase().includes('be') || wl.toLowerCase() === 'tape';
-    const finalManualPnL = isBEOutcome && (manualPnL === '' || manualPnL === undefined || manualPnL === null) ? '0' : manualPnL;
+    const finalManualPnL = manualPnL;
 
     const updatedTrade = {
       ...trade,
