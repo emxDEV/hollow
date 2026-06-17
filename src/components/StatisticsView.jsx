@@ -1385,35 +1385,8 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
         {/* Removed duplicate tab switcher and old share button section */}
 
               {/* Detailed Quantitative Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
                 
-                {/* Hold Times & Ratios */}
-                <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} color="var(--colors-primary)" /> Position Hold Time Analytics
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--colors-hairline-dark)', paddingBottom: '8px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', fontSize: '12px' }}>Avg Winner Hold Time</span>
-                      <span className="mono" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--colors-gain)' }}>{formatHoldTime(overviewStats.avgWinHoldTimeMs)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--colors-hairline-dark)', paddingBottom: '8px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', fontSize: '12px' }}>Avg Loser Hold Time</span>
-                      <span className="mono" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--colors-loss)' }}>{formatHoldTime(overviewStats.avgLossHoldTimeMs)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--colors-hairline-dark)', paddingBottom: '8px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', fontSize: '12px' }}>Overall Average Hold Time</span>
-                      <span className="mono" style={{ fontWeight: '600', fontSize: '13px' }}>{formatHoldTime(overviewStats.avgHoldTimeMs)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', fontSize: '12px' }}>Hold Time Efficiency</span>
-                      <span className="mono" style={{ fontWeight: '600', fontSize: '13px', color: overviewStats.avgWinHoldTimeMs > overviewStats.avgLossHoldTimeMs ? 'var(--colors-gain)' : 'var(--colors-loss)' }}>
-                        {overviewStats.avgLossHoldTimeMs > 0 ? (overviewStats.avgWinHoldTimeMs / overviewStats.avgLossHoldTimeMs).toFixed(2) : '0.00'}x (Win/Loss)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Risk Sizing & Drawdown */}
                 <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
                   <h3 style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1463,7 +1436,6 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                         <th style={{ padding: '8px 12px', textAlign: 'center' }}>Win Rate</th>
                         <th style={{ padding: '8px 12px', textAlign: 'center' }}>Profit Factor</th>
                         <th style={{ padding: '8px 12px', textAlign: 'center' }}>Expectancy</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center' }}>Avg Hold Time</th>
                         <th style={{ padding: '8px 12px', width: '130px' }}>Equity Sparkline</th>
                         <th style={{ padding: '8px 12px', textAlign: 'right' }}>Total Net PnL</th>
                       </tr>
@@ -1476,7 +1448,6 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                           <td style={{ padding: '12px 10px', textAlign: 'center' }} className="mono">{play.activeWinRate.toFixed(0)}%</td>
                           <td style={{ padding: '12px 10px', textAlign: 'center' }} className="mono">{play.profitFactor.toFixed(2)}</td>
                           <td style={{ padding: '12px 10px', textAlign: 'center' }} className="mono">${Math.round(play.expectancy).toLocaleString()}</td>
-                          <td style={{ padding: '12px 10px', textAlign: 'center' }} className="mono">{formatHoldTime(play.avgHoldTimeMs)}</td>
                           <td style={{ padding: '6px 10px' }}>
                             <div style={{ height: '24px', width: '110px' }}>
                               <ResponsiveContainer width="100%" height="100%">
@@ -2042,144 +2013,6 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                 </div>
               </div>
 
-              {/* Hold Time outcome analysis */}
-              <div className="hollow-card" style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', padding: isMobile ? '16px' : '24px', minHeight: '340px', gap: '24px' }}>
-                {/* Left: Chart */}
-                <div style={{ flex: 1, minWidth: isMobile ? '0' : '320px', display: 'flex', flexDirection: 'column' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', color: '#fff' }}>
-                    <Clock size={14} color="var(--colors-primary)" /> Hold Time Bucket Performance (PnL vs Duration)
-                  </h3>
-                  <div style={{ flex: 1, width: '100%', minHeight: '220px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={holdTimeBuckets} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="gainGradientHold" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--colors-gain)" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="var(--colors-gain)" stopOpacity={0.05} />
-                          </linearGradient>
-                          <linearGradient id="lossGradientHold" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--colors-loss)" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="var(--colors-loss)" stopOpacity={0.05} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="name" stroke="var(--colors-stone)" fontSize={9} tickLine={false} />
-                        <YAxis stroke="var(--colors-stone)" fontSize={9} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip content={<CustomHoldTimeTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.015)' }} />
-                        <Bar dataKey="pnl" barSize={24} radius={4}>
-                          {holdTimeBuckets.map((entry, index) => {
-                            const isGain = entry.pnl >= 0;
-                            return (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={isGain ? 'url(#gainGradientHold)' : 'url(#lossGradientHold)'}
-                                stroke={isGain ? 'var(--colors-gain)' : 'var(--colors-loss)'}
-                                strokeWidth={1.2}
-                              />
-                            );
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Right: Insights Sidebar */}
-                <div style={{
-                  width: isMobile ? '100%' : '300px',
-                  borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                  borderTop: isMobile ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
-                  paddingLeft: isMobile ? '0' : '24px',
-                  paddingTop: isMobile ? '24px' : '0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  minHeight: isMobile ? 'none' : '260px'
-                }}>
-                  <div>
-                    <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--colors-stone)', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>
-                      Performance Insights
-                    </span>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {/* Peak Performance */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '6px' }}>
-                          <TrendingUp size={12} color="var(--colors-gain)" /> Peak Performance
-                        </div>
-                        {holdTimeInsights.best ? (
-                          <div style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.15)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{holdTimeInsights.best.name.split(' (')[0]}</span>
-                              <span className="mono" style={{ fontSize: '13px', fontWeight: '700', color: 'var(--colors-gain)' }}>
-                                +${Math.round(holdTimeInsights.best.pnl).toLocaleString()}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
-                              <span>{holdTimeInsights.best.count} trades</span>
-                              <span>{holdTimeInsights.best.winRate}% Win Rate</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: '12px', color: 'var(--colors-stone)', fontStyle: 'italic', padding: '10px 12px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
-                            No positive durations logged
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Leakage Source */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '6px' }}>
-                          <TrendingDown size={12} color="var(--colors-loss)" /> Leakage Source
-                        </div>
-                        {holdTimeInsights.worst ? (
-                          <div style={{ background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.15)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{holdTimeInsights.worst.name.split(' (')[0]}</span>
-                              <span className="mono" style={{ fontSize: '13px', fontWeight: '700', color: 'var(--colors-loss)' }}>
-                                -${Math.abs(Math.round(holdTimeInsights.worst.pnl)).toLocaleString()}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
-                              <span>{holdTimeInsights.worst.count} trades</span>
-                              <span>{holdTimeInsights.worst.winRate}% Win Rate</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: '12px', color: 'var(--colors-stone)', fontStyle: 'italic', padding: '10px 12px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
-                            No negative durations logged
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recommendation */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '8px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.04)',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    marginTop: '16px'
-                  }}>
-                    <Sparkles size={13} color="var(--colors-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-                    <span style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)', lineHeight: '1.4' }}>
-                      {holdTimeInsights.best && holdTimeInsights.worst ? (
-                        <>Your absolute edge lies in <strong>{holdTimeInsights.best.name.split(' (')[0]}</strong>. Avoid letting trades morph into costly <strong>{holdTimeInsights.worst.name.split(' (')[0]}</strong> hold durations.</>
-                      ) : holdTimeInsights.best ? (
-                        <>Hold duration strategy is working well in <strong>{holdTimeInsights.best.name.split(' (')[0]}</strong>. Excellent patience profile.</>
-                      ) : holdTimeInsights.worst ? (
-                        <>Holding times underperforming in the <strong>{holdTimeInsights.worst.name.split(' (')[0]}</strong> bucket. Tighten target constraints.</>
-                      ) : (
-                        <>Awaiting trade durations to isolate optimal position hold time targets.</>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
