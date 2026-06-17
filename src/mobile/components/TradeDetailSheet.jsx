@@ -67,6 +67,8 @@ export default function TradeDetailSheet({
 
   // Tab Control when editing
   const [activeTab, setActiveTab] = useState('execution');
+  const [activeSnapshotType, setActiveSnapshotType] = useState('HTF');
+  const [playbookTags, setPlaybookTags] = useState([]);
 
   // Pill customization states
   const [symbols, setSymbols] = useState(() => {
@@ -109,7 +111,6 @@ export default function TradeDetailSheet({
         commentFazit: trade.commentFazit || '',
         setupRating: (trade.setupRating || 'A').toLowerCase(),
         outcome: trade.wl || 'win',
-        rr: trade.rr || 2,
         manualPnL: trade.manualPnL || '',
         po3Time: trade.po3Time || '',
         entryTf: trade.entryTf || '',
@@ -118,6 +119,12 @@ export default function TradeDetailSheet({
         imageMTF: trade.images?.[1] || null,
         imageHTF: trade.images?.[2] || null,
       });
+
+      try {
+        setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
+      } catch {
+        setPlaybookTags([]);
+      }
     }
   }, [trade]);
 
@@ -386,7 +393,7 @@ export default function TradeDetailSheet({
       date: form.date,
       setupRating: form.setupRating.toUpperCase(),
       wl: form.outcome,
-      rr: parseFloat(form.rr) || 0,
+      rr: 0,
       manualPnL: form.manualPnL,
       po3Time: form.po3Time,
       entryTf: form.entryTf,
@@ -847,24 +854,76 @@ export default function TradeDetailSheet({
                     {/* Model */}
                     <div>
                       <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>model</div>
-                      <input
-                        type="text"
-                        placeholder="e.g. FVG test"
-                        value={form.model}
-                        onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
-                        style={{
-                          width: '100%',
-                          background: 'rgba(255,255,255,0.04)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: 8,
-                          color: '#fff',
-                          fontFamily: 'var(--font)',
-                          fontSize: 12,
-                          padding: '6px 8px',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: playbookTags.length > 0 ? 10 : 0 }}>
+                        {playbookTags.map(tag => {
+                          const isSelected = form.model === tag;
+                          const modelData = JSON.parse(localStorage.getItem('hollowPlaybookModels') || '{}')[tag];
+                          const tagColor = modelData?.color || '#30d158';
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, model: isSelected ? '' : tag }))}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: 16,
+                                background: isSelected ? '#fff' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${isSelected ? '#fff' : 'rgba(255,255,255,0.1)'}`,
+                                color: isSelected ? '#000' : tagColor,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                        {playbookTags.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm(f => ({ ...f, model: '' }));
+                              document.getElementById('edit-custom-model-input')?.focus();
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 16,
+                              background: 'rgba(255,255,255,0.02)',
+                              border: '1px dashed rgba(255,255,255,0.2)',
+                              color: 'rgba(255,255,255,0.5)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            custom
+                          </button>
+                        )}
+                      </div>
+                      {(!playbookTags.length || !playbookTags.includes(form.model)) && (
+                        <input
+                          id="edit-custom-model-input"
+                          type="text"
+                          placeholder="e.g. FVG"
+                          value={form.model}
+                          onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 8,
+                            color: '#fff',
+                            fontFamily: 'var(--font)',
+                            fontSize: 12,
+                            padding: '6px 8px',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      )}
                     </div>
 
                     {/* PO3 Time & Entry TF */}

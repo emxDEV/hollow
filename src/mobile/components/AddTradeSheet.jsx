@@ -119,7 +119,6 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
   const [manualPnL, setManualPnL] = useState('');
-  const [isBE, setIsBE] = useState(false);
 
   // Form State Page 2: Reflections & Mistakes
   const [reflections, setReflections] = useState('');
@@ -387,8 +386,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       else if (finalSymbol === 'GC') entryPrice = 2300;
       else if (finalSymbol === 'CL') entryPrice = 80;
 
-      let pnlVal = isBE ? 0 : parseFloat(manualPnL);
-      if (isNaN(pnlVal) && !isBE) {
+      let pnlVal = parseFloat(manualPnL);
+      if (isNaN(pnlVal) && outcome !== 'BE') {
         // Calculate based on outcome
         const baseRisk = 300;
         const lowOutcome = outcome.toLowerCase();
@@ -399,6 +398,8 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
         } else {
           pnlVal = 0;
         }
+      } else if (outcome === 'BE') {
+        pnlVal = 0;
       }
 
 
@@ -437,7 +438,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             status: 'CLOSED',
             confluences: selectedConfluences,
             setupRating: rating.toUpperCase(),
-            wl: isBE ? 'BE' : outcome,
+            wl: outcome,
             rr: 0,
             tp: null,
             sl: null,
@@ -1247,7 +1248,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                     </div>
                   </div>
 
-                  {/* PNL & BE */}
+                  {/* PNL */}
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 3 }}>PNL</div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -1255,17 +1256,13 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                         type="number"
                         placeholder="optional override"
                         value={manualPnL}
-                        onChange={e => {
-                          setManualPnL(e.target.value);
-                          if (e.target.value !== '' && parseFloat(e.target.value) !== 0) setIsBE(false);
-                          if (parseFloat(e.target.value) === 0) setIsBE(true);
-                        }}
+                        onChange={e => setManualPnL(e.target.value)}
                         style={{
                           width: '100%',
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: 8,
-                          color: isBE ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : (parseFloat(manualPnL) < 0 ? '#ff453a' : '#ff9f0a'))),
+                          color: outcome === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a')),
                           fontFamily: 'var(--font)',
                           fontSize: 12,
                           padding: '8px 10px',
@@ -1273,27 +1270,6 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                           boxSizing: 'border-box'
                         }}
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsBE(!isBE);
-                          if (!isBE) setManualPnL('0');
-                          else setManualPnL('');
-                        }}
-                        style={{
-                          padding: '0 16px',
-                          borderRadius: 8,
-                          border: isBE ? '1px solid rgba(255,159,10,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                          background: isBE ? 'rgba(255,159,10,0.1)' : 'rgba(255,255,255,0.04)',
-                          color: isBE ? '#ff9f0a' : '#fff',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        BE
-                      </button>
                     </div>
                   </div>
                 </div>

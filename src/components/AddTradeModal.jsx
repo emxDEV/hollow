@@ -102,7 +102,6 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
   const [manualPnL, setManualPnL] = useState('');
-  const [isBE, setIsBE] = useState(false);
 
   // Form State Page 2: Reflections & Mistakes
   const [reflections, setReflections] = useState('');
@@ -165,7 +164,6 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       setOutcome('Win');
       setBias('LONG');
       setManualPnL('');
-      setIsBE(false);
       setReflections('');
       setSelectedMistakes([]);
       setCustomMistake('');
@@ -418,8 +416,8 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       else if (finalSymbol === 'CL') entryPrice = 80;
       else if (finalSymbol === 'EURUSD') entryPrice = 1.08;
 
-      let pnlVal = isBE ? 0 : parseFloat(manualPnL);
-      if (isNaN(pnlVal) && !isBE) {
+      let pnlVal = parseFloat(manualPnL);
+      if (isNaN(pnlVal) && outcome !== 'BE') {
         // Calculate based on outcome
         const baseRisk = 300;
         const lowOutcome = outcome.toLowerCase();
@@ -430,6 +428,8 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
         } else {
           pnlVal = 0;
         }
+      } else if (outcome === 'BE') {
+        pnlVal = 0;
       }
 
 
@@ -468,7 +468,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             status: 'CLOSED',
             confluences: selectedConfluences,
             setupRating: rating.toUpperCase(),
-            wl: isBE ? 'BE' : outcome,
+            wl: outcome,
             rr: 0,
             tp: null,
             sl: null,
@@ -1203,48 +1203,20 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                       </div>
                     </div>
 
-                    {/* PNL & BE */}
+                    {/* PNL */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                       <div>
                         <label style={styles.label}>PNL</label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <input
-                            type="number"
-                            placeholder="optional override"
-                            value={manualPnL}
-                            onChange={e => {
-                              setManualPnL(e.target.value);
-                              if (e.target.value !== '' && parseFloat(e.target.value) !== 0) setIsBE(false);
-                              if (parseFloat(e.target.value) === 0) setIsBE(true);
-                            }}
-                            style={{ 
-                              ...styles.input, 
-                              flex: 1, 
-                              color: isBE ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : (parseFloat(manualPnL) < 0 ? '#ff453a' : '#ff9f0a')))
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsBE(!isBE);
-                              if (!isBE) setManualPnL('0');
-                              else setManualPnL('');
-                            }}
-                            style={{
-                              padding: '0 16px',
-                              borderRadius: '8px',
-                              border: isBE ? '1px solid rgba(255,159,10,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                              background: isBE ? 'rgba(255,159,10,0.1)' : 'rgba(255,255,255,0.04)',
-                              color: isBE ? '#ff9f0a' : '#fff',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            BE
-                          </button>
-                        </div>
+                        <input
+                          type="number"
+                          placeholder="optional override"
+                          value={manualPnL}
+                          onChange={e => setManualPnL(e.target.value)}
+                          style={{ 
+                            ...styles.input, 
+                            color: outcome === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
+                          }}
+                        />
                       </div>
                     </div>
                   </div>

@@ -31,11 +31,11 @@ export default function TradeDetailDrawer({
   const [date, setDate] = useState('');
   const [symbol, setSymbol] = useState('');
   const [customSymbol, setCustomSymbol] = useState('');
-  const [rating, setRating] = useState('A');
-  const [bias, setBias] = useState('LONG');
+  const [rating, setRating] = useState('B');
   const [model, setModel] = useState('');
+  const [playbookTags, setPlaybookTags] = useState([]);
   const [wl, setWl] = useState('Win');
-  const [rr, setRr] = useState(2);
+  const [manualPnL, setManualPnL] = useState('');
   const [accountId, setAccountId] = useState('');
   const [po3, setPo3] = useState('');
   const [entryTf, setEntryTf] = useState('');
@@ -96,9 +96,15 @@ export default function TradeDetailDrawer({
       setBias(trade.bias || 'LONG');
       setModel(trade.model || '');
       setWl(trade.wl || 'Win');
-      setRr(trade.rr || 2);
-      setAccountId(trade.accountId || '');
-      setPo3(trade.po3 || '');
+      setManualPnL(trade.manualPnL || '');
+      setPo3(trade.po3Time || '');
+      setEntryTf(trade.entryTf || '');
+      
+      try {
+        setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
+      } catch {
+        setPlaybookTags([]);
+      }
       setEntryTf(trade.entryTf || '');
       setDol(trade.dol || '');
       setCommentExecution(trade.commentExecution || '');
@@ -307,7 +313,8 @@ export default function TradeDetailDrawer({
       bias,
       model,
       wl,
-      rr: parseFloat(rr),
+      rr: 0,
+      manualPnL,
       po3,
       entryTf,
       dol,
@@ -512,8 +519,8 @@ export default function TradeDetailDrawer({
               gap: isMobile ? '24px' : '8px'
             }}>
               <div style={styles.pnlStatItem}>
-                <span style={styles.pnlStatLabel}>R-Multiple</span>
-                <span style={styles.pnlStatValue}>1 : {rr}</span>
+                <span style={styles.pnlStatLabel}>Manual PNL</span>
+                <span style={styles.pnlStatValue}>{manualPnL || '—'}</span>
               </div>
               <div style={styles.pnlStatItem}>
                 <span style={styles.pnlStatLabel}>Account</span>
@@ -690,13 +697,65 @@ export default function TradeDetailDrawer({
 
                 <div style={styles.inputGroup}>
                   <label style={styles.inputLabel}>Playbook Model</label>
-                  <input 
-                    type="text" 
-                    value={model} 
-                    onChange={e => setModel(e.target.value)} 
-                    style={styles.textInput}
-                    placeholder="e.g. Fair Value Gap"
-                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: playbookTags.length > 0 ? '12px' : '0' }}>
+                    {playbookTags.map(tag => {
+                      const isSelected = model === tag;
+                      const modelData = JSON.parse(localStorage.getItem('hollowPlaybookModels') || '{}')[tag];
+                      const tagColor = modelData?.color || '#30d158';
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setModel(isSelected ? '' : tag)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '16px',
+                            background: isSelected ? '#fff' : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${isSelected ? '#fff' : 'rgba(255,255,255,0.1)'}`,
+                            color: isSelected ? '#000' : tagColor,
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                    {playbookTags.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModel('');
+                          document.getElementById('custom-model-input')?.focus();
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '16px',
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px dashed rgba(255,255,255,0.2)',
+                          color: 'rgba(255,255,255,0.5)',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        custom
+                      </button>
+                    )}
+                  </div>
+                  {(!playbookTags.length || !playbookTags.includes(model)) && (
+                    <input 
+                      id="custom-model-input"
+                      type="text" 
+                      value={model} 
+                      onChange={e => setModel(e.target.value)} 
+                      style={styles.textInput}
+                      placeholder="e.g. Fair Value Gap"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -727,7 +786,7 @@ export default function TradeDetailDrawer({
                 </div>
               </div>
 
-              {/* Row 6: R-Multiple & Account Selector */}
+              {/* Row 6: Account Selector & PNL Override */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
@@ -736,17 +795,17 @@ export default function TradeDetailDrawer({
               }}>
                 <div style={styles.inputGroup}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={styles.inputLabel}>R-Multiple (1:X)</label>
-                     <span style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>1 : {rr}</span>
+                    <label style={styles.inputLabel}>PNL</label>
                   </div>
                   <input 
-                    type="range" 
-                    min="0" 
-                    max="10" 
-                    step="0.5" 
-                    value={rr} 
-                    onChange={e => setRr(parseFloat(e.target.value))} 
-                    className="hollow-slider"
+                    type="number" 
+                    placeholder="optional override"
+                    value={manualPnL} 
+                    onChange={e => setManualPnL(e.target.value)} 
+                    style={{ 
+                      ...styles.textInput, 
+                      color: wl === 'BE' || (manualPnL !== '' && parseFloat(manualPnL) === 0) ? '#ff9f0a' : (manualPnL === '' ? '#fff' : (parseFloat(manualPnL) > 0 ? '#30d158' : '#ff453a'))
+                    }}
                   />
                 </div>
 
