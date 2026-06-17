@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, seedDatabaseIfEmpty, syncWithSupabase, clearDatabase } from './db/hollowDb';
+import { db, seedDatabaseIfEmpty, syncWithSupabase, clearDatabase, subscribeToRealtimeSync } from './db/hollowDb';
 import { supabase } from './db/supabaseClient';
 import AuthView from './components/AuthView';
 import LoadingScreen from './components/LoadingScreen';
@@ -161,6 +161,15 @@ export default function App() {
       window.removeEventListener('hashchange', checkHashForRecovery);
     };
   }, []);
+
+  // Real-time cross-device sync: subscribe whenever a session is active
+  useEffect(() => {
+    let unsubscribe = () => {};
+    if (session) {
+      subscribeToRealtimeSync().then(fn => { unsubscribe = fn; });
+    }
+    return () => { unsubscribe(); };
+  }, [session]);
 
   useEffect(() => {
     const loadUIOptions = () => {

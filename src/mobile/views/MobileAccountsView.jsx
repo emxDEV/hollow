@@ -94,10 +94,6 @@ export default function MobileAccountsView({ selectedAccountId, setSelectedAccou
   };
 
   const handleDeleteAccount = async (id) => {
-    if (accounts.length <= 1) {
-      addToast('Cannot delete last account.', 'error');
-      return;
-    }
     if (!window.confirm('Delete this account and all associated trades?')) return;
     try {
       const referencedTrades = await db.trades.where('accountId').equals(id).toArray();

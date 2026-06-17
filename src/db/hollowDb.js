@@ -475,3 +475,58 @@ export async function clearDatabase() {
     isSyncingFromCloud = false;
   }
 }
+
+// Real-time cross-device sync via Supabase Postgres changes
+// Returns an unsubscribe function to clean up when the session ends.
+export async function subscribeToRealtimeSync() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return () => {};
+
+  const userId = session.user.id;
+
+  const tableMap = [
+    { name: 'accounts',      store: db.accounts,      pk: 'id' },
+    { name: 'trades',        store: db.trades,        pk: 'id' },
+    { name: 'executions',    store: db.executions,    pk: 'id' },
+    { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
+    { name: 'weeklyPlanners',store: db.weeklyPlanners,pk: 'weekId' },
+    { name: 'groups',        store: db.groups,        pk: 'id' },
+  ];
+
+  const channel = supabase
+    .channel(`hollow-realtime-${userId}`)
+    .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+      const tableMeta = tableMap.find(t => t.name === payload.table);
+      if (!tableMeta) return;
+
+      // Only process changes that belong to the current user
+      const record = payload.new || payload.old;
+      if (!record) return;
+      const pkValue = record[tableMeta.pk];
+      if (!pkValue || !String(pkValue).startsWith(userId + ':')) return;
+
+      // Prevent sync hooks from pushing these local writes back to Supabase
+      const prev = isSyncingFromCloud;
+      isSyncingFromCloud = true;
+
+      try {
+        if (payload.eventType === 'DELETE') {
+          const cleanPk = String(pkValue).substring(userId.length + 1);
+          await tableMeta.store.delete(cleanPk);
+        } else {
+          // INSERT or UPDATE — unprefix and write locally
+          const cleanRecord = unprefixRecord(record, userId, tableMeta.name);
+          await tableMeta.store.put(cleanRecord);
+        }
+      } catch (err) {
+        console.error(`Realtime sync error on ${tableMeta.name}:`, err);
+      } finally {
+        isSyncingFromCloud = prev;
+      }
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

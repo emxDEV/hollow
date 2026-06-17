@@ -351,10 +351,6 @@ export default function DashboardView({
 
   const handleDeleteAccountFromContextMenu = (acc) => {
     if (!acc) return;
-    if (accounts.length <= 1) {
-      setDeleteErrorMsg('Cannot delete the last remaining account. There must be at least one account in the system.');
-      return;
-    }
     setAccountToDelete(acc);
   };
 

@@ -846,10 +846,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
 
   const handleDeleteAccount = async () => {
     if (editingAccountId === 'new') return;
-    if (accounts.length <= 1) {
-      showToast('Cannot delete the last remaining account. There must be at least one account in the system.', 'error');
-      return;
-    }
     
     if (window.confirm(`Are you sure you want to delete account "${accForm.name}"? This will delete all referenced trades.`)) {
       try {
