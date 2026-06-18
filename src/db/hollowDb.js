@@ -387,34 +387,43 @@ export async function syncWithSupabase() {
           pushedCount++;
         }
       } else if (localData.length > 0 && remoteData.length > 0) {
-        // Bidirectional merge: sync local changes to cloud and pull cloud changes
-        const { error: pushError } = await supabase.from(table.name).upsert(prefixedLocalData);
-        if (pushError) {
-          console.error(`Failed to merge push table ${table.name}:`, pushError);
-        }
-        
-        // Merge remote data into local database, keeping local-only fields
+        // Bidirectional merge:
+        // STEP 1 — Pull cloud data and merge into local FIRST.
+        //   This ensures local reflects the best-known state before we push anything.
+        //   Pushing stale local data BEFORE pulling would overwrite good cloud values.
         for (const remoteItem of remoteData) {
           const cleanItem = unprefixRecord(remoteItem, userId, table.name);
           const localItem = await table.store.get(cleanItem[table.pk]);
           if (localItem) {
             const merged = { ...localItem, ...cleanItem };
-            // For trades: preserve non-empty manualPnL — never overwrite a real value with an empty string
+            // For trades: prefer whichever side has a non-empty manualPnL.
+            // Remote wins if it has a value; local wins only if remote is empty.
             if (table.name === 'trades') {
               const localPnL = localItem.manualPnL;
               const remotePnL = cleanItem.manualPnL;
               const hasLocal = localPnL !== undefined && localPnL !== null && localPnL !== '';
               const hasRemote = remotePnL !== undefined && remotePnL !== null && remotePnL !== '';
-              if (hasLocal && !hasRemote) {
-                merged.manualPnL = localPnL;
-              } else if (hasRemote) {
-                merged.manualPnL = remotePnL;
+              if (hasRemote) {
+                merged.manualPnL = remotePnL;  // cloud wins when it has a real value
+              } else if (hasLocal) {
+                merged.manualPnL = localPnL;   // local wins when cloud has nothing
               }
             }
             await table.store.put(merged);
           } else {
             await table.store.put(cleanItem);
           }
+        }
+
+        // STEP 2 — Push the now-merged local state up to cloud.
+        //   We re-read from the store so we push the merged result, not the stale pre-merge data.
+        const mergedLocalData = await table.store.toArray();
+        const prefixedMergedData = mergedLocalData.map(item =>
+          prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name)
+        );
+        const { error: pushError } = await supabase.from(table.name).upsert(prefixedMergedData);
+        if (pushError) {
+          console.error(`Failed to merge push table ${table.name}:`, pushError);
         }
       }
     }
