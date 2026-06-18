@@ -43,9 +43,12 @@ function sanitizeForSupabase(tableName, obj) {
       if (obj[k] !== undefined) meta[k] = obj[k];
     });
 
-    const originalFazit = commentFazit || '';
+    // Strip any pre-existing __HOLLOW_META__ section from commentFazit before appending
+    // This prevents stale meta from accumulating after each edit/sync cycle
+    const rawFazit = commentFazit || '';
+    const cleanFazit = rawFazit.split('\n\n__HOLLOW_META__:')[0];
     const serializedMeta = JSON.stringify(meta);
-    const updatedFazit = `${originalFazit}\n\n__HOLLOW_META__:${serializedMeta}`;
+    const updatedFazit = `${cleanFazit}\n\n__HOLLOW_META__:${serializedMeta}`;
 
     return {
       ...rest,
@@ -291,7 +294,8 @@ export function unprefixRecord(obj, userId, tableName) {
       const parts = clean.commentFazit.split('\n\n__HOLLOW_META__:');
       if (parts.length > 1) {
         const originalFazit = parts[0];
-        const serializedMeta = parts[1];
+        // Use the LAST part — it is the most recently written meta (guards against legacy accumulation)
+        const serializedMeta = parts[parts.length - 1];
         try {
           const meta = JSON.parse(serializedMeta);
           Object.assign(clean, meta);
