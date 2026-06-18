@@ -110,7 +110,7 @@ export default function TradeDetailSheet({
         commentProblems: trade.commentProblems || '',
         commentFazit: trade.commentFazit || '',
         setupRating: (trade.setupRating || 'A').toLowerCase(),
-        outcome: trade.wl || 'win',
+        outcome: (trade.wl || 'win').toLowerCase(),
         manualPnL: trade.manualPnL || '',
         po3Time: trade.po3Time || '',
         entryTf: trade.entryTf || '',
@@ -1138,53 +1138,27 @@ export default function TradeDetailSheet({
                       </div>
                     </div>
 
-                    {/* R-Multiple & Manual P&L Override */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>r-multiple</div>
-                        <input
-                          type="number"
-                          min="0"
-                          max="50"
-                          step="0.1"
-                          placeholder="e.g. 2.5"
-                          value={form.rr}
-                          onChange={e => setForm(f => ({ ...f, rr: parseFloat(e.target.value) || 0 }))}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 8,
-                            color: '#fff',
-                            fontFamily: 'var(--font)',
-                            fontSize: 12,
-                            padding: '6px 8px',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>manual p&l ($)</div>
-                        <input
-                          type="number"
-                          placeholder="optional override"
-                          value={form.manualPnL}
-                          onChange={e => setForm(f => ({ ...f, manualPnL: e.target.value }))}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 8,
-                            color: (form.wl || '').toLowerCase().includes('be') || (form.manualPnL !== '' && parseFloat(form.manualPnL) === 0) ? '#ff9f0a' : (form.manualPnL === '' ? '#fff' : (parseFloat(form.manualPnL) > 0 ? '#30d158' : '#ff453a')),
-                            fontFamily: 'var(--font)',
-                            fontSize: 12,
-                            padding: '6px 8px',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </div>
+                    {/* Manual P&L Override */}
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 2 }}>manual p&l ($)</div>
+                      <input
+                        type="number"
+                        placeholder="optional override"
+                        value={form.manualPnL}
+                        onChange={e => setForm(f => ({ ...f, manualPnL: e.target.value }))}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 8,
+                          color: (form.wl || '').toLowerCase().includes('be') || (form.manualPnL !== '' && parseFloat(form.manualPnL) === 0) ? '#ff9f0a' : (form.manualPnL === '' ? '#fff' : (parseFloat(form.manualPnL) > 0 ? '#30d158' : '#ff453a')),
+                          fontFamily: 'var(--font)',
+                          fontSize: 12,
+                          padding: '6px 8px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
                     </div>
                   </motion.div>
                 )}

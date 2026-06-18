@@ -490,7 +490,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             status: 'CLOSED',
             confluences: selectedConfluences,
             setupRating: rating.toUpperCase(),
-            wl: outcome,
+            wl: outcome.toLowerCase(),
             rr: 0,
             manualPnL: savedManualPnL,
             session: session || 'NY AM',
