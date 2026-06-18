@@ -1077,7 +1077,7 @@ export default function HomeView({
                       </div>
                     </div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: valueColor, letterSpacing: '-0.01em', flexShrink: 0 }}>
-                      {isBE && t.netPnL === 0 ? '$0.00' : fmt(t.netPnL)}
+                      {fmt(t.netPnL)}
                     </div>
                   </button>
                 );

@@ -394,7 +394,20 @@ export async function syncWithSupabase() {
           const cleanItem = unprefixRecord(remoteItem, userId, table.name);
           const localItem = await table.store.get(cleanItem[table.pk]);
           if (localItem) {
-            await table.store.put({ ...localItem, ...cleanItem });
+            const merged = { ...localItem, ...cleanItem };
+            // For trades: preserve non-empty manualPnL — never overwrite a real value with an empty string
+            if (table.name === 'trades') {
+              const localPnL = localItem.manualPnL;
+              const remotePnL = cleanItem.manualPnL;
+              const hasLocal = localPnL !== undefined && localPnL !== null && localPnL !== '';
+              const hasRemote = remotePnL !== undefined && remotePnL !== null && remotePnL !== '';
+              if (hasLocal && !hasRemote) {
+                merged.manualPnL = localPnL;
+              } else if (hasRemote) {
+                merged.manualPnL = remotePnL;
+              }
+            }
+            await table.store.put(merged);
           } else {
             await table.store.put(cleanItem);
           }
@@ -551,6 +564,19 @@ export async function subscribeToRealtimeSync() {
         } else {
           // INSERT or UPDATE — unprefix and write locally
           const cleanRecord = unprefixRecord(record, userId, tableMeta.name);
+          // For trades: preserve non-empty manualPnL — never overwrite a real value with empty string from cloud
+          if (tableMeta.name === 'trades') {
+            const localItem = await tableMeta.store.get(cleanRecord[tableMeta.pk]);
+            if (localItem) {
+              const localPnL = localItem.manualPnL;
+              const remotePnL = cleanRecord.manualPnL;
+              const hasLocal = localPnL !== undefined && localPnL !== null && localPnL !== '';
+              const hasRemote = remotePnL !== undefined && remotePnL !== null && remotePnL !== '';
+              if (hasLocal && !hasRemote) {
+                cleanRecord.manualPnL = localPnL;
+              }
+            }
+          }
           await tableMeta.store.put(cleanRecord);
         }
       } catch (err) {
