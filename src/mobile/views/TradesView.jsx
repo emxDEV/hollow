@@ -54,9 +54,9 @@ export default function TradesView({ trades, executions, accounts, selectedAccou
 
     if (biasFil !== 'All') r = r.filter(t => t.bias === biasFil);
 
-    if (outcomeFil === 'Win') r = r.filter(t => t.netPnL > 0);
-    else if (outcomeFil === 'Loss') r = r.filter(t => t.netPnL < 0);
-    else if (outcomeFil === 'Breakeven') r = r.filter(t => t.netPnL === 0);
+    if (outcomeFil === 'Win') r = r.filter(t => t.netPnL > 0 && !isTradeBE(t));
+    else if (outcomeFil === 'Loss') r = r.filter(t => t.netPnL < 0 && !isTradeBE(t));
+    else if (outcomeFil === 'Breakeven') r = r.filter(t => isTradeBE(t));
 
     return [...r].sort((a, b) => {
       if (sortBy === 'date') {
