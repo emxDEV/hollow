@@ -34,8 +34,8 @@
   
   /* Spacing */
   --nav-height: 83px;
-  --safe-top: env(safe-area-inset-top, 44px);
-  --safe-bottom: env(safe-area-inset-bottom, 34px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   
   /* Radius */
   --r-xs: 8px;
@@ -61,6 +61,7 @@
 html, body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   background: #000;
   overscroll-behavior: none;
 }
