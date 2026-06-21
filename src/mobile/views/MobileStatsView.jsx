@@ -215,9 +215,9 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
   };
 
   const OVERVIEW_KPIS = [
-    { label: 'Net P&L', value: fmt(stats.total), color: isPositive ? '#30d158' : '#ff453a', icon: TrendingUp },
-    { label: 'Win Rate', value: `${stats.winRate.toFixed(0)}%`, color: '#0a84ff', icon: Target },
-    { label: 'Profit Factor', value: stats.pf.toFixed(2), color: '#ff9f0a', icon: Zap },
+    { label: 'Net P&L', value: fmt(stats.total), color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (isPositive ? '#30d158' : '#ff453a'), icon: TrendingUp },
+    { label: 'Win Rate', value: `${stats.winRate.toFixed(0)}%`, color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (stats.winRate >= 50 ? '#30d158' : '#ff453a'), icon: Target },
+    { label: 'Profit Factor', value: stats.pf.toFixed(2), color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (stats.pf >= 1.0 ? '#30d158' : '#ff453a'), icon: Zap },
     { label: 'Total Trades', value: stats.count, color: '#bf5af2', icon: BookOpen },
     { label: 'Avg Win', value: `$${stats.avgWin.toFixed(0)}`, color: '#30d158', icon: Award },
     { label: 'Avg Loss', value: `$${stats.avgLoss.toFixed(0)}`, color: '#ff453a', icon: Shield },

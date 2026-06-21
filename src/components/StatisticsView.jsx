@@ -1291,7 +1291,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>NET PNL</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalNetPnL >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)' 
+                  }}>
                     {overviewStats.totalNetPnL >= 0 ? '+' : ''}${Math.round(overviewStats.totalNetPnL).toLocaleString()}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
@@ -1308,11 +1313,18 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>WIN RATE</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalTrades === 0 ? '#fff' : (overviewStats.activeWinRate >= 50 ? 'var(--colors-gain)' : 'var(--colors-loss)') 
+                  }}>
                     {overviewStats.activeWinRate.toFixed(1)}%
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
-                    {overviewStats.winCount} W • {overviewStats.lossCount} L • {overviewStats.beCount} BE
+                    <span style={{ color: 'var(--colors-gain)', fontWeight: '700' }}>{overviewStats.winCount}</span> W •{' '}
+                    <span style={{ color: 'var(--colors-loss)', fontWeight: '700' }}>{overviewStats.lossCount}</span> L •{' '}
+                    <span style={{ color: '#ff9f0a', fontWeight: '700' }}>{overviewStats.beCount}</span> BE
                   </div>
                 </div>
 
@@ -1325,7 +1337,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>PROFIT FACTOR</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalTrades === 0 ? '#fff' : (overviewStats.profitFactor >= 1.0 ? 'var(--colors-gain)' : 'var(--colors-loss)') 
+                  }}>
                     {overviewStats.profitFactor.toFixed(2)}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
@@ -1342,7 +1359,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>EXPECTANCY</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalTrades === 0 ? '#fff' : (overviewStats.expectancy >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)') 
+                  }}>
                     {overviewStats.expectancy >= 0 ? '+' : ''}${Math.round(overviewStats.expectancy).toLocaleString()}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
@@ -1591,7 +1613,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>DISCIPLINE RATE</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalTrades === 0 ? '#fff' : (disciplineLeakageStats.disciplineRate >= 80 ? 'var(--colors-gain)' : 'var(--colors-loss)') 
+                  }}>
                     {disciplineLeakageStats.disciplineRate.toFixed(1)}%
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
@@ -1608,7 +1635,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>CAPITAL LEAKAGE</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: disciplineLeakageStats.leakageAmount > 0 ? 'var(--colors-loss)' : '#fff' 
+                  }}>
                     ${Math.abs(Math.round(disciplineLeakageStats.leakageAmount)).toLocaleString()}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>
@@ -1625,7 +1657,12 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   justifyContent: 'center'
                 }}>
                   <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '600', letterSpacing: '0.8px', textTransform: 'uppercase' }}>MISTAKE-FREE PNL</div>
-                  <div className="mono" style={{ fontSize: '24px', fontWeight: '600', margin: '4px 0 2px 0', color: '#fff' }}>
+                  <div className="mono" style={{ 
+                    fontSize: '24px', 
+                    fontWeight: '600', 
+                    margin: '4px 0 2px 0', 
+                    color: overviewStats.totalTrades === 0 ? '#fff' : (disciplineLeakageStats.mistakeFreePnL >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)') 
+                  }}>
                     ${Math.round(disciplineLeakageStats.mistakeFreePnL).toLocaleString()}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--colors-on-dark-mute)' }}>

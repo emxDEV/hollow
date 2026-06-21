@@ -316,10 +316,10 @@ export default function HomeView({
   const isPositiveOverall = allStats.total >= 0;
 
   const kpis = [
-    { label: 'Win Rate', value: `${allStats.winRate.toFixed(0)}%`, sub: `${enriched.filter(t => t.netPnL > 0).length} wins`, color: '#30d158' },
-    { label: 'Profit Factor', value: allStats.pf.toFixed(2), sub: 'p&l ratio', color: '#0a84ff' },
+    { label: 'Win Rate', value: `${allStats.winRate.toFixed(0)}%`, sub: `${enriched.filter(t => t.netPnL > 0).length} wins`, color: allStats.count === 0 ? 'rgba(255,255,255,0.7)' : (allStats.winRate >= 50 ? '#30d158' : '#ff453a') },
+    { label: 'Profit Factor', value: allStats.pf.toFixed(2), sub: 'p&l ratio', color: allStats.count === 0 ? 'rgba(255,255,255,0.7)' : (allStats.pf >= 1.0 ? '#30d158' : '#ff453a') },
     { label: 'Total Trades', value: allStats.count, sub: 'all time', color: '#bf5af2' },
-    { label: 'Total P&L', value: fmt(allStats.total), sub: 'net p&l', color: isPositiveOverall ? '#30d158' : '#ff453a' },
+    { label: 'Total P&L', value: fmt(allStats.total), sub: 'net p&l', color: allStats.count === 0 ? 'rgba(255,255,255,0.7)' : (isPositiveOverall ? '#30d158' : '#ff453a') },
   ];
 
   // Navigate dates

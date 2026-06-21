@@ -1014,21 +1014,36 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
 
               <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
                 <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>WIN RATE</div>
-                <div className="mono" style={{ fontSize: '22px', fontWeight: '700', color: '#fff', marginTop: '4px' }}>
+                <div className="mono" style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '700', 
+                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.activeWinRate >= 50 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '4px' 
+                }}>
                   {weeklyTradeMetrics.activeWinRate.toFixed(0)}%
                 </div>
               </div>
 
               <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
                 <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>PROFIT FACTOR</div>
-                <div className="mono" style={{ fontSize: '22px', fontWeight: '700', color: '#fff', marginTop: '4px' }}>
+                <div className="mono" style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '700', 
+                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.profitFactor >= 1.0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '4px' 
+                }}>
                   {weeklyTradeMetrics.profitFactor.toFixed(2)}
                 </div>
               </div>
 
               <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
                 <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>EXPECTANCY</div>
-                <div className="mono" style={{ fontSize: '22px', fontWeight: '700', color: '#fff', marginTop: '4px' }}>
+                <div className="mono" style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '700', 
+                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.expectancy >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '4px' 
+                }}>
                   {weeklyTradeMetrics.expectancy >= 0 ? '+' : ''}${Math.round(weeklyTradeMetrics.expectancy).toLocaleString()}
                 </div>
               </div>

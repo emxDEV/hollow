@@ -1558,7 +1558,13 @@ export default function DashboardView({
                 <div style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <span>Profit factor</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '2px', fontFamily: 'var(--font-heading)' }}>
+                <div style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '800', 
+                  color: !hasTrades ? '#fff' : (stats.profitFactor >= 1.0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '2px', 
+                  fontFamily: 'var(--font-heading)' 
+                }}>
                   {stats.profitFactor.toFixed(2)}
                 </div>
               </div>
@@ -1615,7 +1621,13 @@ export default function DashboardView({
                 <div style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <span>Trade win %</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '2px', fontFamily: 'var(--font-heading)' }}>
+                <div style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '800', 
+                  color: !hasTrades ? '#fff' : (stats.winRate >= 50 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '2px', 
+                  fontFamily: 'var(--font-heading)' 
+                }}>
                   {tradesWithCalculations.length > 0 ? `${stats.winRate.toFixed(2)}%` : '0.00%'}
                 </div>
               </div>
@@ -1715,7 +1727,13 @@ export default function DashboardView({
                 <div style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <span>Avg win/loss</span>
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '2px', fontFamily: 'var(--font-heading)' }}>
+                <div style={{ 
+                  fontSize: '22px', 
+                  fontWeight: '800', 
+                  color: !hasTrades ? '#fff' : (Number(avgWinLossRatio) >= 1.0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  marginTop: '2px', 
+                  fontFamily: 'var(--font-heading)' 
+                }}>
                   {avgWinLossRatio}
                 </div>
               </div>

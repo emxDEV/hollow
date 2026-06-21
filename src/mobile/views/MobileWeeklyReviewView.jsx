@@ -390,8 +390,14 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
           </div>
           <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12 }}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Win Rate / PF</span>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginTop: 4 }}>
-              {weeklyTradeMetrics.winRate.toFixed(0)}% / {weeklyTradeMetrics.pf.toFixed(2)}
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>
+              <span style={{ color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.winRate >= 50 ? '#30d158' : '#ff453a') }}>
+                {weeklyTradeMetrics.winRate.toFixed(0)}%
+              </span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', margin: '0 6px' }}>/</span>
+              <span style={{ color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.pf >= 1.0 ? '#30d158' : '#ff453a') }}>
+                {weeklyTradeMetrics.pf.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
