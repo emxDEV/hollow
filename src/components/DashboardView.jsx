@@ -426,9 +426,9 @@ export default function DashboardView({
 
       // 3. Outcome Filter
       if (filterOutcome && filterOutcome !== 'all') {
-        if (filterOutcome === 'wins' && t.netPnL <= 0) return false;
-        if (filterOutcome === 'losses' && t.netPnL >= 0) return false;
-        if (filterOutcome === 'breakeven' && t.netPnL !== 0) return false;
+        if (filterOutcome === 'wins' && (t.netPnL <= 0 || isTradeBE(t))) return false;
+        if (filterOutcome === 'losses' && (t.netPnL >= 0 || isTradeBE(t))) return false;
+        if (filterOutcome === 'breakeven' && !isTradeBE(t)) return false;
       }
 
       // 4. Playbook Model Filter
