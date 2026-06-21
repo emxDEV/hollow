@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/hollowDb';
 import { supabase } from '../../db/supabaseClient';
+import { APP_VERSION } from '../../utils/version';
 import {
   User, Settings, CreditCard, ChevronRight, Bell,
   Moon, Layers, Wifi, WifiOff, Plus, Trash2, Edit2, X, Check,
@@ -388,7 +389,7 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
         <SectionHeader title="About" />
         <div style={{ margin: '0 16px', background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
           {[
-            { label: 'Version', value: '1.0.0' },
+            { label: 'Version', value: APP_VERSION },
             { label: 'Database', value: 'IndexedDB + Supabase' },
           ].map((item, i, arr) => (
             <div key={item.label} style={{

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, BookOpen, Layers, ArrowRight, Check } from 'lucide-react';
-
-const CURRENT_VERSION = '1.1.0';
+import { APP_VERSION as CURRENT_VERSION } from '../utils/version';
 
 export default function WelcomeUpdateModal({ isMobile }) {
   const [isOpen, setIsOpen] = useState(false);

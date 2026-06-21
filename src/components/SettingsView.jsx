@@ -3,6 +3,7 @@ import { db } from '../db/hollowDb';
 import { supabase } from '../db/supabaseClient';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { showToast } from '../utils/toast';
+import { APP_VERSION } from '../utils/version';
 import HollowSelect from './HollowSelect';
 import HollowGroupedSelect from './HollowGroupedSelect';
 import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
@@ -2640,7 +2641,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                 <SectionHeader title="About" />
                 <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                   {[
-                    { label: 'Version', value: '1.0.0' },
+                    { label: 'Version', value: APP_VERSION },
                     { label: 'Database', value: 'IndexedDB + Supabase' },
                   ].map((item, i, arr) => (
                     <div key={item.label} style={{
