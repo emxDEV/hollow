@@ -27,7 +27,11 @@ import {
   Heart,
   X,
   Trash2,
-  Edit3
+  Edit3,
+  Clock,
+  Copy,
+  RotateCcw,
+  Sparkles
 } from 'lucide-react';
 
 export default function JournalView() {
@@ -37,6 +41,7 @@ export default function JournalView() {
   const journalTab = useUIStore(state => state.journalTab);
   const setJournalTab = useUIStore(state => state.setJournalTab);
   const setActiveTradeId = useUIStore(state => state.setActiveTradeId);
+  const addToast = useUIStore(state => state.addToast);
 
   const [saveStatus, setSaveStatus] = useState('');
 
@@ -137,6 +142,116 @@ export default function JournalView() {
   const [newGoalText, setNewGoalText] = useState('');
   const [isEditingWeeklyGoals, setIsEditingWeeklyGoals] = useState(false);
 
+  // 3b. Local state for Daily Structure
+  const [dayStructure, setDayStructure] = useState([]);
+  
+  // Local state for templates (loaded from localStorage)
+  const [templates, setTemplates] = useState(() => {
+    const saved = localStorage.getItem('hollowDailyStructureTemplates');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 't-default-weekday',
+        name: 'Standard Trading Day',
+        structure: [
+          { id: 'b1', startTime: '08:00', endTime: '09:00', label: 'Pre-Market Prep & News Check', category: 'prep', completed: false },
+          { id: 'b2', startTime: '09:00', endTime: '11:30', label: 'AM Trading Session', category: 'trading', completed: false },
+          { id: 'b3', startTime: '11:30', endTime: '13:00', label: 'Lunch, Gym & Rest', category: 'health', completed: false },
+          { id: 'b4', startTime: '13:00', endTime: '14:30', label: 'Post-Market Review & Journaling', category: 'review', completed: false },
+          { id: 'b5', startTime: '14:30', endTime: '17:00', label: 'Backtesting & Playbook Studies', category: 'prep', completed: false },
+          { id: 'b6', startTime: '22:00', endTime: '22:30', label: 'Evening Routine & Sleep Prep', category: 'routine', completed: false }
+        ]
+      }
+    ];
+  });
+
+  const [newBlockStart, setNewBlockStart] = useState('08:00');
+  const [newBlockEnd, setNewBlockEnd] = useState('09:00');
+  const [newBlockLabel, setNewBlockLabel] = useState('');
+  const [newBlockCategory, setNewBlockCategory] = useState('trading');
+
+  // Inline edit state
+  const [editingBlockId, setEditingBlockId] = useState(null);
+  const [editBlockStart, setEditBlockStart] = useState('');
+  const [editBlockEnd, setEditBlockEnd] = useState('');
+  const [editBlockLabel, setEditBlockLabel] = useState('');
+  const [editBlockCategory, setEditBlockCategory] = useState('trading');
+
+  // Template creation & batch apply state
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  
+  // Set default batch range to the current date
+  const [batchStartDate, setBatchStartDate] = useState(selectedDate);
+  const [batchEndDate, setBatchEndDate] = useState(selectedDate);
+  const [batchDays, setBatchDays] = useState({
+    1: true, // Mon
+    2: true, // Tue
+    3: true, // Wed
+    4: true, // Thu
+    5: true, // Fri
+    6: false, // Sat
+    0: false  // Sun
+  });
+
+  const isSelectedDateToday = useMemo(() => {
+    return selectedDate === new Date().toISOString().split('T')[0];
+  }, [selectedDate]);
+
+  const [currentTimeMinutes, setCurrentTimeMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    if (!isSelectedDateToday) return;
+    
+    const now = new Date();
+    setCurrentTimeMinutes(now.getHours() * 60 + now.getMinutes());
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentTimeMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isSelectedDateToday, selectedDate]);
+
+  const activeBlockProgress = useMemo(() => {
+    if (!isSelectedDateToday || dayStructure.length === 0) return null;
+    
+    for (const block of dayStructure) {
+      const [sh, sm] = block.startTime.split(':').map(Number);
+      const [eh, em] = block.endTime.split(':').map(Number);
+      const startMin = sh * 60 + sm;
+      const endMin = eh * 60 + em;
+      
+      if (currentTimeMinutes >= startMin && currentTimeMinutes < endMin) {
+        const total = endMin - startMin;
+        const elapsed = currentTimeMinutes - startMin;
+        const pct = total > 0 ? Math.round((elapsed / total) * 100) : 0;
+        return {
+          block,
+          pct,
+          remaining: endMin - currentTimeMinutes
+        };
+      }
+    }
+    return null;
+  }, [dayStructure, isSelectedDateToday, currentTimeMinutes]);
+
+  const nextBlock = useMemo(() => {
+    if (dayStructure.length === 0) return null;
+    
+    for (const block of dayStructure) {
+      const [sh, sm] = block.startTime.split(':').map(Number);
+      const startMin = sh * 60 + sm;
+      if (startMin > currentTimeMinutes) {
+        return block;
+      }
+    }
+    return null;
+  }, [dayStructure, currentTimeMinutes]);
+
   // Generate week timeline days based on selectedDate
   const weekDays = useMemo(() => {
     const dateObj = new Date(selectedDate);
@@ -192,6 +307,7 @@ export default function JournalView() {
         preMarketNotes: dailyLog.preMarketNotes || '',
         postMarketNotes: dailyLog.postMarketNotes || ''
       });
+      setDayStructure(dailyLog.structure || []);
     } else {
       // Clean slate defaults for new dates
       setDailyForm({
@@ -209,6 +325,7 @@ export default function JournalView() {
         preMarketNotes: '',
         postMarketNotes: ''
       });
+      setDayStructure([]);
     }
   }, [dailyLog, selectedDate]);
 
@@ -383,6 +500,183 @@ export default function JournalView() {
     }
   };
 
+  const saveStructure = async (newStructure) => {
+    setDayStructure(newStructure);
+    setSaveStatus('Saving...');
+    try {
+      const checkedPrepIds = dailyForm.checkedPrepIds || [];
+      const currentLog = await db.dailyJournals.get(selectedDate) || {};
+      await db.dailyJournals.put({
+        ...currentLog,
+        date: selectedDate,
+        status: currentLog.status || 'COMPLETED',
+        ...dailyForm,
+        structure: newStructure,
+        newsChecked: checkedPrepIds.includes('newsChecked'),
+        htfAnalysisDone: checkedPrepIds.includes('htfAnalysisDone'),
+        liquidityDrawn: checkedPrepIds.includes('liquidityDrawn'),
+        dailyOpenMapped: checkedPrepIds.includes('dailyOpenMapped')
+      });
+      setSaveStatus('Structure Saved');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setSaveStatus('Save Failed');
+    }
+  };
+
+  const handleAddBlock = async (e) => {
+    if (e) e.preventDefault();
+    if (!newBlockLabel.trim()) return;
+
+    const newBlock = {
+      id: `block-${Date.now()}`,
+      startTime: newBlockStart,
+      endTime: newBlockEnd,
+      label: newBlockLabel.trim(),
+      category: newBlockCategory,
+      completed: false
+    };
+
+    const updated = [...dayStructure, newBlock].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    await saveStructure(updated);
+    
+    setNewBlockLabel('');
+    addToast('Time block added!', 'success');
+  };
+
+  const handleStartEditBlock = (block) => {
+    setEditingBlockId(block.id);
+    setEditBlockStart(block.startTime);
+    setEditBlockEnd(block.endTime);
+    setEditBlockLabel(block.label);
+    setEditBlockCategory(block.category);
+  };
+
+  const handleSaveEditBlock = async (id) => {
+    if (!editBlockLabel.trim()) return;
+
+    const updated = dayStructure.map(b => {
+      if (b.id === id) {
+        return {
+          ...b,
+          startTime: editBlockStart,
+          endTime: editBlockEnd,
+          label: editBlockLabel.trim(),
+          category: editBlockCategory
+        };
+      }
+      return b;
+    }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    await saveStructure(updated);
+    setEditingBlockId(null);
+    addToast('Time block updated!', 'success');
+  };
+
+  const handleDeleteBlock = async (id) => {
+    const updated = dayStructure.filter(b => b.id !== id);
+    await saveStructure(updated);
+    addToast('Time block deleted', 'success');
+  };
+
+  const handleToggleBlockCheck = async (id) => {
+    const updated = dayStructure.map(b => 
+      b.id === id ? { ...b, completed: !b.completed } : b
+    );
+    await saveStructure(updated);
+  };
+
+  const handleSaveAsTemplate = (e) => {
+    if (e) e.preventDefault();
+    if (!newTemplateName.trim()) return;
+    if (dayStructure.length === 0) {
+      addToast('Cannot save an empty structure as template', 'error');
+      return;
+    }
+
+    const newTemplate = {
+      id: `template-${Date.now()}`,
+      name: newTemplateName.trim(),
+      structure: dayStructure.map(b => ({ ...b, completed: false }))
+    };
+
+    const updatedTemplates = [...templates, newTemplate];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('hollowDailyStructureTemplates', JSON.stringify(updatedTemplates));
+    setNewTemplateName('');
+    addToast(`Template "${newTemplate.name}" saved!`, 'success');
+  };
+
+  const handleDeleteTemplate = (id) => {
+    const updated = templates.filter(t => t.id !== id);
+    setTemplates(updated);
+    localStorage.setItem('hollowDailyStructureTemplates', JSON.stringify(updated));
+    addToast('Template deleted', 'success');
+  };
+
+  const handleApplyTemplate = async (templateId) => {
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+
+    const appliedStructure = template.structure.map(b => ({ ...b, id: `block-${Math.random()}-${Date.now()}` }));
+    await saveStructure(appliedStructure);
+    addToast(`Applied "${template.name}" template`, 'success');
+  };
+
+  const handleBatchApplyTemplate = async (templateId) => {
+    const template = templates.find(t => t.id === templateId);
+    if (!template) {
+      addToast('Please select a template to batch apply', 'error');
+      return;
+    }
+
+    setSaveStatus('Applying batch...');
+    try {
+      const start = new Date(batchStartDate);
+      const end = new Date(batchEndDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+        addToast('Invalid date range selected', 'error');
+        setSaveStatus('Failed');
+        return;
+      }
+
+      let count = 0;
+      const currentDateLoop = new Date(start);
+      while (currentDateLoop <= end) {
+        const dateStr = currentDateLoop.toISOString().split('T')[0];
+        const dayIdx = currentDateLoop.getDay();
+        const shouldApply = batchDays[dayIdx];
+
+        if (shouldApply) {
+          const existing = await db.dailyJournals.get(dateStr) || {};
+          const cleanStructure = template.structure.map(b => ({
+            ...b,
+            id: `block-${Math.random()}-${Date.now()}`,
+            completed: false
+          }));
+
+          await db.dailyJournals.put({
+            ...existing,
+            date: dateStr,
+            status: existing.status || 'COMPLETED',
+            structure: cleanStructure
+          });
+          count++;
+        }
+        currentDateLoop.setDate(currentDateLoop.getDate() + 1);
+      }
+
+      addToast(`Successfully applied template to ${count} days!`, 'success');
+      setSaveStatus('Batch Complete');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to batch apply template', 'error');
+      setSaveStatus('Save Failed');
+    }
+  };
+
   const handleDateShift = (direction) => {
     const current = new Date(selectedDate);
     const amount = journalTab === 'weekly' ? 7 : 1;
@@ -490,6 +784,25 @@ export default function JournalView() {
             }}
           >
             Weekly Planner & Snapshot
+          </button>
+          <button
+            type="button"
+            onClick={() => setJournalTab('structure')}
+            style={{
+              padding: '8px 20px',
+              borderRadius: '10px',
+              border: 'none',
+              background: journalTab === 'structure' ? '#ffffff' : 'transparent',
+              color: journalTab === 'structure' ? '#000000' : 'rgba(255, 255, 255, 0.45)',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: 'none',
+              marginLeft: '4px'
+            }}
+          >
+            Daily Structure
           </button>
         </div>
       </div>
@@ -738,7 +1051,7 @@ export default function JournalView() {
       )}
 
       {/* Main Area based on Selected Tab */}
-      {journalTab === 'daily' ? (
+      {journalTab === 'daily' && (
         /* TAB 1: DAILY CHECK-IN & HABITS HUD */
         <div style={{
           display: 'grid',
@@ -1548,7 +1861,9 @@ export default function JournalView() {
           )}
 
         </div>
-      ) : (
+      )}
+
+      {journalTab === 'weekly' && (
         /* TAB 2: WEEKLY PLANNER & SNAPSHOT */
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '7fr 5fr', gap: '20px', alignItems: 'stretch' }}>
           
@@ -1879,6 +2194,814 @@ export default function JournalView() {
             )}
           </div>
 
+        </div>
+      )}
+
+      {journalTab === 'structure' && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '7.5fr 4.5fr', gap: '20px', alignItems: 'stretch' }}>
+          {/* LEFT: Agenda Timeline & Live HUD */}
+          <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '14px', color: '#fff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.3px' }}>
+                <Clock size={16} color="var(--colors-primary)" /> Daily Agenda & Schedule
+              </h3>
+              <span style={{ fontSize: '9px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>DAILY STRUCTURE</span>
+            </div>
+
+            {/* BIONIC LIVE TRACKER HUD (Only for Today) */}
+            {isSelectedDateToday && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: activeBlockProgress ? '#22c55e' : 'rgba(255,255,255,0.2)',
+                      boxShadow: activeBlockProgress ? '0 0 10px #22c55e' : 'none',
+                      animation: activeBlockProgress ? 'pulse 2s infinite' : 'none'
+                    }} />
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>
+                      {activeBlockProgress ? 'LIVE SESSION ACTIVE' : 'NO ACTIVE TIME BLOCK'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>
+                    Current Time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+
+                {activeBlockProgress ? (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                      <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>
+                        {activeBlockProgress.block.label}
+                      </h2>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--font-mono)' }}>
+                        {activeBlockProgress.block.startTime} - {activeBlockProgress.block.endTime}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ height: '8px', width: '100%', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '4px', overflow: 'hidden', position: 'relative', marginBottom: '8px' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${activeBlockProgress.pct}%`,
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.9) 100%)',
+                        borderRadius: '4px',
+                        transition: 'width 0.5s ease-out'
+                      }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
+                        {activeBlockProgress.remaining} min remaining • {activeBlockProgress.pct}% elapsed
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleBlockCheck(activeBlockProgress.block.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: activeBlockProgress.block.completed ? '#22c55e' : 'rgba(255,255,255,0.6)',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <div style={{
+                          width: '14px',
+                          height: '14px',
+                          borderRadius: '50%',
+                          background: activeBlockProgress.block.completed ? '#22c55e' : 'rgba(255,255,255,0.03)',
+                          border: activeBlockProgress.block.completed ? '1px solid #22c55e' : '1px solid rgba(255, 255, 255, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {activeBlockProgress.block.completed && <Check size={7} color="#000000" strokeWidth={3.5} />}
+                        </div>
+                        {activeBlockProgress.block.completed ? 'Completed' : 'Mark Completed'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px 0' }}>
+                      {nextBlock ? `Next scheduled block: "${nextBlock.label}" at ${nextBlock.startTime}.` : 'No more scheduled activities for the rest of today.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AGENDA ITEMS LIST */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px' }}>
+              {dayStructure.length === 0 ? (
+                <div style={{
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(255,255,255,0.01)',
+                  border: '1px dashed rgba(255,255,255,0.08)',
+                  borderRadius: '16px',
+                  color: 'rgba(255,255,255,0.4)',
+                  fontSize: '13px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <Clock size={24} color="rgba(255,255,255,0.2)" />
+                  <div>No agenda blocks configured for this day yet.</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>
+                    Add time blocks below or apply a template from the right panel.
+                  </div>
+                </div>
+              ) : (
+                dayStructure.map(block => {
+                  const isEditing = editingBlockId === block.id;
+                  const categoryColors = {
+                    routine: '#a855f7',
+                    prep: '#06b6d4',
+                    trading: '#22c55e',
+                    review: '#6366f1',
+                    break: '#6b7280',
+                    health: '#ec4899',
+                    personal: '#3b82f6'
+                  };
+                  const color = categoryColors[block.category] || '#ffffff';
+
+                  if (isEditing) {
+                    return (
+                      <div key={block.id} style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '16px',
+                        borderRadius: '16px',
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '10px' }}>
+                          <div>
+                            <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>START</label>
+                            <input
+                              type="time"
+                              value={editBlockStart}
+                              onChange={(e) => setEditBlockStart(e.target.value)}
+                              style={{
+                                width: '100%',
+                                background: '#1c1c1e',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                color: '#fff',
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>END</label>
+                            <input
+                              type="time"
+                              value={editBlockEnd}
+                              onChange={(e) => setEditBlockEnd(e.target.value)}
+                              style={{
+                                width: '100%',
+                                background: '#1c1c1e',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                color: '#fff',
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>CATEGORY</label>
+                            <select
+                              value={editBlockCategory}
+                              onChange={(e) => setEditBlockCategory(e.target.value)}
+                              style={{
+                                width: '100%',
+                                background: '#1c1c1e',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                color: '#fff',
+                                outline: 'none',
+                                height: '31px',
+                                boxSizing: 'border-box'
+                              }}
+                            >
+                              <option value="routine">Routine</option>
+                              <option value="prep">Preparation</option>
+                              <option value="trading">Trading Session</option>
+                              <option value="review">Review / Study</option>
+                              <option value="break">Break / Rest</option>
+                              <option value="health">Health / Gym</option>
+                              <option value="personal">Personal</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>ACTIVITY LABEL</label>
+                          <input
+                            type="text"
+                            value={editBlockLabel}
+                            onChange={(e) => setEditBlockLabel(e.target.value)}
+                            placeholder="Activity description"
+                            style={{
+                              width: '100%',
+                              background: '#1c1c1e',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              fontSize: '12px',
+                              color: '#fff',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setEditingBlockId(null)}
+                            style={{
+                              padding: '6px 12px',
+                              background: 'transparent',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '8px',
+                              color: 'rgba(255,255,255,0.6)',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditBlock(block.id)}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              color: '#000000',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={block.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.015)',
+                        border: '1px solid rgba(255,255,255,0.04)',
+                        borderLeft: `4px solid ${color}`,
+                        borderRadius: '12px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.015)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+                        {/* Time Badges */}
+                        <div style={{ display: 'flex', flexDirection: 'column', width: '85px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
+                            {block.startTime}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>
+                            to {block.endTime}
+                          </span>
+                        </div>
+
+                        {/* Label and Category badge */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            fontSize: '12.5px',
+                            fontWeight: '600',
+                            color: block.completed ? 'rgba(255,255,255,0.35)' : '#ffffff',
+                            textDecoration: block.completed ? 'line-through' : 'none',
+                            textOverflow: 'ellipsis',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {block.label}
+                          </span>
+                          <span style={{
+                            fontSize: '8.5px',
+                            color,
+                            fontWeight: '800',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.8px'
+                          }}>
+                            {block.category}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right Edge Checkbox and Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                        {/* Inline Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditBlock(block)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'rgba(255,255,255,0.3)',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'color 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBlock(block.id)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'rgba(255,255,255,0.3)',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'color 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'rgba(255, 69, 58, 0.85)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        {/* Circular Check Circle */}
+                        <div
+                          onClick={() => handleToggleBlockCheck(block.id)}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            background: block.completed ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
+                            border: block.completed ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {block.completed && <Check size={8} color="#000000" strokeWidth={3.5} />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* ADD BLOCK INLINE FORM */}
+            <form onSubmit={handleAddBlock} style={{
+              marginTop: '10px',
+              paddingTop: '16px',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>ADD NEW AGENDA ITEM</span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1.5fr 3.5fr auto', gap: '10px', alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: '700', display: 'block', marginBottom: '4px' }}>START</label>
+                  <input
+                    type="time"
+                    value={newBlockStart}
+                    onChange={(e) => setNewBlockStart(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '7px 8px',
+                      fontSize: '11px',
+                      color: '#fff',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: '700', display: 'block', marginBottom: '4px' }}>END</label>
+                  <input
+                    type="time"
+                    value={newBlockEnd}
+                    onChange={(e) => setNewBlockEnd(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '7px 8px',
+                      fontSize: '11px',
+                      color: '#fff',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: '700', display: 'block', marginBottom: '4px' }}>CATEGORY</label>
+                  <select
+                    value={newBlockCategory}
+                    onChange={(e) => setNewBlockCategory(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#1c1c1e',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '6px 8px',
+                      fontSize: '11px',
+                      color: '#fff',
+                      outline: 'none',
+                      height: '31px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="routine">Routine</option>
+                    <option value="prep">Preparation</option>
+                    <option value="trading">Trading Session</option>
+                    <option value="review">Review / Study</option>
+                    <option value="break">Break / Rest</option>
+                    <option value="health">Health / Gym</option>
+                    <option value="personal">Personal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontWeight: '700', display: 'block', marginBottom: '4px' }}>ACTIVITY DESCRIPTION</label>
+                  <input
+                    type="text"
+                    value={newBlockLabel}
+                    onChange={(e) => setNewBlockLabel(e.target.value)}
+                    placeholder="e.g. Pre-Market Preparation"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '11px',
+                      color: '#fff',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    background: '#ffffff',
+                    color: '#000000',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    height: '31px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <Plus size={11} strokeWidth={2.5} /> Add Block
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* RIGHT PANEL: Quick Actions, Templates, and Batch Apply */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* CARD 1: TEMPLATE ACTIONS */}
+            <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontSize: '12px', color: '#fff', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} color="var(--colors-primary)" /> Template Library
+                </h4>
+                <span style={{ fontSize: '8px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>TEMPLATES</span>
+              </div>
+
+              {/* Load Template form */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>LOAD SAVED TEMPLATE</label>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: '#1c1c1e',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      fontSize: '12px',
+                      color: '#fff',
+                      outline: 'none',
+                      height: '36px'
+                    }}
+                  >
+                    <option value="">-- Select Template --</option>
+                    {templates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.structure.length} blocks)</option>
+                    ))}
+                  </select>
+
+                  {selectedTemplateId && selectedTemplateId !== 't-default-weekday' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteTemplate(selectedTemplateId);
+                        setSelectedTemplateId('');
+                      }}
+                      style={{
+                        background: 'rgba(255, 69, 58, 0.1)',
+                        border: '1px solid rgba(255, 69, 58, 0.2)',
+                        borderRadius: '8px',
+                        width: '36px',
+                        height: '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: 'rgba(255, 69, 58, 0.85)',
+                        transition: 'all 0.15s'
+                      }}
+                      title="Delete template"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!selectedTemplateId}
+                  onClick={() => handleApplyTemplate(selectedTemplateId)}
+                  style={{
+                    background: selectedTemplateId ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.01)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: selectedTemplateId ? '#ffffff' : 'rgba(255,255,255,0.25)',
+                    cursor: selectedTemplateId ? 'pointer' : 'default',
+                    transition: 'all 0.15s',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <RotateCcw size={13} /> Apply Selected Template
+                </button>
+              </div>
+
+              {/* Save Current as Template form */}
+              <form onSubmit={handleSaveAsTemplate} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                paddingTop: '16px',
+                marginTop: '4px'
+              }}>
+                <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>SAVE CURRENT DAY AS TEMPLATE</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="e.g. Busy Trading Day"
+                    style={{
+                      flex: 1,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      color: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newTemplateName.trim() || dayStructure.length === 0}
+                    style={{
+                      background: '#ffffff',
+                      color: '#000000',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 14px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: (!newTemplateName.trim() || dayStructure.length === 0) ? 'default' : 'pointer',
+                      opacity: (!newTemplateName.trim() || dayStructure.length === 0) ? 0.35 : 1,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* CARD 2: BATCH APPLICATION COPIER */}
+            <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontSize: '12px', color: '#fff', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Copy size={14} color="var(--colors-primary)" /> Batch Scheduler / Copier
+                </h4>
+                <span style={{ fontSize: '8px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>SCHEDULER</span>
+              </div>
+
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: '1.4' }}>
+                Schedule the selected template structure to repeat across a range of days, filtering by specific weekdays.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
+                {/* Date range pickers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>START DATE</label>
+                    <input
+                      type="date"
+                      value={batchStartDate}
+                      onChange={(e) => setBatchStartDate(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#1c1c1e',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '8px',
+                        padding: '6px 8px',
+                        fontSize: '11px',
+                        color: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '4px' }}>END DATE</label>
+                    <input
+                      type="date"
+                      value={batchEndDate}
+                      onChange={(e) => setBatchEndDate(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#1c1c1e',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '8px',
+                        padding: '6px 8px',
+                        fontSize: '11px',
+                        color: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Weekday Selection Buttons */}
+                <div>
+                  <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', display: 'block', marginBottom: '6px' }}>APPLY TO WEEKDAYS</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '3px' }}>
+                    {[
+                      { idx: 1, label: 'M' },
+                      { idx: 2, label: 'T' },
+                      { idx: 3, label: 'W' },
+                      { idx: 4, label: 'T' },
+                      { idx: 5, label: 'F' },
+                      { idx: 6, label: 'S' },
+                      { idx: 0, label: 'S' }
+                    ].map(day => {
+                      const active = batchDays[day.idx];
+                      return (
+                        <button
+                          key={day.idx}
+                          type="button"
+                          onClick={() => setBatchDays(prev => ({ ...prev, [day.idx]: !prev[day.idx] }))}
+                          style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '6px',
+                            border: active ? '1px solid #ffffff' : '1px solid rgba(255,255,255,0.08)',
+                            background: active ? '#ffffff' : 'transparent',
+                            color: active ? '#000000' : 'rgba(255,255,255,0.4)',
+                            fontSize: '10px',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title={`Toggle ${day.label}`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <button
+                  type="button"
+                  disabled={!selectedTemplateId}
+                  onClick={() => handleBatchApplyTemplate(selectedTemplateId)}
+                  style={{
+                    background: selectedTemplateId ? '#ffffff' : 'rgba(255,255,255,0.02)',
+                    color: selectedTemplateId ? '#000000' : 'rgba(255,255,255,0.25)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: selectedTemplateId ? 'pointer' : 'default',
+                    transition: 'all 0.15s',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Copy size={13} /> Batch Schedule Template
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

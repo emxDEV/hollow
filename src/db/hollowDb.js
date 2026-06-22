@@ -56,6 +56,45 @@ function sanitizeForSupabase(tableName, obj) {
       commentFazit: updatedFazit
     };
   }
+  if (tableName === 'dailyJournals') {
+    const allowed = [
+      'date', 'status', 'newsChecked', 'htfAnalysisDone', 'liquidityDrawn', 
+      'dailyOpenMapped', 'mentalFocus', 'patienceLevel', 'riskAdherence', 
+      'sleepHours', 'sleepQuality', 'workoutDone', 'dietClean', 'meditationDone', 
+      'screenTimeHours', 'homeworkDone', 'preMarketNotes', 'postMarketNotes', 'user_id'
+    ];
+    
+    // Exclude local-only properties, pack them into postMarketNotes
+    const {
+      structure,
+      ...rest
+    } = obj;
+
+    const meta = {};
+    if (obj.structure !== undefined) {
+      meta.structure = obj.structure;
+    }
+
+    const rawNotes = obj.postMarketNotes || '';
+    const cleanNotes = rawNotes.split('\n\n__HOLLOW_META__:')[0];
+    let updatedNotes = cleanNotes;
+    
+    if (Object.keys(meta).length > 0) {
+      const serializedMeta = JSON.stringify(meta);
+      updatedNotes = `${cleanNotes}\n\n__HOLLOW_META__:${serializedMeta}`;
+    }
+
+    const cleaned = {
+      ...rest,
+      postMarketNotes: updatedNotes
+    };
+
+    const finalObj = {};
+    allowed.forEach(k => {
+      if (cleaned[k] !== undefined) finalObj[k] = cleaned[k];
+    });
+    return finalObj;
+  }
   return obj;
 }
 
@@ -310,6 +349,22 @@ export function unprefixRecord(obj, userId, tableName) {
     clean.tradeId = strip(clean.tradeId);
   } else if (tableName === 'dailyJournals') {
     clean.date = strip(clean.date);
+    
+    // Unpack metadata from postMarketNotes if present
+    if (clean.postMarketNotes && typeof clean.postMarketNotes === 'string') {
+      const parts = clean.postMarketNotes.split('\n\n__HOLLOW_META__:');
+      if (parts.length > 1) {
+        const originalNotes = parts[0];
+        const serializedMeta = parts[parts.length - 1];
+        try {
+          const meta = JSON.parse(serializedMeta);
+          Object.assign(clean, meta);
+        } catch (e) {
+          console.error("Failed to parse hollow dailyJournal metadata:", e);
+        }
+        clean.postMarketNotes = originalNotes;
+      }
+    }
   } else if (tableName === 'weeklyPlanners') {
     clean.weekId = strip(clean.weekId);
   } else if (tableName === 'groups') {
