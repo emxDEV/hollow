@@ -155,6 +155,55 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   const [weeklyForm, setWeeklyForm] = useState({ priorities: '', reviewNotes: '' });
 
+  const saveWeeklyLogDirect = async (formState, goalsState) => {
+    try {
+      const d = new Date(selectedDate);
+      const day = d.getDay() || 7;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - day + 1);
+      const sunday = new Date(d);
+      sunday.setDate(d.getDate() - day + 7);
+
+      const currentLog = await db.weeklyPlanners.get(selectedWeekId) || {};
+      await db.weeklyPlanners.put({
+        ...currentLog,
+        weekId: selectedWeekId,
+        startDate: monday.toISOString().split('T')[0],
+        endDate: sunday.toISOString().split('T')[0],
+        status: currentLog.status || 'COMPLETED',
+        goals: JSON.stringify(goalsState !== undefined ? goalsState : weeklyGoals),
+        ...formState
+      });
+    } catch (err) {
+      console.error("Weekly autosave failed:", err);
+    }
+  };
+
+  const debouncedSaveWeeklyLog = useMemo(() => {
+    let timer;
+    return (formState, goalsState) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => saveWeeklyLogDirect(formState, goalsState), 500);
+    };
+  }, [selectedWeekId]);
+
+  const updateWeeklyForm = (mods, isTyping = false) => {
+    setWeeklyForm(prev => {
+      const next = { ...prev, ...mods };
+      if (isTyping) {
+        debouncedSaveWeeklyLog(next, weeklyGoals);
+      } else {
+        saveWeeklyLogDirect(next, weeklyGoals);
+      }
+      return next;
+    });
+  };
+
+  const updateWeeklyGoals = (newGoals) => {
+    setWeeklyGoals(newGoals);
+    saveWeeklyLogDirect(weeklyForm, newGoals);
+  };
+
   // Daily Structure State Hooks (Mobile Parity)
   const [dayStructure, setDayStructure] = useState([]);
   const [templates, setTemplates] = useState(() => {
@@ -1327,7 +1376,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                         <button
                           onClick={() => {
                             const updated = weeklyGoals.map(g => g.id === goal.id ? { ...g, checked: !g.checked } : g);
-                            setWeeklyGoals(updated);
+                            updateWeeklyGoals(updated);
                           }}
                           style={{
                             display: 'flex',
@@ -1353,7 +1402,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                               onChange={(e) => {
                                 const copy = [...weeklyGoals];
                                 copy[i].label = e.target.value;
-                                setWeeklyGoals(copy);
+                                updateWeeklyGoals(copy);
                               }}
                               onClick={(e) => e.stopPropagation()}
                               style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 14, outline: 'none', width: '100%' }}
@@ -1369,7 +1418,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                           <button
                             onClick={() => {
                               const filtered = weeklyGoals.filter(g => g.id !== goal.id);
-                              setWeeklyGoals(filtered);
+                              updateWeeklyGoals(filtered);
                             }}
                             style={{ background: 'transparent', border: 'none', color: '#ff453a', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '4px 8px' }}
                           >
@@ -1394,7 +1443,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                       onClick={() => {
                         if (newGoalText.trim()) {
                            const newGoal = { id: `goal_${Date.now()}`, label: newGoalText.trim(), checked: false };
-                           setWeeklyGoals([...weeklyGoals, newGoal]);
+                           updateWeeklyGoals([...weeklyGoals, newGoal]);
                            setNewGoalText('');
                         }
                       }}
@@ -1416,7 +1465,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{label}</div>
                   <textarea
                     value={weeklyForm[field]}
-                    onChange={e => setWeeklyForm(f => ({ ...f, [field]: e.target.value }))}
+                    onChange={e => updateWeeklyForm({ [field]: e.target.value }, true)}
                     placeholder={placeholder}
                     rows={rows}
                     style={{

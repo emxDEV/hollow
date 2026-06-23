@@ -198,6 +198,55 @@ export default function JournalView() {
   const [newGoalText, setNewGoalText] = useState('');
   const [isEditingWeeklyGoals, setIsEditingWeeklyGoals] = useState(false);
 
+  const saveWeeklyLogDirect = async (formState, goalsState) => {
+    try {
+      const d = new Date(selectedDate);
+      const day = d.getDay() || 7;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - day + 1);
+      const sunday = new Date(d);
+      sunday.setDate(d.getDate() - day + 7);
+
+      const currentLog = await db.weeklyPlanners.get(selectedWeekId) || {};
+      await db.weeklyPlanners.put({
+        ...currentLog,
+        weekId: selectedWeekId,
+        startDate: monday.toISOString().split('T')[0],
+        endDate: sunday.toISOString().split('T')[0],
+        status: currentLog.status || 'COMPLETED',
+        goals: JSON.stringify(goalsState !== undefined ? goalsState : weeklyGoals),
+        ...formState
+      });
+    } catch (err) {
+      console.error("Weekly autosave failed:", err);
+    }
+  };
+
+  const debouncedSaveWeeklyLog = useMemo(() => {
+    let timer;
+    return (formState, goalsState) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => saveWeeklyLogDirect(formState, goalsState), 500);
+    };
+  }, [selectedWeekId]);
+
+  const updateWeeklyForm = (mods, isTyping = false) => {
+    setWeeklyForm(prev => {
+      const next = { ...prev, ...mods };
+      if (isTyping) {
+        debouncedSaveWeeklyLog(next, weeklyGoals);
+      } else {
+        saveWeeklyLogDirect(next, weeklyGoals);
+      }
+      return next;
+    });
+  };
+
+  const updateWeeklyGoals = (newGoals) => {
+    setWeeklyGoals(newGoals);
+    saveWeeklyLogDirect(weeklyForm, newGoals);
+  };
+
   // 3b. Local state for Daily Structure
   const [dayStructure, setDayStructure] = useState([]);
   
@@ -2311,7 +2360,7 @@ export default function JournalView() {
                           type="button"
                           onClick={() => {
                             const updated = weeklyGoals.map(g => g.id === goal.id ? { ...g, checked: !g.checked } : g);
-                            setWeeklyGoals(updated);
+                            updateWeeklyGoals(updated);
                           }}
                           style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', gap: '10px', flex: 1, textAlign: 'left' }}
                         >
@@ -2330,7 +2379,7 @@ export default function JournalView() {
                               value={goal.label}
                               onChange={(e) => {
                                 const copy = weeklyGoals.map(g => g.id === goal.id ? { ...g, label: e.target.value } : g);
-                                setWeeklyGoals(copy);
+                                updateWeeklyGoals(copy);
                               }}
                               onClick={e => e.stopPropagation()}
                               style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '12px', outline: 'none', width: '100%', fontFamily: 'var(--font)' }}
@@ -2345,7 +2394,7 @@ export default function JournalView() {
                         {isEditingWeeklyGoals && (
                           <button
                             type="button"
-                            onClick={() => setWeeklyGoals(weeklyGoals.filter(g => g.id !== goal.id))}
+                            onClick={() => updateWeeklyGoals(weeklyGoals.filter(g => g.id !== goal.id))}
                             style={{
                               background: 'rgba(255,107,107,0.1)',
                               border: '1px solid rgba(255,107,107,0.2)',
@@ -2378,7 +2427,7 @@ export default function JournalView() {
                   onChange={(e) => setNewGoalText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newGoalText.trim()) {
-                      setWeeklyGoals(prev => [...prev, { id: `goal_${Date.now()}`, label: newGoalText.trim(), checked: false }]);
+                      updateWeeklyGoals([...weeklyGoals, { id: `goal_${Date.now()}`, label: newGoalText.trim(), checked: false }]);
                       setNewGoalText('');
                     }
                   }}
@@ -2398,7 +2447,7 @@ export default function JournalView() {
                   type="button"
                   onClick={() => {
                     if (newGoalText.trim()) {
-                      setWeeklyGoals(prev => [...prev, { id: `goal_${Date.now()}`, label: newGoalText.trim(), checked: false }]);
+                      updateWeeklyGoals([...weeklyGoals, { id: `goal_${Date.now()}`, label: newGoalText.trim(), checked: false }]);
                       setNewGoalText('');
                     }
                   }}
@@ -2436,7 +2485,7 @@ export default function JournalView() {
                   color: '#fff'
                 }}
                 value={weeklyForm.priorities}
-                onChange={(e) => setWeeklyForm(prev => ({ ...prev, priorities: e.target.value }))}
+                onChange={(e) => updateWeeklyForm({ priorities: e.target.value }, true)}
                 placeholder="e.g. Validate Apex accounts, restrict trading to silver bullet window."
               />
             </div>
@@ -2457,7 +2506,7 @@ export default function JournalView() {
                   color: '#fff'
                 }}
                 value={weeklyForm.reviewNotes}
-                onChange={(e) => setWeeklyForm(prev => ({ ...prev, reviewNotes: e.target.value }))}
+                onChange={(e) => updateWeeklyForm({ reviewNotes: e.target.value }, true)}
                 placeholder="Reflect on the week: How did emotional prep affect trades? Did drawdowns occur? What changes will you make for next week?"
               />
             </div>
