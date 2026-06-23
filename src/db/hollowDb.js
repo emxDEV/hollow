@@ -9,6 +9,12 @@ let isSyncingFromCloud = false;
 // Sanitizes objects to prevent Supabase sync errors due to local-only properties
 function sanitizeForSupabase(tableName, obj) {
   if (!obj) return obj;
+  const { syncedToCloud, ...cleanObj } = obj;
+  return sanitizeForSupabaseRaw(tableName, cleanObj);
+}
+
+function sanitizeForSupabaseRaw(tableName, obj) {
+  if (!obj) return obj;
   if (tableName === 'accounts') {
     const allowed = [
       'id', 'name', 'type', 'balance', 'capital', 'profitTarget', 'maxLoss', 
@@ -142,6 +148,15 @@ const registerSyncHooks = () => {
         if (error) {
           console.error(`Supabase sync error on creating in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
+        } else {
+          // Success! Mark synced locally
+          const current = await table.store.get(primKey);
+          if (current && !current.syncedToCloud) {
+            const prev = isSyncingFromCloud;
+            isSyncingFromCloud = true;
+            await table.store.put({ ...current, syncedToCloud: true });
+            isSyncingFromCloud = prev;
+          }
         }
       });
     });
@@ -158,11 +173,32 @@ const registerSyncHooks = () => {
         if (error) {
           console.error(`Supabase sync error on updating in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
+        } else {
+          // Success! Mark synced locally
+          const current = await table.store.get(primKey);
+          if (current && !current.syncedToCloud) {
+            const prev = isSyncingFromCloud;
+            isSyncingFromCloud = true;
+            await table.store.put({ ...current, syncedToCloud: true });
+            isSyncingFromCloud = prev;
+          }
         }
       });
     });
 
     table.store.hook('deleting', (primKey, obj, transaction) => {
+      // Track deletion in pending deletions list
+      const pendingStr = localStorage.getItem('hollow_pending_deletions') || '[]';
+      try {
+        const pending = JSON.parse(pendingStr);
+        if (!pending.some(p => p.tableName === table.name && p.id === primKey)) {
+          pending.push({ tableName: table.name, id: primKey });
+          localStorage.setItem('hollow_pending_deletions', JSON.stringify(pending));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
       if (isSyncingFromCloud) return;
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -172,6 +208,14 @@ const registerSyncHooks = () => {
         if (error) {
           console.error(`Supabase sync error on deleting in ${table.name}:`, error);
           showToast(`Supabase sync fail: ${error.message}`, 'error');
+        } else {
+          // Remove from pending deletions
+          const pendingStr2 = localStorage.getItem('hollow_pending_deletions') || '[]';
+          try {
+            const pending2 = JSON.parse(pendingStr2);
+            const filtered = pending2.filter(p => !(p.tableName === table.name && p.id === primKey));
+            localStorage.setItem('hollow_pending_deletions', JSON.stringify(filtered));
+          } catch (e) {}
         }
       });
     });
@@ -393,6 +437,13 @@ export function unprefixRecord(obj, userId, tableName) {
   return clean;
 }
 
+// Helper to get PK key name for pending deletions
+function getTablePk(tableName) {
+  if (tableName === 'dailyJournals') return 'date';
+  if (tableName === 'weeklyPlanners') return 'weekId';
+  return 'id';
+}
+
 // Synchronization function
 export async function syncWithSupabase() {
   try {
@@ -417,6 +468,27 @@ export async function syncWithSupabase() {
       { name: 'groups', store: db.groups, pk: 'id' }
     ];
 
+    // 1. Process pending deletions from localStorage first
+    const pendingStr = localStorage.getItem('hollow_pending_deletions') || '[]';
+    let pendingDeletions = [];
+    try {
+      pendingDeletions = JSON.parse(pendingStr);
+    } catch (e) {}
+
+    if (pendingDeletions.length > 0) {
+      const remainingDeletions = [];
+      for (const item of pendingDeletions) {
+        const prefixedKey = `${userId}:${item.id}`;
+        const pkName = getTablePk(item.tableName);
+        const { error } = await supabase.from(item.tableName).delete().eq(pkName, prefixedKey);
+        if (error) {
+          console.error(`Failed to sync pending deletion for ${item.tableName}:${item.id}`, error);
+          remainingDeletions.push(item);
+        }
+      }
+      localStorage.setItem('hollow_pending_deletions', JSON.stringify(remainingDeletions));
+    }
+
     let pulledCount = 0;
     let pushedCount = 0;
 
@@ -438,27 +510,61 @@ export async function syncWithSupabase() {
 
       if (remoteData.length > 0 && localData.length === 0) {
         // Pull data from Supabase to empty local database
-        await table.store.bulkPut(cleanRemoteData);
+        const toPut = cleanRemoteData.map(item => ({ ...item, syncedToCloud: true }));
+        await table.store.bulkPut(toPut);
         pulledCount++;
       } else if (localData.length > 0 && remoteData.length === 0) {
-        // Push local database to empty Supabase database
-        const { error: pushError } = await supabase.from(table.name).upsert(prefixedLocalData);
-        if (pushError) {
-          console.error(`Failed to push table ${table.name} to Supabase:`, pushError);
-          showToast(`Failed to upload ${table.name}: ${pushError.message}`, 'error');
-        } else {
-          pushedCount++;
+        // If remote is empty, check if local records were previously synced.
+        // If they were synced, it means they were deleted on remote.
+        const toDelete = localData.filter(item => item.syncedToCloud === true);
+        if (toDelete.length > 0) {
+          const idsToDelete = toDelete.map(item => item[table.pk]);
+          await table.store.bulkDelete(idsToDelete);
+          console.log(`Cleaned up locally deleted records in empty remote for ${table.name}:`, idsToDelete);
+        }
+
+        const remainingLocal = await table.store.toArray();
+        if (remainingLocal.length > 0) {
+          const prefixedLocal = remainingLocal.map(item => prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name));
+          const { error: pushError } = await supabase.from(table.name).upsert(prefixedLocal);
+          if (pushError) {
+            console.error(`Failed to push table ${table.name} to empty Supabase:`, pushError);
+            showToast(`Failed to upload ${table.name}: ${pushError.message}`, 'error');
+          } else {
+            const toUpdate = remainingLocal.map(item => ({ ...item, syncedToCloud: true }));
+            await table.store.bulkPut(toUpdate);
+            pushedCount++;
+          }
         }
       } else if (localData.length > 0 && remoteData.length > 0) {
         // Bidirectional merge:
-        // STEP 1 — Pull cloud data and merge into local FIRST.
-        //   This ensures local reflects the best-known state before we push anything.
-        //   Pushing stale local data BEFORE pulling would overwrite good cloud values.
+        
+        // Step A: Detect and process records deleted on remote (missing in remote but marked synced locally)
+        const remoteKeys = new Set(cleanRemoteData.map(r => r[table.pk]));
+        const deletedOnRemote = localData.filter(item => item.syncedToCloud === true && !remoteKeys.has(item[table.pk]));
+        if (deletedOnRemote.length > 0) {
+          const idsToDelete = deletedOnRemote.map(item => item[table.pk]);
+          await table.store.bulkDelete(idsToDelete);
+          console.log(`Sync deleted locally (since removed from remote) in ${table.name}:`, idsToDelete);
+        }
+
+        // Step B: Pull/merge remote data into local
         for (const remoteItem of remoteData) {
           const cleanItem = unprefixRecord(remoteItem, userId, table.name);
           const localItem = await table.store.get(cleanItem[table.pk]);
+
+          // Skip if this item was locally deleted and we haven't synced the delete yet
+          const pendingStr = localStorage.getItem('hollow_pending_deletions') || '[]';
+          let isPendingDelete = false;
+          try {
+            const pending = JSON.parse(pendingStr);
+            isPendingDelete = pending.some(p => p.tableName === table.name && p.id === cleanItem[table.pk]);
+          } catch (e) {}
+          
+          if (isPendingDelete) continue;
+
           if (localItem) {
-            const merged = { ...localItem, ...cleanItem };
+            const merged = { ...localItem, ...cleanItem, syncedToCloud: true };
             // For trades: prefer whichever side has a non-empty manualPnL.
             // Remote wins if it has a value; local wins only if remote is empty.
             if (table.name === 'trades') {
@@ -474,19 +580,22 @@ export async function syncWithSupabase() {
             }
             await table.store.put(merged);
           } else {
-            await table.store.put(cleanItem);
+            await table.store.put({ ...cleanItem, syncedToCloud: true });
           }
         }
 
-        // STEP 2 — Push the now-merged local state up to cloud.
-        //   We re-read from the store so we push the merged result, not the stale pre-merge data.
-        const mergedLocalData = await table.store.toArray();
-        const prefixedMergedData = mergedLocalData.map(item =>
-          prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name)
-        );
-        const { error: pushError } = await supabase.from(table.name).upsert(prefixedMergedData);
-        if (pushError) {
-          console.error(`Failed to merge push table ${table.name}:`, pushError);
+        // Step C: Push local unsynced records to remote
+        const currentLocal = await table.store.toArray();
+        const unsyncedLocal = currentLocal.filter(item => !item.syncedToCloud);
+        if (unsyncedLocal.length > 0) {
+          const prefixedUnsynced = unsyncedLocal.map(item => prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name));
+          const { error: pushError } = await supabase.from(table.name).upsert(prefixedUnsynced);
+          if (pushError) {
+            console.error(`Failed to push unsynced items for ${table.name}:`, pushError);
+          } else {
+            const toUpdate = unsyncedLocal.map(item => ({ ...item, syncedToCloud: true }));
+            await table.store.bulkPut(toUpdate);
+          }
         }
       }
     }
@@ -640,6 +749,7 @@ export async function subscribeToRealtimeSync() {
         } else {
           // INSERT or UPDATE — unprefix and write locally
           const cleanRecord = unprefixRecord(record, userId, tableMeta.name);
+          cleanRecord.syncedToCloud = true; // Mark as synced!
           // For trades: preserve non-empty manualPnL — never overwrite a real value with empty string from cloud
           if (tableMeta.name === 'trades') {
             const localItem = await tableMeta.store.get(cleanRecord[tableMeta.pk]);
