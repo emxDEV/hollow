@@ -61,56 +61,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
   const dailyLog = useLiveQuery(() => db.dailyJournals.get(selectedDate), [selectedDate]);
   const weeklyLog = useLiveQuery(() => db.weeklyPlanners.get(selectedWeekId), [selectedWeekId]);
 
-  const sleepScoreDetails = useMemo(() => {
-    const sleepHrs = dailyForm.sleepHours || 7.0;
-    const sleepQual = dailyForm.sleepQuality || 3;
-    const pct = Math.round((sleepHrs / 8.0) * 60 + (sleepQual / 5.0) * 40);
-    const score = Math.min(100, pct);
-    let color = '#ff453a';
-    let label = 'Poor';
-    if (score >= 85) { color = '#30d158'; label = 'Restored'; }
-    else if (score >= 70) { color = '#ff9f0a'; label = 'Moderate'; }
-    else if (score >= 50) { color = '#ffd60a'; label = 'Fatigued'; }
-    return { pct: score, color, label };
-  }, [dailyForm.sleepHours, dailyForm.sleepQuality]);
 
-  const cognitiveReadiness = useMemo(() => {
-    const checkedCount = dailyForm.checkedPrepIds ? dailyForm.checkedPrepIds.length : 0;
-    const totalChecks = checklistItems.length;
-    const checklistScore = totalChecks > 0 ? (checkedCount / totalChecks) * 25 : 25;
-
-    const focus = dailyForm.mentalFocus || 3;
-    const patience = dailyForm.patienceLevel || 3;
-    const discipline = dailyForm.riskAdherence || 3;
-    const emotionalScore = ((focus + patience + discipline) / 15) * 50;
-
-    const sleepScoreWeight = (sleepScoreDetails.pct / 100) * 25;
-    const totalScore = Math.round(checklistScore + emotionalScore + sleepScoreWeight);
-
-    let advice = 'STABLE TRADING CONDITIONS: General alignment present. Stay cautious on risk sizes.';
-    let color = '#ffffff';
-    let bg = 'rgba(255, 255, 255, 0.04)';
-    let border = 'rgba(255, 255, 255, 0.1)';
-
-    if (totalScore >= 85) {
-      advice = 'OPTIMAL READY STATE: High cognitive alignment. Favorable trading execution conditions.';
-      color = '#30d158';
-      bg = 'rgba(48, 209, 88, 0.1)';
-      border = 'rgba(48, 209, 88, 0.2)';
-    } else if (totalScore < 70 && totalScore >= 50) {
-      advice = 'ELEVATED COGNITIVE GAP: Low focus or sleep detected. Reduce contract size and trade only A+ setups.';
-      color = '#a1a1aa';
-      bg = 'rgba(255, 255, 255, 0.02)';
-      border = 'rgba(255, 255, 255, 0.06)';
-    } else if (totalScore < 50) {
-      advice = 'HIGH BRAIN DRAIN ALERT: Extreme risk of tilt/impulse trading. Consider paper trading or step away.';
-      color = '#ff453a';
-      bg = 'rgba(255, 69, 58, 0.1)';
-      border = 'rgba(255, 69, 58, 0.2)';
-    }
-
-    return { score: totalScore, advice, color, bg, border };
-  }, [dailyForm, sleepScoreDetails, checklistItems]);
 
   // Load custom checklist items or fall back to default bionic checks for daily
   const [checklistItems, setChecklistItems] = useState(() => {
@@ -198,6 +149,57 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       return next;
     });
   };
+
+  const sleepScoreDetails = useMemo(() => {
+    const sleepHrs = dailyForm.sleepHours || 7.0;
+    const sleepQual = dailyForm.sleepQuality || 3;
+    const pct = Math.round((sleepHrs / 8.0) * 60 + (sleepQual / 5.0) * 40);
+    const score = Math.min(100, pct);
+    let color = '#ff453a';
+    let label = 'Poor';
+    if (score >= 85) { color = '#30d158'; label = 'Restored'; }
+    else if (score >= 70) { color = '#ff9f0a'; label = 'Moderate'; }
+    else if (score >= 50) { color = '#ffd60a'; label = 'Fatigued'; }
+    return { pct: score, color, label };
+  }, [dailyForm.sleepHours, dailyForm.sleepQuality]);
+
+  const cognitiveReadiness = useMemo(() => {
+    const checkedCount = dailyForm.checkedPrepIds ? dailyForm.checkedPrepIds.length : 0;
+    const totalChecks = checklistItems.length;
+    const checklistScore = totalChecks > 0 ? (checkedCount / totalChecks) * 25 : 25;
+
+    const focus = dailyForm.mentalFocus || 3;
+    const patience = dailyForm.patienceLevel || 3;
+    const discipline = dailyForm.riskAdherence || 3;
+    const emotionalScore = ((focus + patience + discipline) / 15) * 50;
+
+    const sleepScoreWeight = (sleepScoreDetails.pct / 100) * 25;
+    const totalScore = Math.round(checklistScore + emotionalScore + sleepScoreWeight);
+
+    let advice = 'STABLE TRADING CONDITIONS: General alignment present. Stay cautious on risk sizes.';
+    let color = '#ffffff';
+    let bg = 'rgba(255, 255, 255, 0.04)';
+    let border = 'rgba(255, 255, 255, 0.1)';
+
+    if (totalScore >= 85) {
+      advice = 'OPTIMAL READY STATE: High cognitive alignment. Favorable trading execution conditions.';
+      color = '#30d158';
+      bg = 'rgba(48, 209, 88, 0.1)';
+      border = 'rgba(48, 209, 88, 0.2)';
+    } else if (totalScore < 70 && totalScore >= 50) {
+      advice = 'ELEVATED COGNITIVE GAP: Low focus or sleep detected. Reduce contract size and trade only A+ setups.';
+      color = '#a1a1aa';
+      bg = 'rgba(255, 255, 255, 0.02)';
+      border = 'rgba(255, 255, 255, 0.06)';
+    } else if (totalScore < 50) {
+      advice = 'HIGH BRAIN DRAIN ALERT: Extreme risk of tilt/impulse trading. Consider paper trading or step away.';
+      color = '#ff453a';
+      bg = 'rgba(255, 69, 58, 0.1)';
+      border = 'rgba(255, 69, 58, 0.2)';
+    }
+
+    return { score: totalScore, advice, color, bg, border };
+  }, [dailyForm, sleepScoreDetails, checklistItems]);
 
   // Local state for weekly goals list (checklist format)
   const [weeklyGoals, setWeeklyGoals] = useState([]);
