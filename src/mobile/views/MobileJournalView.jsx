@@ -100,13 +100,15 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   const saveDailyLogDirect = async (formState) => {
     try {
+      const currentLog = await db.dailyJournals.get(selectedDate) || {};
+      const checkedPrepIds = formState.checkedPrepIds || [];
       const data = {
+        ...currentLog,
         ...formState,
         date: selectedDate,
-        status: 'COMPLETED',
-        structure: dayStructure
+        status: currentLog.status || 'COMPLETED'
       };
-      checklistItems.forEach(c => { data[c.id] = (formState.checkedPrepIds || []).includes(c.id); });
+      checklistItems.forEach(c => { data[c.id] = checkedPrepIds.includes(c.id); });
       await db.dailyJournals.put(data);
     } catch (err) {
       console.error("Autosave failed:", err);
@@ -119,7 +121,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       clearTimeout(timer);
       timer = setTimeout(() => saveDailyLogDirect(formState), 500);
     };
-  }, [selectedDate, dayStructure, checklistItems]);
+  }, [selectedDate, checklistItems]);
 
   const updateDailyForm = (mods, isTyping = false) => {
     setDailyForm(prev => {
