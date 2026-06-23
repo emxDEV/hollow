@@ -139,6 +139,7 @@ const registerSyncHooks = () => {
   tables.forEach(table => {
     table.store.hook('creating', (primKey, obj, transaction) => {
       if (isSyncingFromCloud) return;
+      obj.syncedToCloud = false;
       const sanitized = sanitizeForSupabase(table.name, obj);
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -163,6 +164,7 @@ const registerSyncHooks = () => {
 
     table.store.hook('updating', (mods, primKey, obj, transaction) => {
       if (isSyncingFromCloud) return;
+      mods.syncedToCloud = false;
       const updatedObj = { ...obj, ...mods };
       const sanitized = sanitizeForSupabase(table.name, updatedObj);
       enqueueSync(async () => {
@@ -727,17 +729,25 @@ export async function subscribeToRealtimeSync() {
     { name: 'groups',        store: db.groups,        pk: 'id' },
   ];
 
+  console.log(`Subscribing to realtime sync channel for user: ${userId}`);
+
   const channel = supabase
     .channel(`hollow-realtime-${userId}`)
     .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
-      const tableMeta = tableMap.find(t => t.name === payload.table);
-      if (!tableMeta) return;
+      console.log("Realtime sync payload received:", payload);
+      const tableMeta = tableMap.find(t => t.name.toLowerCase() === payload.table.toLowerCase());
+      if (!tableMeta) {
+        console.warn(`Realtime sync warning: No table mapping found matching: ${payload.table}`);
+        return;
+      }
 
       // Only process changes that belong to the current user
       const record = payload.new || payload.old;
       if (!record) return;
       const pkValue = record[tableMeta.pk];
       if (!pkValue || !String(pkValue).startsWith(userId + ':')) return;
+
+      console.log(`Applying realtime change for ${tableMeta.name} (${payload.eventType}):`, pkValue);
 
       // Prevent sync hooks from pushing these local writes back to Supabase
       const prev = isSyncingFromCloud;
@@ -747,6 +757,7 @@ export async function subscribeToRealtimeSync() {
         if (payload.eventType === 'DELETE') {
           const cleanPk = String(pkValue).substring(userId.length + 1);
           await tableMeta.store.delete(cleanPk);
+          console.log(`Successfully deleted local record for ${tableMeta.name}:${cleanPk}`);
         } else {
           // INSERT or UPDATE — unprefix and write locally
           const cleanRecord = unprefixRecord(record, userId, tableMeta.name);
@@ -765,6 +776,7 @@ export async function subscribeToRealtimeSync() {
             }
           }
           await tableMeta.store.put(cleanRecord);
+          console.log(`Successfully updated local record for ${tableMeta.name}:${cleanRecord[tableMeta.pk]}`);
         }
       } catch (err) {
         console.error(`Realtime sync error on ${tableMeta.name}:`, err);
@@ -772,7 +784,9 @@ export async function subscribeToRealtimeSync() {
         isSyncingFromCloud = prev;
       }
     })
-    .subscribe();
+    .subscribe((status, err) => {
+      console.log(`Realtime sync channel status: ${status}`, err ? `Error: ${err.message}` : '');
+    });
 
   return () => {
     supabase.removeChannel(channel);
