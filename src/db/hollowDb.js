@@ -187,6 +187,8 @@ const registerSyncHooks = () => {
     });
 
     table.store.hook('deleting', (primKey, obj, transaction) => {
+      if (isSyncingFromCloud) return;
+
       // Track deletion in pending deletions list
       const pendingStr = localStorage.getItem('hollow_pending_deletions') || '[]';
       try {
@@ -199,7 +201,6 @@ const registerSyncHooks = () => {
         console.error(e);
       }
 
-      if (isSyncingFromCloud) return;
       enqueueSync(async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
