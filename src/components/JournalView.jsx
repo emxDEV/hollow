@@ -136,6 +136,57 @@ export default function JournalView() {
     overallBias: null
   });
 
+  const saveDailyLogDirect = async (formState) => {
+    try {
+      const checkedPrepIds = formState.checkedPrepIds || [];
+      const currentLog = await db.dailyJournals.get(selectedDate) || {};
+      await db.dailyJournals.put({
+        ...currentLog,
+        date: selectedDate,
+        status: currentLog.status || 'COMPLETED',
+        ...formState,
+        newsChecked: checkedPrepIds.includes('newsChecked'),
+        htfAnalysisDone: checkedPrepIds.includes('htfAnalysisDone'),
+        liquidityDrawn: checkedPrepIds.includes('liquidityDrawn'),
+        dailyOpenMapped: checkedPrepIds.includes('dailyOpenMapped')
+      });
+    } catch (err) {
+      console.error("Autosave failed:", err);
+    }
+  };
+
+  const debouncedSaveDailyLog = useMemo(() => {
+    let timer;
+    return (formState) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => saveDailyLogDirect(formState), 500);
+    };
+  }, [selectedDate]);
+
+  const updateDailyForm = (mods, isTyping = false) => {
+    setDailyForm(prev => {
+      const next = { ...prev, ...mods };
+      if (isTyping) {
+        debouncedSaveDailyLog(next);
+      } else {
+        saveDailyLogDirect(next);
+      }
+      return next;
+    });
+  };
+
+  const updateDailyFormFn = (fn, isTyping = false) => {
+    setDailyForm(prev => {
+      const next = fn(prev);
+      if (isTyping) {
+        debouncedSaveDailyLog(next);
+      } else {
+        saveDailyLogDirect(next);
+      }
+      return next;
+    });
+  };
+
   // 4. Local editor state for Weekly Planner
   const [weeklyForm, setWeeklyForm] = useState({
     priorities: '',
@@ -459,7 +510,7 @@ export default function JournalView() {
     const updated = checklistItems.filter(item => item.id !== id);
     saveChecklistItems(updated);
     // Also remove from checkedPrepIds list if active
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       checkedPrepIds: (prev.checkedPrepIds || []).filter(checkedId => checkedId !== id)
     }));
@@ -548,7 +599,7 @@ export default function JournalView() {
       text: '',
       type // 'bullish' | 'neutral' | 'bearish'
     };
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: [...(prev[listKey] || []), newBullet]
     }));
@@ -556,15 +607,15 @@ export default function JournalView() {
 
   const handleUpdateBullet = (isPre, id, text) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, text } : b)
-    }));
+    }), true);
   };
 
   const handleDeleteBullet = (isPre, id) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).filter(b => b.id !== id)
     }));
@@ -572,7 +623,7 @@ export default function JournalView() {
 
   const handleChangeBulletType = (isPre, id, newType) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, type: newType } : b)
     }));
@@ -1336,7 +1387,7 @@ export default function JournalView() {
                     <button
                       key={item.value}
                       type="button"
-                      onClick={() => setDailyForm(prev => ({ ...prev, overallBias: isSelected ? null : item.value }))}
+                      onClick={() => updateDailyForm({ overallBias: isSelected ? null : item.value })}
                       style={{
                         flex: 1,
                         padding: '6px 12px',
@@ -1463,7 +1514,7 @@ export default function JournalView() {
                           const updated = isChecked 
                             ? currentlyChecked.filter(id => id !== item.id)
                             : [...currentlyChecked, item.id];
-                          setDailyForm(prev => ({ ...prev, checkedPrepIds: updated }));
+                          updateDailyForm({ checkedPrepIds: updated });
                         }}
                         style={{
                           display: 'flex',
@@ -1552,7 +1603,7 @@ export default function JournalView() {
                             <button
                               key={step}
                               type="button"
-                              onClick={() => setDailyForm(prev => ({ ...prev, [slider.key]: step }))}
+                              onClick={() => updateDailyForm({ [slider.key]: step })}
                               style={{
                                 flex: 1,
                                 height: '38px',
@@ -1604,7 +1655,7 @@ export default function JournalView() {
                     <button
                       key={fmt.value}
                       type="button"
-                      onClick={() => setDailyForm(prev => ({ ...prev, preMarketNotesFormat: fmt.value }))}
+                      onClick={() => updateDailyForm({ preMarketNotesFormat: fmt.value })}
                       style={{
                         padding: '2px 8px',
                         fontSize: '9px',
@@ -1638,7 +1689,7 @@ export default function JournalView() {
                     color: '#fff'
                   }}
                   value={dailyForm.preMarketNotes}
-                  onChange={(e) => setDailyForm(prev => ({ ...prev, preMarketNotes: e.target.value }))}
+                  onChange={(e) => updateDailyForm({ preMarketNotes: e.target.value }, true)}
                   placeholder="What is your bias? Draw on liquidity, sweeping sessions lows..."
                 />
               )}
@@ -1733,7 +1784,7 @@ export default function JournalView() {
                     <button
                       key={habit.key}
                       type="button"
-                      onClick={() => setDailyForm(prev => ({ ...prev, [habit.key]: !prev[habit.key] }))}
+                      onClick={() => updateDailyFormFn(prev => ({ ...prev, [habit.key]: !prev[habit.key] }))}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -1800,7 +1851,7 @@ export default function JournalView() {
                     max={10}
                     step={0.5}
                     value={dailyForm.sleepHours}
-                    onChange={e => setDailyForm(prev => ({ ...prev, sleepHours: parseFloat(e.target.value) }))}
+                    onChange={e => updateDailyForm({ sleepHours: parseFloat(e.target.value) })}
                     style={{
                       WebkitAppearance: 'none',
                       width: '100%',
@@ -1818,7 +1869,7 @@ export default function JournalView() {
                   <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: '700' }}>QUALITY TIER</span>
                   <HollowSelect
                     value={dailyForm.sleepQuality}
-                    onChange={(val) => setDailyForm(prev => ({ ...prev, sleepQuality: Number(val) }))}
+                    onChange={(val) => updateDailyForm({ sleepQuality: Number(val) })}
                     options={[1, 2, 3, 4, 5].map(q => ({
                       value: q,
                       label: `${q} - ${q === 5 ? 'Excellent' : q === 1 ? 'Poor' : q === 4 ? 'Good' : q === 3 ? 'Average' : 'Weak'}`
@@ -1843,7 +1894,7 @@ export default function JournalView() {
                       <button
                         key={fmt.value}
                         type="button"
-                        onClick={() => setDailyForm(prev => ({ ...prev, postMarketNotesFormat: fmt.value }))}
+                        onClick={() => updateDailyForm({ postMarketNotesFormat: fmt.value })}
                         style={{
                           padding: '2px 8px',
                           fontSize: '9px',
@@ -1878,7 +1929,7 @@ export default function JournalView() {
                       padding: '8px 12px'
                     }}
                     value={dailyForm.postMarketNotes}
-                    onChange={(e) => setDailyForm(prev => ({ ...prev, postMarketNotes: e.target.value }))}
+                    onChange={(e) => updateDailyForm({ postMarketNotes: e.target.value }, true)}
                     placeholder="Record tilt alerts, discipline warnings, mistakes correlation..."
                   />
                 )}

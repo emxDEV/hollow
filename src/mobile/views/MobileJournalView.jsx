@@ -98,6 +98,53 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
     overallBias: null
   });
 
+  const saveDailyLogDirect = async (formState) => {
+    try {
+      const data = {
+        ...formState,
+        date: selectedDate,
+        status: 'COMPLETED',
+        structure: dayStructure
+      };
+      checklistItems.forEach(c => { data[c.id] = (formState.checkedPrepIds || []).includes(c.id); });
+      await db.dailyJournals.put(data);
+    } catch (err) {
+      console.error("Autosave failed:", err);
+    }
+  };
+
+  const debouncedSaveDailyLog = useMemo(() => {
+    let timer;
+    return (formState) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => saveDailyLogDirect(formState), 500);
+    };
+  }, [selectedDate, dayStructure, checklistItems]);
+
+  const updateDailyForm = (mods, isTyping = false) => {
+    setDailyForm(prev => {
+      const next = { ...prev, ...mods };
+      if (isTyping) {
+        debouncedSaveDailyLog(next);
+      } else {
+        saveDailyLogDirect(next);
+      }
+      return next;
+    });
+  };
+
+  const updateDailyFormFn = (fn, isTyping = false) => {
+    setDailyForm(prev => {
+      const next = fn(prev);
+      if (isTyping) {
+        debouncedSaveDailyLog(next);
+      } else {
+        saveDailyLogDirect(next);
+      }
+      return next;
+    });
+  };
+
   // Local state for weekly goals list (checklist format)
   const [weeklyGoals, setWeeklyGoals] = useState([]);
   const [newGoalText, setNewGoalText] = useState('');
@@ -482,7 +529,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
   };
 
   const toggleCheck = (id) => {
-    setDailyForm(f => ({
+    updateDailyFormFn(f => ({
       ...f,
       checkedPrepIds: f.checkedPrepIds.includes(id)
         ? f.checkedPrepIds.filter(x => x !== id)
@@ -491,7 +538,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
   };
 
   const toggleLifestyle = (id) => {
-    setDailyForm(f => ({ ...f, [id]: !f[id] }));
+    updateDailyFormFn(f => ({ ...f, [id]: !f[id] }));
   };
 
   // Structured Notes helpers (Mobile)
@@ -502,7 +549,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       text: '',
       type // 'bullish' | 'neutral' | 'bearish'
     };
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: [...(prev[listKey] || []), newBullet]
     }));
@@ -510,15 +557,15 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   const handleUpdateBullet = (isPre, id, text) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, text } : b)
-    }));
+    }), true);
   };
 
   const handleDeleteBullet = (isPre, id) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).filter(b => b.id !== id)
     }));
@@ -526,7 +573,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   const handleChangeBulletType = (isPre, id, newType) => {
     const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
-    setDailyForm(prev => ({
+    updateDailyFormFn(prev => ({
       ...prev,
       [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, type: newType } : b)
     }));
@@ -876,7 +923,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                     return (
                       <button
                         key={item.value}
-                        onClick={() => setDailyForm(prev => ({ ...prev, overallBias: isSelected ? null : item.value }))}
+                        onClick={() => updateDailyForm({ overallBias: isSelected ? null : item.value })}
                         style={{
                           flex: 1,
                           height: 38,
@@ -1069,7 +1116,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                         {SENTIMENT_LABELS.map(s => (
                           <button
                             key={s.value}
-                            onClick={() => setDailyForm(f => ({ ...f, [field]: s.value }))}
+                            onClick={() => updateDailyForm({ [field]: s.value })}
                             style={{
                               flex: 1,
                               height: 32,
@@ -1108,7 +1155,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                     max={10}
                     step={0.5}
                     value={dailyForm.sleepHours}
-                    onChange={e => setDailyForm(f => ({ ...f, sleepHours: parseFloat(e.target.value) }))}
+                    onChange={e => updateDailyForm({ sleepHours: parseFloat(e.target.value) })}
                     style={{
                       WebkitAppearance: 'none',
                       width: '100%',
@@ -1136,7 +1183,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                       <button
                         key={fmt.value}
                         type="button"
-                        onClick={() => setDailyForm(prev => ({ ...prev, preMarketNotesFormat: fmt.value }))}
+                        onClick={() => updateDailyForm({ preMarketNotesFormat: fmt.value })}
                         style={{
                           padding: '2px 8px',
                           fontSize: '10px',
@@ -1162,7 +1209,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 ) : (
                   <textarea
                     value={dailyForm.preMarketNotes}
-                    onChange={e => setDailyForm(f => ({ ...f, preMarketNotes: e.target.value }))}
+                    onChange={e => updateDailyForm({ preMarketNotes: e.target.value }, true)}
                     placeholder="Market analysis, key levels, bias…"
                     rows={4}
                     style={{
@@ -1196,7 +1243,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                       <button
                         key={fmt.value}
                         type="button"
-                        onClick={() => setDailyForm(prev => ({ ...prev, postMarketNotesFormat: fmt.value }))}
+                        onClick={() => updateDailyForm({ postMarketNotesFormat: fmt.value })}
                         style={{
                           padding: '2px 8px',
                           fontSize: '10px',
@@ -1222,7 +1269,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 ) : (
                   <textarea
                     value={dailyForm.postMarketNotes}
-                    onChange={e => setDailyForm(f => ({ ...f, postMarketNotes: e.target.value }))}
+                    onChange={e => updateDailyForm({ postMarketNotes: e.target.value }, true)}
                     placeholder="Review, lessons learned, what worked…"
                     rows={4}
                     style={{
