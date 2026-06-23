@@ -128,7 +128,12 @@ export default function JournalView() {
     screenTimeHours: 4.0,
     homeworkDone: false,
     preMarketNotes: '',
-    postMarketNotes: ''
+    postMarketNotes: '',
+    preMarketNotesFormat: 'traditional',
+    preMarketNotesList: [],
+    postMarketNotesFormat: 'traditional',
+    postMarketNotesList: [],
+    overallBias: null
   });
 
   // 4. Local editor state for Weekly Planner
@@ -305,7 +310,12 @@ export default function JournalView() {
         screenTimeHours: dailyLog.screenTimeHours || 4.0,
         homeworkDone: !!dailyLog.homeworkDone,
         preMarketNotes: dailyLog.preMarketNotes || '',
-        postMarketNotes: dailyLog.postMarketNotes || ''
+        postMarketNotes: dailyLog.postMarketNotes || '',
+        preMarketNotesFormat: dailyLog.preMarketNotesFormat || 'traditional',
+        preMarketNotesList: dailyLog.preMarketNotesList || [],
+        postMarketNotesFormat: dailyLog.postMarketNotesFormat || 'traditional',
+        postMarketNotesList: dailyLog.postMarketNotesList || [],
+        overallBias: dailyLog.overallBias || null
       });
       setDayStructure(dailyLog.structure || []);
     } else {
@@ -323,7 +333,12 @@ export default function JournalView() {
         screenTimeHours: 4.0,
         homeworkDone: false,
         preMarketNotes: '',
-        postMarketNotes: ''
+        postMarketNotes: '',
+        preMarketNotesFormat: 'traditional',
+        preMarketNotesList: [],
+        postMarketNotesFormat: 'traditional',
+        postMarketNotesList: [],
+        overallBias: null
       });
       setDayStructure([]);
     }
@@ -524,6 +539,191 @@ export default function JournalView() {
       setSaveStatus('Save Failed');
     }
   };
+
+  // Structured Notes helpers (Desktop)
+  const handleAddBullet = (isPre, type) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    const newBullet = {
+      id: `bullet-${Date.now()}-${Math.random()}`,
+      text: '',
+      type // 'bullish' | 'neutral' | 'bearish'
+    };
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: [...(prev[listKey] || []), newBullet]
+    }));
+  };
+
+  const handleUpdateBullet = (isPre, id, text) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, text } : b)
+    }));
+  };
+
+  const handleDeleteBullet = (isPre, id) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).filter(b => b.id !== id)
+    }));
+  };
+
+  const handleChangeBulletType = (isPre, id, newType) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, type: newType } : b)
+    }));
+  };
+
+  const renderStructuredNotes = (isPre) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    const formatKey = isPre ? 'preMarketNotesFormat' : 'postMarketNotesFormat';
+    const bullets = dailyForm[listKey] || [];
+    
+    const categories = [
+      { type: 'bullish', label: 'Bullish', color: '#30d158', bg: 'rgba(48,209,88,0.02)', border: 'rgba(48,209,88,0.08)' },
+      { type: 'neutral', label: 'Neutral', color: '#a1a1aa', bg: 'rgba(161,161,170,0.02)', border: 'rgba(161,161,170,0.08)' },
+      { type: 'bearish', label: 'Bearish', color: '#ff453a', bg: 'rgba(255,69,58,0.02)', border: 'rgba(255,69,58,0.08)' }
+    ];
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+        {categories.map(cat => {
+          const catBullets = bullets.filter(b => b.type === cat.type);
+          return (
+            <div
+              key={cat.type}
+              style={{
+                background: cat.bg,
+                border: `1px solid ${cat.border}`,
+                borderRadius: '10px',
+                padding: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cat.color }} />
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: cat.color, letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+                    {cat.label}
+                  </span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontWeight: '600' }}>
+                    ({catBullets.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddBullet(isPre, cat.type)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '2px',
+                    borderRadius: '4px',
+                    transition: 'color 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {catBullets.length === 0 ? (
+                  <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.2)', fontStyle: 'italic', paddingLeft: '12px' }}>
+                    No {cat.label.toLowerCase()} points.
+                  </span>
+                ) : (
+                  catBullets.map(b => (
+                    <div
+                      key={b.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'rgba(0,0,0,0.1)',
+                        border: '1px solid rgba(255,255,255,0.03)',
+                        borderRadius: '6px',
+                        padding: '4px 8px'
+                      }}
+                    >
+                      {/* Left dot cycler */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextType = cat.type === 'bullish' ? 'neutral' : cat.type === 'neutral' ? 'bearish' : 'bullish';
+                          handleChangeBulletType(isPre, b.id, nextType);
+                        }}
+                        title="Click to cycle type"
+                        style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: cat.color,
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          flexShrink: 0
+                        }}
+                      />
+                      
+                      {/* Text Input */}
+                      <input
+                        type="text"
+                        value={b.text}
+                        onChange={(e) => handleUpdateBullet(isPre, b.id, e.target.value)}
+                        placeholder={`Type a ${cat.label.toLowerCase()} point...`}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12px',
+                          outline: 'none',
+                          flex: 1,
+                          padding: 0,
+                          minWidth: 0
+                        }}
+                      />
+
+                      {/* Delete Action */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBullet(isPre, b.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'rgba(255,255,255,0.25)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '2px',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#ff453a'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
 
   const handleAddBlock = async (e) => {
     if (e) e.preventDefault();
@@ -1065,7 +1265,29 @@ export default function JournalView() {
         }}>
           
           {/* LEFT: Pre-Session Prep Card */}
-          <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div
+            className="hollow-card"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              border: dailyForm.overallBias === 'bullish'
+                ? '1px solid rgba(48, 209, 88, 0.35)'
+                : dailyForm.overallBias === 'bearish'
+                ? '1px solid rgba(255, 69, 58, 0.35)'
+                : dailyForm.overallBias === 'neutral'
+                ? '1px solid rgba(161, 161, 170, 0.3)'
+                : '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: dailyForm.overallBias === 'bullish'
+                ? '0 6px 24px rgba(48, 209, 88, 0.08)'
+                : dailyForm.overallBias === 'bearish'
+                ? '0 6px 24px rgba(255, 69, 58, 0.08)'
+                : dailyForm.overallBias === 'neutral'
+                ? '0 6px 24px rgba(161, 161, 170, 0.06)'
+                : 'none',
+              transition: 'all 0.25s ease-in-out'
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '14px', color: '#fff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.3px' }}>
                 <Brain size={16} color="#ffffff" /> Pre-Session Cognitive Prep
@@ -1098,6 +1320,43 @@ export default function JournalView() {
               >
                 {isEditingChecklist ? 'Done' : 'Configure Checklist'}
               </button>
+            </div>
+
+            {/* Overall Bias Selector */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0,0,0,0.12)', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.8px' }}>OVERALL BIAS</span>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                {[
+                  { value: 'bullish', label: 'Bullish', color: '#30d158', bg: 'rgba(48,209,88,0.1)' },
+                  { value: 'neutral', label: 'Neutral', color: '#a1a1aa', bg: 'rgba(58,58,60,0.6)' },
+                  { value: 'bearish', label: 'Bearish', color: '#ff453a', bg: 'rgba(255,69,58,0.1)' }
+                ].map(item => {
+                  const isSelected = dailyForm.overallBias === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setDailyForm(prev => ({ ...prev, overallBias: isSelected ? null : item.value }))}
+                      style={{
+                        flex: 1,
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        background: isSelected ? item.bg : 'rgba(255,255,255,0.01)',
+                        border: isSelected ? `1px solid ${item.color}` : '1px solid rgba(255,255,255,0.04)',
+                        color: isSelected ? item.color : 'rgba(255,255,255,0.35)',
+                        boxShadow: isSelected ? `0 0 10px ${item.color}15` : 'none'
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: '20px' }}>
@@ -1331,24 +1590,58 @@ export default function JournalView() {
               </div>
             </div>
 
-            {/* Bias Notes */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>PRE-MARKET BIAS & GAMEPLAN</label>
-              <textarea 
-                className="hollow-input"
-                style={{ 
-                  minHeight: '64px', 
-                  resize: 'vertical', 
-                  fontSize: '13px',
-                  background: 'rgba(0,0,0,0.15)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '12px',
-                  color: '#fff'
-                }}
-                value={dailyForm.preMarketNotes}
-                onChange={(e) => setDailyForm(prev => ({ ...prev, preMarketNotes: e.target.value }))}
-                placeholder="What is your bias? Draw on liquidity, sweeping sessions lows..."
-              />
+            {/* Pre-Market Notes / Gameplan */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>PRE-MARKET BIAS & GAMEPLAN</label>
+                
+                {/* Format Toggle Selector */}
+                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {[
+                    { value: 'traditional', label: 'Traditional' },
+                    { value: 'list', label: 'Structured List' }
+                  ].map(fmt => (
+                    <button
+                      key={fmt.value}
+                      type="button"
+                      onClick={() => setDailyForm(prev => ({ ...prev, preMarketNotesFormat: fmt.value }))}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: dailyForm.preMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: dailyForm.preMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {fmt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {dailyForm.preMarketNotesFormat === 'list' ? (
+                renderStructuredNotes(true)
+              ) : (
+                <textarea 
+                  className="hollow-input"
+                  style={{ 
+                    minHeight: '80px', 
+                    resize: 'vertical', 
+                    fontSize: '13px',
+                    background: 'rgba(0,0,0,0.15)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '12px',
+                    color: '#fff'
+                  }}
+                  value={dailyForm.preMarketNotes}
+                  onChange={(e) => setDailyForm(prev => ({ ...prev, preMarketNotes: e.target.value }))}
+                  placeholder="What is your bias? Draw on liquidity, sweeping sessions lows..."
+                />
+              )}
             </div>
           </div>
           
@@ -1538,23 +1831,57 @@ export default function JournalView() {
 
               {/* Notes Review */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>POST-SESSION REVIEW notes</span>
-                <textarea 
-                  className="hollow-input"
-                  style={{ 
-                    minHeight: '60px', 
-                    resize: 'vertical', 
-                    fontSize: '12px',
-                    background: 'rgba(0,0,0,0.15)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    color: '#fff',
-                    padding: '8px 12px'
-                  }}
-                  value={dailyForm.postMarketNotes}
-                  onChange={(e) => setDailyForm(prev => ({ ...prev, postMarketNotes: e.target.value }))}
-                  placeholder="Record tilt alerts, discipline warnings, mistakes correlation..."
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>POST-SESSION REVIEW NOTES</span>
+                  
+                  {/* Format Toggle Selector */}
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {[
+                      { value: 'traditional', label: 'Traditional' },
+                      { value: 'list', label: 'Structured List' }
+                    ].map(fmt => (
+                      <button
+                        key={fmt.value}
+                        type="button"
+                        onClick={() => setDailyForm(prev => ({ ...prev, postMarketNotesFormat: fmt.value }))}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '9px',
+                          fontWeight: '700',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: dailyForm.postMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          color: dailyForm.postMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {fmt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {dailyForm.postMarketNotesFormat === 'list' ? (
+                  renderStructuredNotes(false)
+                ) : (
+                  <textarea 
+                    className="hollow-input"
+                    style={{ 
+                      minHeight: '60px', 
+                      resize: 'vertical', 
+                      fontSize: '12px',
+                      background: 'rgba(0,0,0,0.15)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      padding: '8px 12px'
+                    }}
+                    value={dailyForm.postMarketNotes}
+                    onChange={(e) => setDailyForm(prev => ({ ...prev, postMarketNotes: e.target.value }))}
+                    placeholder="Record tilt alerts, discipline warnings, mistakes correlation..."
+                  />
+                )}
               </div>
 
               {/* Save Daily Row */}

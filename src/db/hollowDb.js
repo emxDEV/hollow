@@ -67,13 +67,21 @@ function sanitizeForSupabase(tableName, obj) {
     // Exclude local-only properties, pack them into postMarketNotes
     const {
       structure,
+      preMarketNotesFormat,
+      preMarketNotesList,
+      postMarketNotesFormat,
+      postMarketNotesList,
+      overallBias,
       ...rest
     } = obj;
 
     const meta = {};
-    if (obj.structure !== undefined) {
-      meta.structure = obj.structure;
-    }
+    if (obj.structure !== undefined) meta.structure = obj.structure;
+    if (obj.preMarketNotesFormat !== undefined) meta.preMarketNotesFormat = obj.preMarketNotesFormat;
+    if (obj.preMarketNotesList !== undefined) meta.preMarketNotesList = obj.preMarketNotesList;
+    if (obj.postMarketNotesFormat !== undefined) meta.postMarketNotesFormat = obj.postMarketNotesFormat;
+    if (obj.postMarketNotesList !== undefined) meta.postMarketNotesList = obj.postMarketNotesList;
+    if (obj.overallBias !== undefined) meta.overallBias = obj.overallBias;
 
     const rawNotes = obj.postMarketNotes || '';
     const cleanNotes = rawNotes.split('\n\n__HOLLOW_META__:')[0];

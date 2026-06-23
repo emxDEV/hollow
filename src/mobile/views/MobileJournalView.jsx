@@ -90,7 +90,12 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
     meditationDone: false,
     homeworkDone: false,
     preMarketNotes: '',
-    postMarketNotes: ''
+    postMarketNotes: '',
+    preMarketNotesFormat: 'traditional',
+    preMarketNotesList: [],
+    postMarketNotesFormat: 'traditional',
+    postMarketNotesList: [],
+    overallBias: null
   });
 
   // Local state for weekly goals list (checklist format)
@@ -222,20 +227,9 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       const currentLog = await db.dailyJournals.get(selectedDate) || {};
       const data = {
         ...currentLog,
+        ...dailyForm,
         date: selectedDate,
         status: currentLog.status || 'COMPLETED',
-        mentalFocus: dailyForm.mentalFocus,
-        patienceLevel: dailyForm.patienceLevel,
-        riskAdherence: dailyForm.riskAdherence,
-        sleepHours: dailyForm.sleepHours,
-        sleepQuality: dailyForm.sleepQuality,
-        workoutDone: dailyForm.workoutDone,
-        dietClean: dailyForm.dietClean,
-        meditationDone: dailyForm.meditationDone,
-        homeworkDone: dailyForm.homeworkDone,
-        preMarketNotes: dailyForm.preMarketNotes,
-        postMarketNotes: dailyForm.postMarketNotes,
-        checkedPrepIds: dailyForm.checkedPrepIds,
         structure: newStructure
       };
       checklistItems.forEach(c => { data[c.id] = checkedPrepIds.includes(c.id); });
@@ -416,7 +410,12 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         meditationDone: dailyLog.meditationDone ?? false,
         homeworkDone: dailyLog.homeworkDone ?? false,
         preMarketNotes: dailyLog.preMarketNotes ?? '',
-        postMarketNotes: dailyLog.postMarketNotes ?? ''
+        postMarketNotes: dailyLog.postMarketNotes ?? '',
+        preMarketNotesFormat: dailyLog.preMarketNotesFormat ?? 'traditional',
+        preMarketNotesList: dailyLog.preMarketNotesList ?? [],
+        postMarketNotesFormat: dailyLog.postMarketNotesFormat ?? 'traditional',
+        postMarketNotesList: dailyLog.postMarketNotesList ?? [],
+        overallBias: dailyLog.overallBias ?? null
       });
       setDayStructure(dailyLog.structure || []);
     } else {
@@ -432,7 +431,12 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         meditationDone: false,
         homeworkDone: false,
         preMarketNotes: '',
-        postMarketNotes: ''
+        postMarketNotes: '',
+        preMarketNotesFormat: 'traditional',
+        preMarketNotesList: [],
+        postMarketNotesFormat: 'traditional',
+        postMarketNotesList: [],
+        overallBias: null
       });
       setDayStructure([]);
     }
@@ -490,23 +494,189 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
     setDailyForm(f => ({ ...f, [id]: !f[id] }));
   };
 
+  // Structured Notes helpers (Mobile)
+  const handleAddBullet = (isPre, type) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    const newBullet = {
+      id: `bullet-${Date.now()}-${Math.random()}`,
+      text: '',
+      type // 'bullish' | 'neutral' | 'bearish'
+    };
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: [...(prev[listKey] || []), newBullet]
+    }));
+  };
+
+  const handleUpdateBullet = (isPre, id, text) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, text } : b)
+    }));
+  };
+
+  const handleDeleteBullet = (isPre, id) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).filter(b => b.id !== id)
+    }));
+  };
+
+  const handleChangeBulletType = (isPre, id, newType) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    setDailyForm(prev => ({
+      ...prev,
+      [listKey]: (prev[listKey] || []).map(b => b.id === id ? { ...b, type: newType } : b)
+    }));
+  };
+
+  const renderStructuredNotes = (isPre) => {
+    const listKey = isPre ? 'preMarketNotesList' : 'postMarketNotesList';
+    const bullets = dailyForm[listKey] || [];
+    
+    const categories = [
+      { type: 'bullish', label: 'Bullish', color: '#30d158', bg: 'rgba(48,209,88,0.02)', border: 'rgba(48,209,88,0.08)' },
+      { type: 'neutral', label: 'Neutral', color: '#a1a1aa', bg: 'rgba(161,161,170,0.02)', border: 'rgba(161,161,170,0.08)' },
+      { type: 'bearish', label: 'Bearish', color: '#ff453a', bg: 'rgba(255,69,58,0.02)', border: 'rgba(255,69,58,0.08)' }
+    ];
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+        {categories.map(cat => {
+          const catBullets = bullets.filter(b => b.type === cat.type);
+          return (
+            <div
+              key={cat.type}
+              style={{
+                background: cat.bg,
+                border: `1px solid ${cat.border}`,
+                borderRadius: 14,
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: cat.color }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                    {cat.label}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>
+                    ({catBullets.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddBullet(isPre, cat.type)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 4,
+                    borderRadius: 4
+                  }}
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {catBullets.length === 0 ? (
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic', paddingLeft: 12 }}>
+                    No {cat.label.toLowerCase()} points.
+                  </span>
+                ) : (
+                  catBullets.map(b => (
+                    <div
+                      key={b.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        background: 'rgba(0,0,0,0.15)',
+                        border: '1px solid rgba(255,255,255,0.03)',
+                        borderRadius: 10,
+                        padding: '6px 10px',
+                        minHeight: 38
+                      }}
+                    >
+                      {/* Left dot cycler */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextType = cat.type === 'bullish' ? 'neutral' : cat.type === 'neutral' ? 'bearish' : 'bullish';
+                          handleChangeBulletType(isPre, b.id, nextType);
+                        }}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          background: cat.color,
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0,
+                          flexShrink: 0
+                        }}
+                      />
+                      
+                      {/* Text Input */}
+                      <input
+                        type="text"
+                        value={b.text}
+                        onChange={(e) => handleUpdateBullet(isPre, b.id, e.target.value)}
+                        placeholder={`Add ${cat.label.toLowerCase()} point...`}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: 13,
+                          outline: 'none',
+                          flex: 1,
+                          padding: 0,
+                          minWidth: 0
+                        }}
+                      />
+
+                      {/* Delete Action */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBullet(isPre, b.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'rgba(255,255,255,0.25)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: 4
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const saveDailyLog = async () => {
     setSaving(true);
     const data = {
+      ...dailyForm,
       date: selectedDate,
       status: 'COMPLETED',
-      mentalFocus: dailyForm.mentalFocus,
-      patienceLevel: dailyForm.patienceLevel,
-      riskAdherence: dailyForm.riskAdherence,
-      sleepHours: dailyForm.sleepHours,
-      sleepQuality: dailyForm.sleepQuality,
-      workoutDone: dailyForm.workoutDone,
-      dietClean: dailyForm.dietClean,
-      meditationDone: dailyForm.meditationDone,
-      homeworkDone: dailyForm.homeworkDone,
-      preMarketNotes: dailyForm.preMarketNotes,
-      postMarketNotes: dailyForm.postMarketNotes,
-      checkedPrepIds: dailyForm.checkedPrepIds,
       structure: dayStructure
     };
     checklistItems.forEach(c => { data[c.id] = dailyForm.checkedPrepIds.includes(c.id); });
@@ -673,6 +843,62 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         <AnimatePresence mode="wait">
           {activeTab === 'daily' && (
             <motion.div key="daily" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+              {/* Overall Bias Selector Card */}
+              <div style={{
+                marginBottom: 20,
+                background: '#0f0f11',
+                borderRadius: 16,
+                padding: '14px 16px',
+                border: dailyForm.overallBias === 'bullish'
+                  ? '1px solid rgba(48, 209, 88, 0.35)'
+                  : dailyForm.overallBias === 'bearish'
+                  ? '1px solid rgba(255, 69, 58, 0.35)'
+                  : dailyForm.overallBias === 'neutral'
+                  ? '1px solid rgba(161, 161, 170, 0.3)'
+                  : '1px solid rgba(255, 255, 255, 0.06)',
+                boxShadow: dailyForm.overallBias === 'bullish'
+                  ? '0 4px 16px rgba(48, 209, 88, 0.06)'
+                  : dailyForm.overallBias === 'bearish'
+                  ? '0 4px 16px rgba(255, 69, 58, 0.06)'
+                  : dailyForm.overallBias === 'neutral'
+                  ? '0 4px 16px rgba(161, 161, 170, 0.04)'
+                  : 'none',
+                transition: 'all 0.25s ease'
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Overall Bias</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'bullish', label: 'Bullish', color: '#30d158', bg: 'rgba(48,209,88,0.1)' },
+                    { value: 'neutral', label: 'Neutral', color: '#a1a1aa', bg: 'rgba(58,58,60,0.6)' },
+                    { value: 'bearish', label: 'Bearish', color: '#ff453a', bg: 'rgba(255,69,58,0.1)' }
+                  ].map(item => {
+                    const isSelected = dailyForm.overallBias === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        onClick={() => setDailyForm(prev => ({ ...prev, overallBias: isSelected ? null : item.value }))}
+                        style={{
+                          flex: 1,
+                          height: 38,
+                          borderRadius: 10,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          background: isSelected ? item.bg : 'rgba(255,255,255,0.02)',
+                          border: isSelected ? `1px solid ${item.color}` : '1px solid rgba(255,255,255,0.06)',
+                          color: isSelected ? item.color : 'rgba(255,255,255,0.35)',
+                          WebkitTapHighlightColor: 'transparent',
+                          outline: 'none'
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {/* Prep Checklist */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -896,51 +1122,124 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 </div>
               </div>
 
-              {/* Notes */}
+              {/* Pre-Market Notes */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Pre-Market Notes</div>
-                <textarea
-                  value={dailyForm.preMarketNotes}
-                  onChange={e => setDailyForm(f => ({ ...f, preMarketNotes: e.target.value }))}
-                  placeholder="Market analysis, key levels, bias…"
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    background: '#0f0f11',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 14,
-                    color: '#fff',
-                    fontFamily: 'var(--font)',
-                    fontSize: 14,
-                    padding: '14px 16px',
-                    outline: 'none',
-                    resize: 'none',
-                    lineHeight: 1.5
-                  }}
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pre-Market Notes</div>
+                  
+                  {/* Format Toggle Selector */}
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {[
+                      { value: 'traditional', label: 'Traditional' },
+                      { value: 'list', label: 'List' }
+                    ].map(fmt => (
+                      <button
+                        key={fmt.value}
+                        type="button"
+                        onClick={() => setDailyForm(prev => ({ ...prev, preMarketNotesFormat: fmt.value }))}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: dailyForm.preMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          color: dailyForm.preMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                          transition: 'all 0.15s ease',
+                          outline: 'none',
+                          WebkitTapHighlightColor: 'transparent'
+                        }}
+                      >
+                        {fmt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {dailyForm.preMarketNotesFormat === 'list' ? (
+                  renderStructuredNotes(true)
+                ) : (
+                  <textarea
+                    value={dailyForm.preMarketNotes}
+                    onChange={e => setDailyForm(f => ({ ...f, preMarketNotes: e.target.value }))}
+                    placeholder="Market analysis, key levels, bias…"
+                    rows={4}
+                    style={{
+                      width: '100%',
+                      background: '#0f0f11',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: 14,
+                      color: '#fff',
+                      fontFamily: 'var(--font)',
+                      fontSize: 14,
+                      padding: '14px 16px',
+                      outline: 'none',
+                      resize: 'none',
+                      lineHeight: 1.5
+                    }}
+                  />
+                )}
               </div>
 
+              {/* Post-Market Notes */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Post-Market Notes</div>
-                <textarea
-                  value={dailyForm.postMarketNotes}
-                  onChange={e => setDailyForm(f => ({ ...f, postMarketNotes: e.target.value }))}
-                  placeholder="Review, lessons learned, what worked…"
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    background: '#0f0f11',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 14,
-                    color: '#fff',
-                    fontFamily: 'var(--font)',
-                    fontSize: 14,
-                    padding: '14px 16px',
-                    outline: 'none',
-                    resize: 'none',
-                    lineHeight: 1.5
-                  }}
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Post-Market Notes</div>
+                  
+                  {/* Format Toggle Selector */}
+                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {[
+                      { value: 'traditional', label: 'Traditional' },
+                      { value: 'list', label: 'List' }
+                    ].map(fmt => (
+                      <button
+                        key={fmt.value}
+                        type="button"
+                        onClick={() => setDailyForm(prev => ({ ...prev, postMarketNotesFormat: fmt.value }))}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: dailyForm.postMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          color: dailyForm.postMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                          transition: 'all 0.15s ease',
+                          outline: 'none',
+                          WebkitTapHighlightColor: 'transparent'
+                        }}
+                      >
+                        {fmt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {dailyForm.postMarketNotesFormat === 'list' ? (
+                  renderStructuredNotes(false)
+                ) : (
+                  <textarea
+                    value={dailyForm.postMarketNotes}
+                    onChange={e => setDailyForm(f => ({ ...f, postMarketNotes: e.target.value }))}
+                    placeholder="Review, lessons learned, what worked…"
+                    rows={4}
+                    style={{
+                      width: '100%',
+                      background: '#0f0f11',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: 14,
+                      color: '#fff',
+                      fontFamily: 'var(--font)',
+                      fontSize: 14,
+                      padding: '14px 16px',
+                      outline: 'none',
+                      resize: 'none',
+                      lineHeight: 1.5
+                    }}
+                  />
+                )}
               </div>
             </motion.div>
           )}
