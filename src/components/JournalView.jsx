@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Save,
   CheckCircle2,
+  Circle,
+  Salad,
   Calendar,
   AlertCircle,
   Check,
@@ -397,25 +399,38 @@ export default function JournalView() {
         if (dailyLog.dailyOpenMapped) loadedIds.push('dailyOpenMapped');
       }
 
-      setDailyForm({
-        checkedPrepIds: loadedIds,
-        mentalFocus: dailyLog.mentalFocus || 3,
-        patienceLevel: dailyLog.patienceLevel || 3,
-        riskAdherence: dailyLog.riskAdherence || 3,
-        sleepHours: dailyLog.sleepHours || 7.0,
-        sleepQuality: dailyLog.sleepQuality || 3,
-        workoutDone: !!dailyLog.workoutDone,
-        dietClean: !!dailyLog.dietClean,
-        meditationDone: !!dailyLog.meditationDone,
-        screenTimeHours: dailyLog.screenTimeHours || 4.0,
-        homeworkDone: !!dailyLog.homeworkDone,
-        preMarketNotes: dailyLog.preMarketNotes || '',
-        postMarketNotes: dailyLog.postMarketNotes || '',
-        preMarketNotesFormat: dailyLog.preMarketNotesFormat || 'traditional',
-        preMarketNotesList: dailyLog.preMarketNotesList || [],
-        postMarketNotesFormat: dailyLog.postMarketNotesFormat || 'traditional',
-        postMarketNotesList: dailyLog.postMarketNotesList || [],
-        overallBias: dailyLog.overallBias || null
+      const activeEl = document.activeElement;
+      const isPreMarketNotesFocused = activeEl && activeEl.id === 'preMarketNotes';
+      const isPostMarketNotesFocused = activeEl && activeEl.id === 'postMarketNotes';
+      const isPreBulletFocused = activeEl && activeEl.id && activeEl.id.startsWith('bullet-pre-');
+      const isPostBulletFocused = activeEl && activeEl.id && activeEl.id.startsWith('bullet-post-');
+
+      setDailyForm(prev => {
+        const preMarketNotes = isPreMarketNotesFocused ? prev.preMarketNotes : (dailyLog.preMarketNotes ?? '');
+        const postMarketNotes = isPostMarketNotesFocused ? prev.postMarketNotes : (dailyLog.postMarketNotes ?? '');
+        const preMarketNotesList = isPreBulletFocused ? prev.preMarketNotesList : (dailyLog.preMarketNotesList ?? []);
+        const postMarketNotesList = isPostBulletFocused ? prev.postMarketNotesList : (dailyLog.postMarketNotesList ?? []);
+
+        return {
+          checkedPrepIds: loadedIds,
+          mentalFocus: dailyLog.mentalFocus ?? 3,
+          patienceLevel: dailyLog.patienceLevel ?? 3,
+          riskAdherence: dailyLog.riskAdherence ?? 3,
+          sleepHours: dailyLog.sleepHours ?? 7,
+          sleepQuality: dailyLog.sleepQuality ?? 3,
+          workoutDone: !!dailyLog.workoutDone,
+          dietClean: !!dailyLog.dietClean,
+          meditationDone: !!dailyLog.meditationDone,
+          homeworkDone: !!dailyLog.homeworkDone,
+          screenTimeHours: dailyLog.screenTimeHours ?? 4,
+          preMarketNotesFormat: dailyLog.preMarketNotesFormat ?? 'traditional',
+          postMarketNotesFormat: dailyLog.postMarketNotesFormat ?? 'traditional',
+          overallBias: dailyLog.overallBias ?? null,
+          preMarketNotes,
+          postMarketNotes,
+          preMarketNotesList,
+          postMarketNotesList
+        };
       });
       setDayStructure(dailyLog.structure || []);
     } else {
@@ -446,10 +461,17 @@ export default function JournalView() {
 
   useEffect(() => {
     if (weeklyLog) {
-      setWeeklyForm({
-        priorities: weeklyLog.priorities || '',
-        reviewNotes: weeklyLog.reviewNotes || ''
+      const activeEl = document.activeElement;
+      const isPrioritiesFocused = activeEl && activeEl.id === 'weeklyPriorities';
+      const isReviewNotesFocused = activeEl && activeEl.id === 'weeklyReviewNotes';
+      const isWeeklyGoalInputFocused = activeEl && activeEl.tagName === 'INPUT' && activeEl.value && weeklyGoals.some(g => g.label === activeEl.value);
+
+      setWeeklyForm(prev => {
+        const priorities = isPrioritiesFocused ? prev.priorities : (weeklyLog.priorities || '');
+        const reviewNotes = isReviewNotesFocused ? prev.reviewNotes : (weeklyLog.reviewNotes || '');
+        return { priorities, reviewNotes };
       });
+
       // Parse goals array from JSON string or array
       try {
         let parsed = [];
@@ -461,9 +483,14 @@ export default function JournalView() {
           // Legacy plain text fallback
           parsed = [{ id: 'g1', label: weeklyLog.goals, checked: false }];
         }
-        setWeeklyGoals(parsed);
+        
+        if (!isWeeklyGoalInputFocused) {
+          setWeeklyGoals(parsed);
+        }
       } catch (e) {
-        setWeeklyGoals([]);
+        if (!isWeeklyGoalInputFocused) {
+          setWeeklyGoals([]);
+        }
       }
     } else {
       setWeeklyForm({
@@ -776,9 +803,9 @@ export default function JournalView() {
                         }}
                       />
                       
-                      {/* Text Input */}
                       <input
                         type="text"
+                        id={isPre ? `bullet-pre-${b.id}` : `bullet-post-${b.id}`}
                         value={b.text}
                         onChange={(e) => handleUpdateBullet(isPre, b.id, e.target.value)}
                         placeholder={`Type a ${cat.label.toLowerCase()} point...`}
@@ -1358,74 +1385,38 @@ export default function JournalView() {
           gridTemplateColumns: isMobile 
             ? '1fr' 
             : !hideTradeDetails
-            ? '4fr 3.2fr 4.8fr' 
-            : '7.5fr 4.5fr',
+            ? '4.2fr 3.8fr 4.5fr' 
+            : '6fr 6fr',
           gap: '20px',
           alignItems: 'stretch'
         }}>
           
-          {/* LEFT: Pre-Session Prep Card */}
-          <div
-            className="hollow-card"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
+          {/* Column 1: Check-in Metrics HUD */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Overall Bias Selector Card */}
+            <div style={{
+              background: '#0f0f11',
+              borderRadius: 16,
+              padding: '14px 16px',
               border: dailyForm.overallBias === 'bullish'
                 ? '1px solid rgba(48, 209, 88, 0.35)'
                 : dailyForm.overallBias === 'bearish'
                 ? '1px solid rgba(255, 69, 58, 0.35)'
                 : dailyForm.overallBias === 'neutral'
                 ? '1px solid rgba(161, 161, 170, 0.3)'
-                : '1px solid rgba(255, 255, 255, 0.08)',
+                : '1px solid rgba(255, 255, 255, 0.06)',
               boxShadow: dailyForm.overallBias === 'bullish'
-                ? '0 6px 24px rgba(48, 209, 88, 0.08)'
+                ? '0 4px 16px rgba(48, 209, 88, 0.06)'
                 : dailyForm.overallBias === 'bearish'
-                ? '0 6px 24px rgba(255, 69, 58, 0.08)'
+                ? '0 4px 16px rgba(255, 69, 58, 0.06)'
                 : dailyForm.overallBias === 'neutral'
-                ? '0 6px 24px rgba(161, 161, 170, 0.06)'
+                ? '0 4px 16px rgba(161, 161, 170, 0.04)'
                 : 'none',
-              transition: 'all 0.25s ease-in-out'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '14px', color: '#fff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.3px' }}>
-                <Brain size={16} color="#ffffff" /> Pre-Session Cognitive Prep
-              </h3>
-              
-              <button
-                type="button"
-                onClick={() => setIsEditingChecklist(!isEditingChecklist)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '6px',
-                  color: isEditingChecklist ? '#ffffff' : 'var(--colors-stone)',
-                  padding: '2px 8px',
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                }}
-              >
-                {isEditingChecklist ? 'Done' : 'Configure Checklist'}
-              </button>
-            </div>
-
-            {/* Overall Bias Selector */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0,0,0,0.12)', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.8px' }}>OVERALL BIAS</span>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              transition: 'all 0.25s ease'
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Overall Bias</div>
+              <div style={{ display: 'flex', gap: 8 }}>
                 {[
                   { value: 'bullish', label: 'Bullish', color: '#30d158', bg: 'rgba(48,209,88,0.1)' },
                   { value: 'neutral', label: 'Neutral', color: '#a1a1aa', bg: 'rgba(58,58,60,0.6)' },
@@ -1439,17 +1430,31 @@ export default function JournalView() {
                       onClick={() => updateDailyForm({ overallBias: isSelected ? null : item.value })}
                       style={{
                         flex: 1,
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        fontSize: '11px',
-                        fontWeight: '700',
+                        height: 38,
+                        borderRadius: 10,
+                        fontSize: 12,
+                        fontWeight: 700,
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        background: isSelected ? item.bg : 'rgba(255,255,255,0.01)',
-                        border: isSelected ? `1px solid ${item.color}` : '1px solid rgba(255,255,255,0.04)',
+                        background: isSelected ? item.bg : 'rgba(255,255,255,0.02)',
+                        border: isSelected ? `1px solid ${item.color}` : '1px solid rgba(255,255,255,0.06)',
                         color: isSelected ? item.color : 'rgba(255,255,255,0.35)',
-                        boxShadow: isSelected ? `0 0 10px ${item.color}15` : 'none'
+                        outline: 'none'
+                      }}
+                      onMouseEnter={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+                        }
                       }}
                     >
                       {item.label}
@@ -1459,227 +1464,234 @@ export default function JournalView() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: '20px' }}>
-              {/* Checklist list or custom configurations */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {isEditingChecklist ? (
-                  /* CONFIGURATION WRAPPER */
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.04)', padding: '12px', borderRadius: '12px' }}>
-                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', marginBottom: '4px', letterSpacing: '0.5px' }}>EDIT PREP ITEMS</span>
-                    
-                    {/* Item list inside editor */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto', paddingRight: '2px' }} className="hollow-menu-scrollbar">
-                      {checklistItems.map(item => (
-                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <input
-                            type="text"
-                            value={item.label}
-                            onChange={(e) => handleUpdateChecklistItem(item.id, e.target.value)}
-                            style={{
-                              background: 'rgba(255,255,255,0.02)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              borderRadius: '6px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              color: '#fff',
-                              outline: 'none',
-                              flex: 1
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteChecklistItem(item.id)}
-                            style={{
-                              background: 'rgba(255, 107, 107, 0.1)',
-                              border: '1px solid rgba(255, 107, 107, 0.2)',
-                              borderRadius: '6px',
-                              color: '#ff7b7b',
-                              width: '22px',
-                              height: '22px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <Minus size={10} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Add new check input row */}
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
-                      <input
-                        type="text"
-                        placeholder="Add new task..."
-                        value={newCheckLabel}
-                        onChange={(e) => setNewCheckLabel(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleAddChecklistItem();
-                          }
-                        }}
-                        style={{
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '6px',
-                          padding: '4px 8px',
-                          fontSize: '11px',
-                          color: '#fff',
-                          outline: 'none',
-                          flex: 1
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddChecklistItem}
-                        style={{
-                          background: 'rgba(40, 199, 111, 0.1)',
-                          border: '1px solid rgba(40, 199, 111, 0.2)',
-                          borderRadius: '6px',
-                          color: '#28c76f',
-                          width: '22px',
-                          height: '22px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <Plus size={10} />
-                      </button>
-                    </div>
-                  </div>
+            {/* Prep Checklist Card */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prep Checklist</div>
+                <button 
+                  type="button"
+                  onClick={() => setIsEditingChecklist(!isEditingChecklist)}
+                  style={{ background: 'transparent', border: 'none', color: '#0a84ff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {isEditingChecklist ? 'Done' : 'Edit List'}
+                </button>
+              </div>
+              
+              <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                {checklistItems.length === 0 ? (
+                  <div style={{ padding: '16px', fontSize: '13px', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Hurry up, add a checklist point to keep focused!</div>
                 ) : (
-                  /* RUNTIME LIST VIEW */
-                  checklistItems.map(item => {
-                    const isChecked = (dailyForm.checkedPrepIds || []).includes(item.id);
+                  checklistItems.map((c, i) => {
+                    const checked = (dailyForm.checkedPrepIds || []).includes(c.id);
                     return (
                       <div
-                        key={item.id}
-                        onClick={() => {
-                          const currentlyChecked = dailyForm.checkedPrepIds || [];
-                          const updated = isChecked 
-                            ? currentlyChecked.filter(id => id !== item.id)
-                            : [...currentlyChecked, item.id];
-                          updateDailyForm({ checkedPrepIds: updated });
-                        }}
+                        key={c.id}
                         style={{
+                          width: '100%',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          borderRadius: '12px',
-                          background: isChecked ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
-                          border: isChecked ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-                          boxSizing: 'border-box'
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.borderColor = isChecked ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.12)';
-                          e.currentTarget.style.background = isChecked ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)';
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.borderColor = isChecked ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)';
-                          e.currentTarget.style.background = isChecked ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)';
+                          padding: '12px 16px',
+                          borderBottom: i < checklistItems.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                         }}
                       >
-                        <span style={{ 
-                          fontSize: '12px', 
-                          fontWeight: '600',
-                          color: isChecked ? '#ffffff' : 'rgba(255, 255, 255, 0.55)',
-                          transition: 'color 0.2s',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          marginRight: '8px'
-                        }}>
-                          {item.label}
-                        </span>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          background: isChecked ? '#ffffff' : 'rgba(255, 255, 255, 0.03)',
-                          border: isChecked ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.15)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.15s',
-                          boxShadow: 'none',
-                          flexShrink: 0
-                        }}>
-                          {isChecked && <Check size={8} color="#000000" strokeWidth={3.5} />}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isEditingChecklist) return;
+                            const currentlyChecked = dailyForm.checkedPrepIds || [];
+                            const updated = checked 
+                              ? currentlyChecked.filter(id => id !== c.id)
+                              : [...currentlyChecked, c.id];
+                            updateDailyForm({ checkedPrepIds: updated });
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'none',
+                            border: 'none',
+                            cursor: isEditingChecklist ? 'default' : 'pointer',
+                            gap: 12,
+                            flex: 1,
+                            textAlign: 'left',
+                            outline: 'none'
+                          }}
+                        >
+                          {checked
+                            ? <CheckCircle2 size={20} color="#30d158" fill="rgba(48,209,88,0.15)" />
+                            : <Circle size={20} color="rgba(255,255,255,0.2)" />
+                          }
+                          
+                          {isEditingChecklist ? (
+                            <input
+                              type="text"
+                              value={c.label}
+                              onChange={(e) => handleUpdateChecklistItem(c.id, e.target.value)}
+                              style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 14, outline: 'none', width: '100%' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 14, fontWeight: 500, color: checked ? '#fff' : 'rgba(255,255,255,0.6)' }}>
+                              {c.label}
+                            </span>
+                          )}
+                        </button>
+
+                        {isEditingChecklist && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteChecklistItem(c.id)}
+                            style={{ background: 'transparent', border: 'none', color: '#ff453a', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '4px 8px' }}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     );
                   })
                 )}
               </div>
 
-              {/* Emotional Indicators Step rating pills with emojis */}
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '12px', 
-                background: 'rgba(0, 0, 0, 0.15)', 
-                padding: '16px', 
-                borderRadius: '16px', 
-                border: '1px solid rgba(255, 255, 255, 0.05)' 
-              }}>
-                <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)', fontWeight: '800', letterSpacing: '0.8px' }}>EMOTIONAL INDICATORS</span>
-                
+              {isEditingChecklist && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Add custom checklist task..."
+                    value={newCheckLabel}
+                    onChange={(e) => setNewCheckLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddChecklistItem();
+                      }
+                    }}
+                    style={{ flex: 1, background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#fff', outline: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddChecklistItem}
+                    style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, color: '#000', cursor: 'pointer' }}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lifestyle Card */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Lifestyle</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {[
-                  { key: 'mentalFocus', label: 'Mental Focus / Alertness' },
-                  { key: 'patienceLevel', label: 'Patience (A+ Entry Filter)' },
-                  { key: 'riskAdherence', label: 'Discipline / Risk Adherence' }
-                ].map(slider => {
-                  const currentValue = dailyForm[slider.key] || 3;
-                  const EMOJIS = ['😞', '😕', '😐', '😊', '🔥'];
+                  { id: 'workoutDone', label: 'Workout', icon: Dumbbell },
+                  { id: 'dietClean', label: 'Clean Diet', icon: Salad },
+                  { id: 'meditationDone', label: 'Meditation', icon: Brain },
+                  { id: 'homeworkDone', label: 'Homework', icon: CheckCircle2 },
+                ].map(item => {
+                  const active = dailyForm[item.id];
+                  const Icon = item.icon;
                   return (
-                    <div key={slider.key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '500', color: 'rgba(255, 255, 255, 0.65)' }}>{slider.label}</span>
-                        <span style={{ fontSize: '18px' }}>{EMOJIS[currentValue - 1]}</span>
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => updateDailyForm({ [item.id]: !active })}
+                      style={{
+                        background: active ? 'rgba(48,209,88,0.1)' : '#0f0f11',
+                        border: `1px solid ${active ? 'rgba(48,209,88,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                        borderRadius: 14,
+                        padding: '12px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        transition: 'all 0.15s',
+                        outline: 'none'
+                      }}
+                      onMouseEnter={e => {
+                        if (!active) {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) {
+                          e.currentTarget.style.background = '#0f0f11';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                        }
+                      }}
+                    >
+                      <Icon size={20} color={active ? '#30d158' : 'rgba(255,255,255,0.3)'} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: active ? '#30d158' : 'rgba(255,255,255,0.5)' }}>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mental State Card */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Mental State</div>
+              <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                {[
+                  { field: 'mentalFocus', label: 'Mental Focus' },
+                  { field: 'patienceLevel', label: 'Patience' },
+                  { field: 'riskAdherence', label: 'Risk Discipline' },
+                ].map(({ field, label }, i, arr) => {
+                  const SENTIMENT_LABELS = [
+                    { value: 1, emoji: '😞' },
+                    { value: 2, emoji: '😕' },
+                    { value: 3, emoji: '😐' },
+                    { value: 4, emoji: '😊' },
+                    { value: 5, emoji: '🔥' }
+                  ];
+                  return (
+                    <div
+                      key={field}
+                      style={{
+                        padding: '14px 16px',
+                        borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>{label}</span>
+                        <span style={{ fontSize: 18 }}>{SENTIMENT_LABELS.find(s => s.value === dailyForm[field])?.emoji || '😐'}</span>
                       </div>
-                      
-                      <div style={{ display: 'flex', gap: '5px' }}>
-                        {[1, 2, 3, 4, 5].map(step => {
-                          const isSelected = currentValue === step;
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {SENTIMENT_LABELS.map(s => {
+                          const isSelected = dailyForm[field] === s.value;
                           return (
                             <button
-                              key={step}
+                              key={s.value}
                               type="button"
-                              onClick={() => updateDailyForm({ [slider.key]: step })}
+                              onClick={() => updateDailyForm({ [field]: s.value })}
                               style={{
                                 flex: 1,
-                                height: '38px',
-                                borderRadius: '8px',
-                                border: isSelected ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                background: isSelected ? 'rgba(255,255,255,0.12)' : 'rgba(255, 255, 255, 0.02)',
+                                height: 32,
+                                borderRadius: 8,
+                                border: `1px solid ${isSelected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                background: isSelected ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)',
                                 cursor: 'pointer',
-                                transition: 'all 0.15s ease',
+                                fontSize: 16,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '18px'
+                                transition: 'all 0.15s',
+                                outline: 'none'
                               }}
                               onMouseEnter={e => {
                                 if (!isSelected) {
-                                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                  e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
                                 }
                               }}
                               onMouseLeave={e => {
                                 if (!isSelected) {
-                                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
                                 }
                               }}
                             >
-                              {EMOJIS[step - 1]}
+                              {s.emoji}
                             </button>
                           );
                         })}
@@ -1690,209 +1702,19 @@ export default function JournalView() {
               </div>
             </div>
 
-            {/* Pre-Market Notes / Gameplan */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.5px' }}>PRE-MARKET BIAS & GAMEPLAN</label>
-                
-                {/* Format Toggle Selector */}
-                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  {[
-                    { value: 'traditional', label: 'Traditional' },
-                    { value: 'list', label: 'Structured List' }
-                  ].map(fmt => (
-                    <button
-                      key={fmt.value}
-                      type="button"
-                      onClick={() => updateDailyForm({ preMarketNotesFormat: fmt.value })}
-                      style={{
-                        padding: '2px 8px',
-                        fontSize: '9px',
-                        fontWeight: '700',
-                        borderRadius: '4px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: dailyForm.preMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
-                        color: dailyForm.preMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {fmt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {dailyForm.preMarketNotesFormat === 'list' ? (
-                renderStructuredNotes(true)
-              ) : (
-                <textarea 
-                  className="hollow-input"
-                  style={{ 
-                    minHeight: '80px', 
-                    resize: 'vertical', 
-                    fontSize: '13px',
-                    background: 'rgba(0,0,0,0.15)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                  value={dailyForm.preMarketNotes}
-                  onChange={(e) => updateDailyForm({ preMarketNotes: e.target.value }, true)}
-                  placeholder="What is your bias? Draw on liquidity, sweeping sessions lows..."
-                />
-              )}
-            </div>
-          </div>
-          
-          {/* RIGHT: Cognitive Readiness Indicator & Habits HUD */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Automated Cognitive Readiness Indicator Card */}
-            <div style={{
-              background: cognitiveReadiness.bg,
-              border: `1px solid ${cognitiveReadiness.border}`,
-              borderRadius: '20px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              boxShadow: `0 4px 20px rgba(0,0,0,0.15), 0 0 15px ${cognitiveReadiness.color}15`,
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '-40%',
-                right: '-40%',
-                width: '120px',
-                height: '120px',
-                borderRadius: '50%',
-                background: cognitiveReadiness.color,
-                filter: 'blur(45px)',
-                opacity: 0.15,
-                pointerEvents: 'none'
-              }} />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Activity size={16} color={cognitiveReadiness.color} />
-                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#fff', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                    Readiness Index
-                  </span>
-                </div>
-                <span style={{
-                  fontSize: '22px',
-                  fontWeight: '900',
-                  color: cognitiveReadiness.color,
-                  fontFamily: 'var(--font-mono)'
-                }}>
-                  {cognitiveReadiness.score}%
-                </span>
-              </div>
-
-              <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${cognitiveReadiness.score}%`,
-                  background: cognitiveReadiness.color,
-                  boxShadow: `0 0 6px ${cognitiveReadiness.color}`,
-                  transition: 'width 0.4s ease'
-                }} />
-              </div>
-
-              <p style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                color: 'rgba(255,255,255,0.8)',
-                lineHeight: '1.4',
-                margin: 0
-              }}>
-                {cognitiveReadiness.advice}
-              </p>
-            </div>
-
-            {/* Habits tracker & health HUD */}
-            <div className="hollow-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '13px', color: '#fff', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Dumbbell size={14} color="#ffffff" /> Discipline HUD & Habits
-                </h3>
-              </div>
-
-              {/* Habit grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '8px' }}>
-                {[
-                  { key: 'workoutDone', label: 'Gym', emoji: '🏋️' },
-                  { key: 'dietClean', label: 'Diet', emoji: '🥗' },
-                  { key: 'meditationDone', label: 'Zen', emoji: '🧘' },
-                  { key: 'homeworkDone', label: 'Charts', emoji: '📊' }
-                ].map(habit => {
-                  const isActive = dailyForm[habit.key];
-                  return (
-                    <button
-                      key={habit.key}
-                      type="button"
-                      onClick={() => updateDailyFormFn(prev => ({ ...prev, [habit.key]: !prev[habit.key] }))}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        padding: '10px 4px',
-                        borderRadius: '10px',
-                        border: isActive ? '1px solid rgba(48,209,88,0.35)' : '1px solid rgba(255,255,255,0.05)',
-                        background: isActive ? 'rgba(48,209,88,0.1)' : 'rgba(255,255,255,0.01)',
-                        color: isActive ? '#30d158' : 'rgba(255,255,255,0.35)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxSizing: 'border-box'
-                      }}
-                      onMouseEnter={e => {
-                        if (!isActive) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isActive) {
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
-                        }
-                      }}
-                    >
-                      <span style={{ fontSize: '18px' }}>{habit.emoji}</span>
-                      <span style={{ fontSize: '10px', fontWeight: '700' }}>{habit.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Sleep slider (like mobile) */}
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.04)',
-                borderRadius: '14px',
-                padding: '12px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Moon size={12} color="#bf5af2" />
-                    <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.5px' }}>SLEEP HUD</span>
-                  </div>
-                  <span style={{ fontSize: '9px', fontWeight: '700', color: sleepScoreDetails.color, background: `${sleepScoreDetails.color}15`, border: `1px solid ${sleepScoreDetails.color}35`, padding: '1px 5px', borderRadius: '4px' }}>
-                    {sleepScoreDetails.pct}% {sleepScoreDetails.label}
-                  </span>
-                </div>
-
-                {/* Sleep Hours slider */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>Sleep Hours: <strong style={{ color: '#fff' }}>{dailyForm.sleepHours}h</strong></span>
+            {/* Sleep Card */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Sleep</div>
+              <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Moon size={16} color="#bf5af2" />
+                      <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Sleep Hours: <strong style={{ color: '#fff' }}>{dailyForm.sleepHours}h</strong></span>
+                    </div>
+                    <span style={{ fontSize: '10px', fontWeight: '800', color: sleepScoreDetails.color, background: `${sleepScoreDetails.color}15`, border: `1px solid ${sleepScoreDetails.color}35`, padding: '2px 6px', borderRadius: '6px' }}>
+                      {sleepScoreDetails.pct}% {sleepScoreDetails.label}
+                    </span>
                   </div>
                   <input
                     type="range"
@@ -1913,102 +1735,304 @@ export default function JournalView() {
                   />
                 </div>
 
-                {/* Sleep Quality */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: '700' }}>QUALITY TIER</span>
-                  <HollowSelect
-                    value={dailyForm.sleepQuality}
-                    onChange={(val) => updateDailyForm({ sleepQuality: Number(val) })}
-                    options={[1, 2, 3, 4, 5].map(q => ({
-                      value: q,
-                      label: `${q} - ${q === 5 ? 'Excellent' : q === 1 ? 'Poor' : q === 4 ? 'Good' : q === 3 ? 'Average' : 'Weak'}`
-                    }))}
-                    style={{ height: '28px', padding: '0 8px', borderRadius: '8px' }}
-                    dropdownStyle={{ minWidth: '110px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Notes Review */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: '0.5px' }}>POST-SESSION REVIEW NOTES</span>
-                  
-                  {/* Format Toggle Selector */}
-                  <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Sleep Quality</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
                     {[
-                      { value: 'traditional', label: 'Traditional' },
-                      { value: 'list', label: 'Structured List' }
-                    ].map(fmt => (
-                      <button
-                        key={fmt.value}
-                        type="button"
-                        onClick={() => updateDailyForm({ postMarketNotesFormat: fmt.value })}
-                        style={{
-                          padding: '2px 8px',
-                          fontSize: '9px',
-                          fontWeight: '700',
-                          borderRadius: '4px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          background: dailyForm.postMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
-                          color: dailyForm.postMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {fmt.label}
-                      </button>
-                    ))}
+                      { value: 1, label: 'Poor' },
+                      { value: 2, label: 'Weak' },
+                      { value: 3, label: 'Avg' },
+                      { value: 4, label: 'Good' },
+                      { value: 5, label: 'Best' }
+                    ].map(q => {
+                      const isSelected = dailyForm.sleepQuality === q.value;
+                      return (
+                        <button
+                          key={q.value}
+                          type="button"
+                          onClick={() => updateDailyForm({ sleepQuality: q.value })}
+                          style={{
+                            flex: 1,
+                            height: 28,
+                            borderRadius: 6,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            border: `1px solid ${isSelected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                            background: isSelected ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.02)',
+                            color: isSelected ? '#fff' : 'rgba(255,255,255,0.4)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            outline: 'none'
+                          }}
+                          onMouseEnter={e => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                              e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                              e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
+                            }
+                          }}
+                        >
+                          {q.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {dailyForm.postMarketNotesFormat === 'list' ? (
-                  renderStructuredNotes(false)
-                ) : (
-                  <textarea 
-                    className="hollow-input"
-                    style={{ 
-                      minHeight: '60px', 
-                      resize: 'vertical', 
-                      fontSize: '12px',
-                      background: 'rgba(0,0,0,0.15)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: '12px',
-                      color: '#fff',
-                      padding: '8px 12px'
-                    }}
-                    value={dailyForm.postMarketNotes}
-                    onChange={(e) => updateDailyForm({ postMarketNotes: e.target.value }, true)}
-                    placeholder="Record tilt alerts, discipline warnings, mistakes correlation..."
-                  />
+            {/* Cognitive Readiness Card */}
+            <div>
+              <div style={{
+                background: cognitiveReadiness.bg,
+                border: `1px solid ${cognitiveReadiness.border}`,
+                borderRadius: '20px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                boxShadow: `0 4px 20px rgba(0,0,0,0.15), 0 0 15px ${cognitiveReadiness.color}15`,
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-40%',
+                  right: '-40%',
+                  width: '120px',
+                  height: '120px',
+                  borderRadius: '50%',
+                  background: cognitiveReadiness.color,
+                  filter: 'blur(45px)',
+                  opacity: 0.15,
+                  pointerEvents: 'none'
+                }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={16} color={cognitiveReadiness.color} />
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#fff', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                      Readiness Index
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '22px',
+                    fontWeight: '900',
+                    color: cognitiveReadiness.color,
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    {cognitiveReadiness.score}%
+                  </span>
+                </div>
+
+                <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.03)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${cognitiveReadiness.score}%`,
+                    background: cognitiveReadiness.color,
+                    boxShadow: `0 0 6px ${cognitiveReadiness.color}`,
+                    transition: 'width 0.4s ease'
+                  }} />
+                </div>
+
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: 'rgba(255,255,255,0.8)',
+                  lineHeight: '1.4',
+                  margin: 0
+                }}>
+                  {cognitiveReadiness.advice}
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Column 2: Session Journal Notes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Pre-Market Notes Card */}
+            <div style={{
+              background: '#0f0f11',
+              borderRadius: 16,
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pre-Market Notes</div>
+                
+                {/* Format Toggle Selector */}
+                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {[
+                    { value: 'traditional', label: 'Traditional' },
+                    { value: 'list', label: 'List' }
+                  ].map(fmt => (
+                    <button
+                      key={fmt.value}
+                      type="button"
+                      onClick={() => updateDailyForm({ preMarketNotesFormat: fmt.value })}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: dailyForm.preMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: dailyForm.preMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                        transition: 'all 0.15s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {fmt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {dailyForm.preMarketNotesFormat === 'list' ? (
+                renderStructuredNotes(true)
+              ) : (
+                <textarea
+                  id="preMarketNotes"
+                  value={dailyForm.preMarketNotes}
+                  onChange={e => updateDailyForm({ preMarketNotes: e.target.value }, true)}
+                  placeholder="Market analysis, key levels, bias…"
+                  rows={6}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0, 0, 0, 0.15)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: 14,
+                    color: '#fff',
+                    fontFamily: 'var(--font)',
+                    fontSize: 14,
+                    padding: '14px 16px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    lineHeight: 1.5
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Post-Market Notes Card */}
+            <div style={{
+              background: '#0f0f11',
+              borderRadius: 16,
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Post-Market Notes</div>
+                
+                {/* Format Toggle Selector */}
+                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {[
+                    { value: 'traditional', label: 'Traditional' },
+                    { value: 'list', label: 'List' }
+                  ].map(fmt => (
+                    <button
+                      key={fmt.value}
+                      type="button"
+                      onClick={() => updateDailyForm({ postMarketNotesFormat: fmt.value })}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: dailyForm.postMarketNotesFormat === fmt.value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: dailyForm.postMarketNotesFormat === fmt.value ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                        transition: 'all 0.15s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {fmt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {dailyForm.postMarketNotesFormat === 'list' ? (
+                renderStructuredNotes(false)
+              ) : (
+                <textarea
+                  id="postMarketNotes"
+                  value={dailyForm.postMarketNotes}
+                  onChange={e => updateDailyForm({ postMarketNotes: e.target.value }, true)}
+                  placeholder="Review, lessons learned, what worked…"
+                  rows={6}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0, 0, 0, 0.15)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: 14,
+                    color: '#fff',
+                    fontFamily: 'var(--font)',
+                    fontSize: 14,
+                    padding: '14px 16px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    lineHeight: 1.5
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Save Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+              <div>
+                {saveStatus && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#ffffff',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    {saveStatus}
+                  </span>
                 )}
               </div>
-
-              {/* Save Daily Row */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '10px', marginTop: '4px' }}>
-                <button 
-                  type="button"
-                  className="btn-primary" 
-                  onClick={handleSaveDaily}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: '#ffffff',
-                    border: 'none',
-                    borderRadius: '10px',
-                    color: '#000000',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    padding: '8px 14px',
-                    boxShadow: 'none'
-                  }}
-                >
-                  <Save size={12} /> Save Daily Entry
-                </button>
-              </div>
-
+              <button 
+                type="button"
+                className="btn-primary" 
+                onClick={handleSaveDaily}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: '#000000',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  padding: '8px 14px',
+                  boxShadow: 'none'
+                }}
+              >
+                <Save size={12} /> Save Daily Entry
+              </button>
             </div>
 
           </div>

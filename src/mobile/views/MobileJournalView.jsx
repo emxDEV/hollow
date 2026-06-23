@@ -5,7 +5,8 @@ import { db } from '../../db/hollowDb';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Circle,
   Save, Moon, Dumbbell, Brain, Salad, Monitor,
-  Clock, Copy, Plus, Trash2, Edit3, Check, RotateCcw, Sparkles
+  Clock, Copy, Plus, Trash2, Edit3, Check, RotateCcw, Sparkles,
+  Activity
 } from 'lucide-react';
 
 const TABS = ['daily', 'weekly', 'structure'];
@@ -59,6 +60,57 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   const dailyLog = useLiveQuery(() => db.dailyJournals.get(selectedDate), [selectedDate]);
   const weeklyLog = useLiveQuery(() => db.weeklyPlanners.get(selectedWeekId), [selectedWeekId]);
+
+  const sleepScoreDetails = useMemo(() => {
+    const sleepHrs = dailyForm.sleepHours || 7.0;
+    const sleepQual = dailyForm.sleepQuality || 3;
+    const pct = Math.round((sleepHrs / 8.0) * 60 + (sleepQual / 5.0) * 40);
+    const score = Math.min(100, pct);
+    let color = '#ff453a';
+    let label = 'Poor';
+    if (score >= 85) { color = '#30d158'; label = 'Restored'; }
+    else if (score >= 70) { color = '#ff9f0a'; label = 'Moderate'; }
+    else if (score >= 50) { color = '#ffd60a'; label = 'Fatigued'; }
+    return { pct: score, color, label };
+  }, [dailyForm.sleepHours, dailyForm.sleepQuality]);
+
+  const cognitiveReadiness = useMemo(() => {
+    const checkedCount = dailyForm.checkedPrepIds ? dailyForm.checkedPrepIds.length : 0;
+    const totalChecks = checklistItems.length;
+    const checklistScore = totalChecks > 0 ? (checkedCount / totalChecks) * 25 : 25;
+
+    const focus = dailyForm.mentalFocus || 3;
+    const patience = dailyForm.patienceLevel || 3;
+    const discipline = dailyForm.riskAdherence || 3;
+    const emotionalScore = ((focus + patience + discipline) / 15) * 50;
+
+    const sleepScoreWeight = (sleepScoreDetails.pct / 100) * 25;
+    const totalScore = Math.round(checklistScore + emotionalScore + sleepScoreWeight);
+
+    let advice = 'STABLE TRADING CONDITIONS: General alignment present. Stay cautious on risk sizes.';
+    let color = '#ffffff';
+    let bg = 'rgba(255, 255, 255, 0.04)';
+    let border = 'rgba(255, 255, 255, 0.1)';
+
+    if (totalScore >= 85) {
+      advice = 'OPTIMAL READY STATE: High cognitive alignment. Favorable trading execution conditions.';
+      color = '#30d158';
+      bg = 'rgba(48, 209, 88, 0.1)';
+      border = 'rgba(48, 209, 88, 0.2)';
+    } else if (totalScore < 70 && totalScore >= 50) {
+      advice = 'ELEVATED COGNITIVE GAP: Low focus or sleep detected. Reduce contract size and trade only A+ setups.';
+      color = '#a1a1aa';
+      bg = 'rgba(255, 255, 255, 0.02)';
+      border = 'rgba(255, 255, 255, 0.06)';
+    } else if (totalScore < 50) {
+      advice = 'HIGH BRAIN DRAIN ALERT: Extreme risk of tilt/impulse trading. Consider paper trading or step away.';
+      color = '#ff453a';
+      bg = 'rgba(255, 69, 58, 0.1)';
+      border = 'rgba(255, 69, 58, 0.2)';
+    }
+
+    return { score: totalScore, advice, color, bg, border };
+  }, [dailyForm, sleepScoreDetails, checklistItems]);
 
   // Load custom checklist items or fall back to default bionic checks for daily
   const [checklistItems, setChecklistItems] = useState(() => {
@@ -496,24 +548,37 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       checklistItems.forEach(c => { if (dailyLog[c.id]) checked.push(c.id); });
       // Support checkedPrepIds array compatibility
       const loadedCheckedIds = dailyLog.checkedPrepIds || checked;
-      setDailyForm({
-        checkedPrepIds: loadedCheckedIds,
-        mentalFocus: dailyLog.mentalFocus ?? 3,
-        patienceLevel: dailyLog.patienceLevel ?? 3,
-        riskAdherence: dailyLog.riskAdherence ?? 3,
-        sleepHours: dailyLog.sleepHours ?? 7,
-        sleepQuality: dailyLog.sleepQuality ?? 3,
-        workoutDone: dailyLog.workoutDone ?? false,
-        dietClean: dailyLog.dietClean ?? false,
-        meditationDone: dailyLog.meditationDone ?? false,
-        homeworkDone: dailyLog.homeworkDone ?? false,
-        preMarketNotes: dailyLog.preMarketNotes ?? '',
-        postMarketNotes: dailyLog.postMarketNotes ?? '',
-        preMarketNotesFormat: dailyLog.preMarketNotesFormat ?? 'traditional',
-        preMarketNotesList: dailyLog.preMarketNotesList ?? [],
-        postMarketNotesFormat: dailyLog.postMarketNotesFormat ?? 'traditional',
-        postMarketNotesList: dailyLog.postMarketNotesList ?? [],
-        overallBias: dailyLog.overallBias ?? null
+
+      const activeEl = document.activeElement;
+      const isPreMarketNotesFocused = activeEl && activeEl.id === 'preMarketNotes';
+      const isPostMarketNotesFocused = activeEl && activeEl.id === 'postMarketNotes';
+      const isPreBulletFocused = activeEl && activeEl.id && activeEl.id.startsWith('bullet-pre-');
+      const isPostBulletFocused = activeEl && activeEl.id && activeEl.id.startsWith('bullet-post-');
+
+      setDailyForm(prev => {
+        const preMarketNotes = isPreMarketNotesFocused ? prev.preMarketNotes : (dailyLog.preMarketNotes ?? '');
+        const postMarketNotes = isPostMarketNotesFocused ? prev.postMarketNotes : (dailyLog.postMarketNotes ?? '');
+        const preMarketNotesList = isPreBulletFocused ? prev.preMarketNotesList : (dailyLog.preMarketNotesList ?? []);
+        const postMarketNotesList = isPostBulletFocused ? prev.postMarketNotesList : (dailyLog.postMarketNotesList ?? []);
+
+        return {
+          checkedPrepIds: loadedCheckedIds,
+          mentalFocus: dailyLog.mentalFocus ?? 3,
+          patienceLevel: dailyLog.patienceLevel ?? 3,
+          riskAdherence: dailyLog.riskAdherence ?? 3,
+          sleepHours: dailyLog.sleepHours ?? 7,
+          sleepQuality: dailyLog.sleepQuality ?? 3,
+          workoutDone: dailyLog.workoutDone ?? false,
+          dietClean: dailyLog.dietClean ?? false,
+          meditationDone: dailyLog.meditationDone ?? false,
+          homeworkDone: dailyLog.homeworkDone ?? false,
+          preMarketNotesFormat: dailyLog.preMarketNotesFormat ?? 'traditional',
+          overallBias: dailyLog.overallBias ?? null,
+          preMarketNotes,
+          postMarketNotes,
+          preMarketNotesList,
+          postMarketNotesList
+        };
       });
       setDayStructure(dailyLog.structure || []);
     } else {
@@ -542,10 +607,16 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
   useEffect(() => {
     if (weeklyLog) {
-      setWeeklyForm({
-        priorities: weeklyLog.priorities ?? '',
-        reviewNotes: weeklyLog.reviewNotes ?? ''
+      const activeEl = document.activeElement;
+      const isPrioritiesFocused = activeEl && activeEl.id === 'weeklyPriorities';
+      const isReviewNotesFocused = activeEl && activeEl.id === 'weeklyReviewNotes';
+
+      setWeeklyForm(prev => {
+        const priorities = isPrioritiesFocused ? prev.priorities : (weeklyLog.priorities ?? '');
+        const reviewNotes = isReviewNotesFocused ? prev.reviewNotes : (weeklyLog.reviewNotes ?? '');
+        return { priorities, reviewNotes };
       });
+
       // Parse goals array if it is saved as JSON string or array
       try {
         let parsedGoals = [];
@@ -997,6 +1068,72 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   })}
                 </div>
               </div>
+
+              {/* Cognitive Readiness Card */}
+              <div style={{
+                marginBottom: 20,
+                background: cognitiveReadiness.bg,
+                border: `1px solid ${cognitiveReadiness.border}`,
+                borderRadius: 16,
+                padding: '14px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                boxShadow: `0 4px 16px rgba(0,0,0,0.15), 0 0 10px ${cognitiveReadiness.color}10`,
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-40%',
+                  right: '-40%',
+                  width: '90px',
+                  height: '90px',
+                  borderRadius: '50%',
+                  background: cognitiveReadiness.color,
+                  filter: 'blur(35px)',
+                  opacity: 0.15,
+                  pointerEvents: 'none'
+                }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Activity size={16} color={cognitiveReadiness.color} />
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                      Readiness Index
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: 18,
+                    fontWeight: 900,
+                    color: cognitiveReadiness.color,
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    {cognitiveReadiness.score}%
+                  </span>
+                </div>
+
+                <div style={{ height: 4, width: '100%', background: 'rgba(255,255,255,0.03)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${cognitiveReadiness.score}%`,
+                    background: cognitiveReadiness.color,
+                    boxShadow: `0 0 6px ${cognitiveReadiness.color}`,
+                    transition: 'width 0.4s ease'
+                  }} />
+                </div>
+
+                <p style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,0.8)',
+                  lineHeight: 1.4,
+                  margin: 0
+                }}>
+                  {cognitiveReadiness.advice}
+                </p>
+              </div>
+
               {/* Prep Checklist */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -1195,28 +1332,73 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               {/* Sleep */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Sleep</div>
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <Moon size={16} color="#bf5af2" />
-                    <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Sleep Hours: <strong style={{ color: '#fff' }}>{dailyForm.sleepHours}h</strong></span>
+                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Moon size={16} color="#bf5af2" />
+                        <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Sleep Hours: <strong style={{ color: '#fff' }}>{dailyForm.sleepHours}h</strong></span>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: sleepScoreDetails.color, background: `${sleepScoreDetails.color}15`, border: `1px solid ${sleepScoreDetails.color}35`, padding: '2px 6px', borderRadius: '6px' }}>
+                        {sleepScoreDetails.pct}% {sleepScoreDetails.label}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={4}
+                      max={10}
+                      step={0.5}
+                      value={dailyForm.sleepHours}
+                      onChange={e => updateDailyForm({ sleepHours: parseFloat(e.target.value) })}
+                      style={{
+                        WebkitAppearance: 'none',
+                        width: '100%',
+                        height: 4,
+                        borderRadius: 2,
+                        background: `linear-gradient(to right, #bf5af2 ${((dailyForm.sleepHours - 4) / 6) * 100}%, rgba(255,255,255,0.1) ${((dailyForm.sleepHours - 4) / 6) * 100}%)`,
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min={4}
-                    max={10}
-                    step={0.5}
-                    value={dailyForm.sleepHours}
-                    onChange={e => updateDailyForm({ sleepHours: parseFloat(e.target.value) })}
-                    style={{
-                      WebkitAppearance: 'none',
-                      width: '100%',
-                      height: 4,
-                      borderRadius: 2,
-                      background: `linear-gradient(to right, #bf5af2 ${((dailyForm.sleepHours - 4) / 6) * 100}%, rgba(255,255,255,0.1) ${((dailyForm.sleepHours - 4) / 6) * 100}%)`,
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  />
+
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Sleep Quality</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[
+                        { value: 1, label: 'Poor' },
+                        { value: 2, label: 'Weak' },
+                        { value: 3, label: 'Avg' },
+                        { value: 4, label: 'Good' },
+                        { value: 5, label: 'Best' }
+                      ].map(q => {
+                        const isSelected = dailyForm.sleepQuality === q.value;
+                        return (
+                          <button
+                            key={q.value}
+                            type="button"
+                            onClick={() => updateDailyForm({ sleepQuality: q.value })}
+                            style={{
+                              flex: 1,
+                              height: 28,
+                              borderRadius: 6,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              border: `1px solid ${isSelected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                              background: isSelected ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.02)',
+                              color: isSelected ? '#fff' : 'rgba(255,255,255,0.4)',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                              outline: 'none',
+                              WebkitTapHighlightColor: 'transparent'
+                            }}
+                          >
+                            {q.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1259,6 +1441,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   renderStructuredNotes(true)
                 ) : (
                   <textarea
+                    id="preMarketNotes"
                     value={dailyForm.preMarketNotes}
                     onChange={e => updateDailyForm({ preMarketNotes: e.target.value }, true)}
                     placeholder="Market analysis, key levels, bias…"
@@ -1319,6 +1502,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   renderStructuredNotes(false)
                 ) : (
                   <textarea
+                    id="postMarketNotes"
                     value={dailyForm.postMarketNotes}
                     onChange={e => updateDailyForm({ postMarketNotes: e.target.value }, true)}
                     placeholder="Review, lessons learned, what worked…"
