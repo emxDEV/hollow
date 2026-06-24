@@ -123,6 +123,10 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
 
   // Form State Page 2: Reflections & Mistakes
   const [reflections, setReflections] = useState('');
+  const [mistakesList, setMistakesList] = useState(() => {
+    const saved = localStorage.getItem('hollow_pill_mistakes');
+    return saved ? JSON.parse(saved) : ['FOMO', 'Early Exit', 'Late Entry', 'Overtrading', 'Averaging Down', 'Holding Losers', 'Sizing Up'];
+  });
   const [selectedMistakes, setSelectedMistakes] = useState([]);
   const [customMistake, setCustomMistake] = useState('');
 
@@ -209,6 +213,14 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       if (selectedConfluences.includes(oldLabel)) {
         setSelectedConfluences(selectedConfluences.map(c => c.toUpperCase() === oldLabel.toUpperCase() ? cleanLabel : c));
       }
+    } else if (type === 'mistake') {
+      const cleanLabelCase = newLabel.trim();
+      const updated = mistakesList.map(m => m.toLowerCase() === oldLabel.toLowerCase() ? cleanLabelCase : m);
+      setMistakesList(updated);
+      localStorage.setItem('hollow_pill_mistakes', JSON.stringify(updated));
+      if (selectedMistakes.includes(oldLabel)) {
+        setSelectedMistakes(selectedMistakes.map(m => m.toLowerCase() === oldLabel.toLowerCase() ? cleanLabelCase : m));
+      }
     }
 
     const updatedGradients = { ...pillGradients };
@@ -243,6 +255,11 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
       setConfluences(updated);
       localStorage.setItem('hollow_pill_confluences', JSON.stringify(updated));
       setSelectedConfluences(selectedConfluences.filter(c => c.toUpperCase() !== oldLabel.toUpperCase()));
+    } else if (type === 'mistake') {
+      const updated = mistakesList.filter(m => m.toLowerCase() !== oldLabel.toLowerCase());
+      setMistakesList(updated);
+      localStorage.setItem('hollow_pill_mistakes', JSON.stringify(updated));
+      setSelectedMistakes(selectedMistakes.filter(m => m.toLowerCase() !== oldLabel.toLowerCase()));
     }
 
     if (pillGradients[oldLabel]) {
@@ -403,10 +420,17 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   };
 
   const handleAddCustomMistake = () => {
-    if (customMistake.trim() && !selectedMistakes.includes(customMistake.trim())) {
-      setSelectedMistakes([...selectedMistakes, customMistake.trim()]);
-      setCustomMistake('');
+    if (!customMistake || !customMistake.trim()) return;
+    const cleanMistake = customMistake.trim();
+    if (!mistakesList.map(m => m.toLowerCase()).includes(cleanMistake.toLowerCase())) {
+      const updated = [...mistakesList, cleanMistake];
+      setMistakesList(updated);
+      localStorage.setItem('hollow_pill_mistakes', JSON.stringify(updated));
     }
+    if (!selectedMistakes.includes(cleanMistake)) {
+      setSelectedMistakes([...selectedMistakes, cleanMistake]);
+    }
+    setCustomMistake('');
   };
 
   const handleImageUpload = (e, targetSetter) => {
@@ -1431,25 +1455,34 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                 <div>
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase', letterSpacing: '0.04em', marginBottom: 5 }}>behavioral mistakes / errors</div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {MISTAKES_OPTIONS.map(opt => {
+                    {mistakesList.map(opt => {
                       const isSelected = selectedMistakes.includes(opt);
+                      const customColor = pillGradients[opt];
+                      const bgColor = isSelected ? (customColor || 'rgba(255,69,58,0.12)') : 'rgba(255,255,255,0.04)';
+                      const textColor = isSelected ? '#ffffff' : 'rgba(255,255,255,0.7)';
                       return (
                         <button
                           key={opt}
-                          onClick={() => toggleMistake(opt)}
+                          type="button"
+                          onClick={(e) => {
+                            handlePillClick(e, 'mistake', opt, () => {
+                              toggleMistake(opt);
+                            });
+                          }}
+                          onContextMenu={(e) => handlePillContextMenu(e, 'mistake', opt)}
                           style={{
-                            background: isSelected ? 'rgba(255,69,58,0.12)' : 'rgba(255,255,255,0.04)',
-                            border: `1px solid ${isSelected ? 'rgba(255,69,58,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                            background: bgColor,
+                            border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.06)',
                             borderRadius: 20,
                             padding: '4px 8px',
-                            color: isSelected ? '#ff453a' : 'rgba(255,255,255,0.6)',
+                            color: textColor,
                             fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer',
+                            fontWeight: isSelected ? 700 : 500,
+                            cursor: 'context-menu',
                             fontFamily: 'var(--font)'
                           }}
                         >
-                          {opt}
+                          {opt.toLowerCase()}
                         </button>
                       );
                     })}
