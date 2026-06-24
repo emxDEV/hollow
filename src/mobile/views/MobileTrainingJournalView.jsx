@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../db/hollowDb';
@@ -13,14 +13,80 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
 
   // Local state for logging workout
   const [showAddWorkout, setShowAddWorkout] = useState(false);
-  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
-  const [workoutType, setWorkoutType] = useState('Push');
-  const [workoutDuration, setWorkoutDuration] = useState(60);
-  const [workoutFocus, setWorkoutFocus] = useState(3);
-  const [workoutNotes, setWorkoutNotes] = useState('');
-  const [exercisesList, setExercisesList] = useState([
-    { id: 1, name: '', sets: [{ id: 101, weight: '', reps: '' }] }
-  ]);
+  const [workoutDate, setWorkoutDate] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutDate) return parsed.workoutDate;
+      } catch (e) {}
+    }
+    return new Date().toISOString().split('T')[0];
+  });
+  const [workoutType, setWorkoutType] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutType) return parsed.workoutType;
+      } catch (e) {}
+    }
+    return 'Push';
+  });
+  const [workoutDuration, setWorkoutDuration] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutDuration !== undefined) return parsed.workoutDuration;
+      } catch (e) {}
+    }
+    return 60;
+  });
+  const [workoutFocus, setWorkoutFocus] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutFocus !== undefined) return parsed.workoutFocus;
+      } catch (e) {}
+    }
+    return 3;
+  });
+  const [workoutNotes, setWorkoutNotes] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutNotes !== undefined) return parsed.workoutNotes;
+      } catch (e) {}
+    }
+    return '';
+  });
+  const [exercisesList, setExercisesList] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.exercisesList) return parsed.exercisesList;
+      } catch (e) {}
+    }
+    return [
+      { id: 1, name: '', sets: [{ id: 101, weight: '', reps: '' }] }
+    ];
+  });
+
+  useEffect(() => {
+    const draft = {
+      workoutDate,
+      workoutType,
+      workoutDuration,
+      workoutFocus,
+      workoutNotes,
+      exercisesList
+    };
+    localStorage.setItem('hollow_workout_draft', JSON.stringify(draft));
+  }, [workoutDate, workoutType, workoutDuration, workoutFocus, workoutNotes, exercisesList]);
 
   const [expandedWorkouts, setExpandedWorkouts] = useState({});
 
@@ -165,6 +231,24 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       setExercisesList([{ id: 1, name: '', sets: [{ id: 101, weight: '', reps: '' }] }]);
     } catch (err) {
       addToast('Failed to save workout.', 'error');
+    }
+  };
+
+  const handleResetWorkoutForm = () => {
+    if (confirm('Are you sure you want to clear the active workout draft?')) {
+      localStorage.removeItem('hollow_workout_draft');
+      setWorkoutNotes('');
+      setWorkoutFocus(3);
+      setWorkoutDuration(60);
+      setWorkoutType('Push');
+      setWorkoutDate(new Date().toISOString().split('T')[0]);
+      setExercisesList([
+        {
+          id: 1,
+          name: '',
+          sets: [{ id: 101, weight: '', reps: '' }]
+        }
+      ]);
     }
   };
 
@@ -402,13 +486,20 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
               transition={{ type: 'spring', stiffness: 350, damping: 35 }}
               onClick={e => e.stopPropagation()}
               className="bottom-sheet"
-              style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '85vh', overflow: 'hidden' }}
             >
               <div className="sheet-handle" />
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
-                <span style={{ fontSize: 17, fontWeight: 700 }}>Log Workout</span>
-                <button onClick={() => setShowAddWorkout(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'relative', height: 28, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={handleResetWorkoutForm}
+                  style={{ background: 'none', border: 'none', color: '#ff453a', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                >
+                  Reset
+                </button>
+                <span style={{ fontSize: 17, fontWeight: 700, position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>Log Workout</span>
+                <button type="button" onClick={() => setShowAddWorkout(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0 }}>
                   <X size={20} />
                 </button>
               </div>
@@ -431,7 +522,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                   </div>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Duration (mins)</label>
-                    <input type="number" value={workoutDuration} onChange={e => setWorkoutDuration(parseInt(e.target.value) || 0)} className="ios-input" />
+                    <input type="number" inputMode="numeric" value={workoutDuration} onChange={e => setWorkoutDuration(parseInt(e.target.value) || 0)} className="ios-input" />
                   </div>
                 </div>
 
@@ -488,6 +579,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', width: 36 }}>Set {setIdx + 1}</span>
                             <input
                               type="number"
+                              inputMode="decimal"
                               value={set.weight}
                               onChange={e => handleSetChange(ex.id, set.id, 'weight', e.target.value)}
                               placeholder="Lbs"
@@ -497,6 +589,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>×</span>
                             <input
                               type="number"
+                              inputMode="numeric"
                               value={set.reps}
                               onChange={e => handleSetChange(ex.id, set.id, 'reps', e.target.value)}
                               placeholder="Reps"

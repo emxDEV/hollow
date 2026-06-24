@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/hollowDb';
 import useUIStore from '../store/useUIStore';
@@ -35,22 +35,88 @@ export default function TrainingJournalView() {
   }, []) || [];
 
   // Local state for logging a new workout
-  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
-  const [workoutType, setWorkoutType] = useState('Push'); // Push, Pull, Legs, Cardio, Full Body, Other
-  const [workoutDuration, setWorkoutDuration] = useState(60);
-  const [workoutFocus, setWorkoutFocus] = useState(3); // scale 1-5, default 3
-  const [workoutNotes, setWorkoutNotes] = useState('');
+  const [workoutDate, setWorkoutDate] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutDate) return parsed.workoutDate;
+      } catch (e) {}
+    }
+    return new Date().toISOString().split('T')[0];
+  });
+  const [workoutType, setWorkoutType] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutType) return parsed.workoutType;
+      } catch (e) {}
+    }
+    return 'Push';
+  });
+  const [workoutDuration, setWorkoutDuration] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutDuration !== undefined) return parsed.workoutDuration;
+      } catch (e) {}
+    }
+    return 60;
+  });
+  const [workoutFocus, setWorkoutFocus] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutFocus !== undefined) return parsed.workoutFocus;
+      } catch (e) {}
+    }
+    return 3;
+  });
+  const [workoutNotes, setWorkoutNotes] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.workoutNotes !== undefined) return parsed.workoutNotes;
+      } catch (e) {}
+    }
+    return '';
+  });
   const [saveStatus, setSaveStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Exercises list structure: [{ id: Date.now(), name: '', sets: [{ id: Date.now()+1, weight: '', reps: '' }] }]
-  const [exercisesList, setExercisesList] = useState([
-    {
-      id: 1,
-      name: '',
-      sets: [{ id: 101, weight: '', reps: '' }]
+  const [exercisesList, setExercisesList] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.exercisesList) return parsed.exercisesList;
+      } catch (e) {}
     }
-  ]);
+    return [
+      {
+        id: 1,
+        name: '',
+        sets: [{ id: 101, weight: '', reps: '' }]
+      }
+    ];
+  });
+
+  useEffect(() => {
+    const draft = {
+      workoutDate,
+      workoutType,
+      workoutDuration,
+      workoutFocus,
+      workoutNotes,
+      exercisesList
+    };
+    localStorage.setItem('hollow_workout_draft', JSON.stringify(draft));
+  }, [workoutDate, workoutType, workoutDuration, workoutFocus, workoutNotes, exercisesList]);
 
   // Expanded workouts states in history
   const [expandedWorkouts, setExpandedWorkouts] = useState({});
@@ -221,6 +287,9 @@ export default function TrainingJournalView() {
 
       setSaveStatus('workout logged!');
       
+      // Clear draft
+      localStorage.removeItem('hollow_workout_draft');
+
       // Reset form
       setWorkoutNotes('');
       setWorkoutFocus(3);
