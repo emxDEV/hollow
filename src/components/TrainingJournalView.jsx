@@ -397,8 +397,43 @@ export default function TrainingJournalView() {
                 {[
                   { label: 'date', content: <input type="date" className="hollow-glass-input" style={{ padding: '9px 10px', fontSize: '13px' }} value={workoutDate} onChange={e => setWorkoutDate(e.target.value)} required /> },
                   { label: 'split / type', content: (
-                    <select className="hollow-glass-input" style={{ padding: '9px 8px', fontSize: '13px', background: 'var(--colors-surface-deep)' }} value={workoutType} onChange={e => setWorkoutType(e.target.value)}>
-                      {['Push', 'Pull', 'Legs', 'Cardio', 'Full Body', 'Other'].map(t => <option key={t} value={t}>{t.toLowerCase()}</option>)}
+                    <select
+                      className="hollow-glass-input"
+                      style={{ padding: '9px 8px', fontSize: '13px', background: 'var(--colors-surface-deep)' }}
+                      value={workoutType}
+                      onChange={e => {
+                        const val = e.target.value;
+                        // Check if it matches a plan id
+                        const plan = workoutPlans.find(p => p.id === val);
+                        if (plan) {
+                          setWorkoutType(plan.name);
+                          setExercisesList(plan.exercises.map((ex, idx) => ({
+                            id: `ex-plan-${Date.now()}-${idx}`,
+                            name: ex.name,
+                            muscleGroup: ex.muscleGroup || 'Other',
+                            sets: Array.from({ length: ex.targetSets || 1 }, (_, si) => ({
+                              id: `set-plan-${Date.now()}-${idx}-${si}`,
+                              weight: '',
+                              reps: ex.targetReps ? String(ex.targetReps) : ''
+                            }))
+                          })));
+                        } else {
+                          setWorkoutType(val);
+                        }
+                      }}
+                    >
+                      <optgroup label="Standard" style={{ background: '#0f0f11', color: 'rgba(255,255,255,0.4)' }}>
+                        {['Push', 'Pull', 'Legs', 'Cardio', 'Full Body', 'Other'].map(t => (
+                          <option key={t} value={t} style={{ background: '#0f0f11', color: '#fff' }}>{t.toLowerCase()}</option>
+                        ))}
+                      </optgroup>
+                      {workoutPlans.length > 0 && (
+                        <optgroup label="My Plans" style={{ background: '#0f0f11', color: 'rgba(255,255,255,0.4)' }}>
+                          {workoutPlans.map(p => (
+                            <option key={p.id} value={p.id} style={{ background: '#0f0f11', color: '#fff' }}>{p.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   )},
                   { label: 'duration (min)', content: <input type="number" placeholder="60" className="hollow-glass-input" style={{ padding: '9px 10px', fontSize: '13px' }} value={workoutDuration} onChange={e => setWorkoutDuration(e.target.value)} min="1" /> }
@@ -433,44 +468,21 @@ export default function TrainingJournalView() {
                 </div>
               </div>
 
+
               {/* Exercises */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '800', letterSpacing: '0.75px', textTransform: 'uppercase' }}>exercises &amp; sets</label>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    {workoutPlans.length > 0 && (
-                      <select onChange={e => {
-                        const planId = e.target.value;
-                        if (!planId) return;
-                        const plan = workoutPlans.find(p => p.id === planId);
-                        if (plan && confirm(`Load plan "${plan.name}"? This replaces current exercises.`)) {
-                          setExercisesList(plan.exercises.map((ex, idx) => ({
-                            id: `ex-plan-${Date.now()}-${idx}`,
-                            name: ex.name, muscleGroup: ex.muscleGroup || 'Other',
-                            sets: Array.from({ length: ex.targetSets || 1 }, (_, si) => ({
-                              id: `set-plan-${Date.now()}-${idx}-${si}`, weight: '',
-                              reps: ex.targetReps ? String(ex.targetReps) : ''
-                            }))
-                          })));
-                          setWorkoutType(plan.name);
-                        }
-                        e.target.value = '';
-                      }} className="hollow-glass-input" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#bf5af2', fontSize: '11px', fontWeight: '600', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', outline: 'none', height: 'auto' }}>
-                        <option value="" style={{ background: '#0f0f11', color: '#fff' }}>Load Plan...</option>
-                        {workoutPlans.map(p => <option key={p.id} value={p.id} style={{ background: '#0f0f11', color: '#fff' }}>{p.name}</option>)}
-                      </select>
-                    )}
-                    <button type="button" onClick={handleAddExercise} style={{
-                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
-                      color: '#fff', borderRadius: '8px', padding: '4px 11px', fontSize: '11px',
-                      fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'background 0.15s'
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                    >
-                      <Plus size={11} /> add exercise
-                    </button>
-                  </div>
+                  <button type="button" onClick={handleAddExercise} style={{
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
+                    color: '#fff', borderRadius: '8px', padding: '4px 11px', fontSize: '11px',
+                    fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'background 0.15s'
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                  >
+                    <Plus size={11} /> add exercise
+                  </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -651,7 +663,7 @@ export default function TrainingJournalView() {
             </div>
 
             {/* 2-Column: Calendar + History */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(240px, 280px) 1fr', gap: '20px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(240px, 280px) 1fr', gap: '20px', alignItems: 'stretch' }}>
 
               {/* ── Calendar ── */}
               {!isMobile && (
