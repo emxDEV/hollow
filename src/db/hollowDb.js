@@ -116,7 +116,7 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     return finalObj;
   }
   if (tableName === 'workouts') {
-    const allowed = ['id', 'date', 'type', 'duration', 'notes', 'exercises', 'focusRating', 'user_id'];
+    const allowed = ['id', 'date', 'type', 'duration', 'notes', 'exercises', 'user_id'];
     const cleaned = {};
     allowed.forEach(k => {
       if (obj[k] !== undefined) cleaned[k] = obj[k];
