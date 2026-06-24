@@ -79,6 +79,8 @@ function sanitizeForSupabaseRaw(tableName, obj) {
       postMarketNotesList,
       overallBias,
       checkedPrepIds,
+      checkedDailyGoalIds,
+      customDailyGoalsList,
       ...rest
     } = obj;
 
@@ -90,6 +92,8 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     if (obj.postMarketNotesList !== undefined) meta.postMarketNotesList = obj.postMarketNotesList;
     if (obj.overallBias !== undefined) meta.overallBias = obj.overallBias;
     if (obj.checkedPrepIds !== undefined) meta.checkedPrepIds = obj.checkedPrepIds;
+    if (obj.checkedDailyGoalIds !== undefined) meta.checkedDailyGoalIds = obj.checkedDailyGoalIds;
+    if (obj.customDailyGoalsList !== undefined) meta.customDailyGoalsList = obj.customDailyGoalsList;
 
     const rawNotes = obj.postMarketNotes || '';
     const cleanNotes = rawNotes.split('\n\n__HOLLOW_META__:')[0];

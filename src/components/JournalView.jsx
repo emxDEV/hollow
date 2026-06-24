@@ -36,6 +36,22 @@ import {
   Sparkles
 } from 'lucide-react';
 
+const getDailyGoalsTemplate = () => {
+  const saved = localStorage.getItem('hollow_daily_goals_template');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return [
+    { id: 'water', label: '4l Water' },
+    { id: 'diet', label: 'Diet hit' },
+    { id: 'sleep', label: '8h Sleep' }
+  ];
+};
+
 export default function JournalView() {
   const isMobile = useUIStore(state => state.isMobile);
   const selectedDate = useUIStore(state => state.selectedDate);
@@ -135,7 +151,9 @@ export default function JournalView() {
     preMarketNotesList: [],
     postMarketNotesFormat: 'traditional',
     postMarketNotesList: [],
-    overallBias: null
+    overallBias: null,
+    checkedDailyGoalIds: [],
+    customDailyGoalsList: getDailyGoalsTemplate()
   });
 
   const saveDailyLogDirect = async (formState) => {
@@ -411,6 +429,11 @@ export default function JournalView() {
         const preMarketNotesList = isPreBulletFocused ? prev.preMarketNotesList : (dailyLog.preMarketNotesList ?? []);
         const postMarketNotesList = isPostBulletFocused ? prev.postMarketNotesList : (dailyLog.postMarketNotesList ?? []);
 
+        const goalsList = dailyLog.customDailyGoalsList && dailyLog.customDailyGoalsList.length > 0
+          ? dailyLog.customDailyGoalsList
+          : getDailyGoalsTemplate();
+        const checkedGoalIds = dailyLog.checkedDailyGoalIds ?? [];
+
         return {
           checkedPrepIds: loadedIds,
           mentalFocus: dailyLog.mentalFocus ?? 3,
@@ -429,7 +452,9 @@ export default function JournalView() {
           preMarketNotes,
           postMarketNotes,
           preMarketNotesList,
-          postMarketNotesList
+          postMarketNotesList,
+          checkedDailyGoalIds: checkedGoalIds,
+          customDailyGoalsList: goalsList
         };
       });
       setDayStructure(dailyLog.structure || []);
@@ -453,7 +478,9 @@ export default function JournalView() {
         preMarketNotesList: [],
         postMarketNotesFormat: 'traditional',
         postMarketNotesList: [],
-        overallBias: null
+        overallBias: null,
+        checkedDailyGoalIds: [],
+        customDailyGoalsList: getDailyGoalsTemplate()
       });
       setDayStructure([]);
     }
@@ -591,6 +618,67 @@ export default function JournalView() {
       checkedPrepIds: (prev.checkedPrepIds || []).filter(checkedId => checkedId !== id)
     }));
   };
+
+  // Helper actions to manage custom daily goals
+  const [isEditingDailyGoals, setIsEditingDailyGoals] = useState(false);
+  const [newDailyGoalLabel, setNewDailyGoalLabel] = useState('');
+
+  const handleAddDailyGoal = () => {
+    if (!newDailyGoalLabel.trim()) return;
+    const newId = 'g-' + Date.now();
+    const newItem = { id: newId, label: newDailyGoalLabel.trim() };
+    
+    const currentGoals = dailyForm.customDailyGoalsList || [];
+    const updatedGoals = [...currentGoals, newItem];
+    
+    // Save to localStorage template
+    localStorage.setItem('hollow_daily_goals_template', JSON.stringify(updatedGoals));
+    
+    updateDailyForm({ customDailyGoalsList: updatedGoals });
+    setNewDailyGoalLabel('');
+  };
+
+  const handleUpdateDailyGoalLabel = (id, newLabel) => {
+    const currentGoals = dailyForm.customDailyGoalsList || [];
+    const updatedGoals = currentGoals.map(g => g.id === id ? { ...g, label: newLabel } : g);
+    
+    // Save to localStorage template
+    localStorage.setItem('hollow_daily_goals_template', JSON.stringify(updatedGoals));
+    
+    updateDailyForm({ customDailyGoalsList: updatedGoals });
+  };
+
+  const handleDeleteDailyGoal = (id) => {
+    const currentGoals = dailyForm.customDailyGoalsList || [];
+    const updatedGoals = currentGoals.filter(g => g.id !== id);
+    
+    const currentChecked = dailyForm.checkedDailyGoalIds || [];
+    const updatedChecked = currentChecked.filter(checkedId => checkedId !== id);
+    
+    // Save to localStorage template
+    localStorage.setItem('hollow_daily_goals_template', JSON.stringify(updatedGoals));
+    
+    updateDailyForm({
+      customDailyGoalsList: updatedGoals,
+      checkedDailyGoalIds: updatedChecked
+    });
+  };
+
+  const progressPercent = useMemo(() => {
+    const coreHabits = ['workoutDone', 'dietClean', 'meditationDone', 'homeworkDone'];
+    const completedCore = coreHabits.filter(id => dailyForm[id]).length;
+    const totalCore = coreHabits.length;
+
+    const customGoals = dailyForm.customDailyGoalsList || [];
+    const completedCustom = (dailyForm.checkedDailyGoalIds || []).filter(id => 
+      customGoals.some(g => g.id === id)
+    ).length;
+    const totalCustom = customGoals.length;
+
+    const total = totalCore + totalCustom;
+    if (total === 0) return 0;
+    return Math.round(((completedCore + completedCustom) / total) * 100);
+  }, [dailyForm]);
 
   // Save changes to DB
   const handleSaveDaily = async () => {
@@ -1576,10 +1664,31 @@ export default function JournalView() {
               )}
             </div>
 
-            {/* Lifestyle Card */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Lifestyle</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            {/* Fitness & Lifestyle Tracker Card */}
+            <div style={{
+              background: '#0f0f11',
+              borderRadius: 16,
+              padding: '16px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16
+            }}>
+              {/* Header with Title and Progress */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Fitness & Lifestyle</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#30d158', background: 'rgba(48,209,88,0.1)', padding: '2px 8px', borderRadius: 20 }}>
+                  {progressPercent}% Done
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${progressPercent}%`, height: '100%', background: '#30d158', borderRadius: 3, transition: 'width 0.3s ease' }} />
+              </div>
+
+              {/* Core Toggles */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                 {[
                   { id: 'workoutDone', label: 'Workout', icon: Dumbbell },
                   { id: 'dietClean', label: 'Clean Diet', icon: Salad },
@@ -1594,37 +1703,155 @@ export default function JournalView() {
                       type="button"
                       onClick={() => updateDailyForm({ [item.id]: !active })}
                       style={{
-                        background: active ? 'rgba(48,209,88,0.1)' : '#0f0f11',
-                        border: `1px solid ${active ? 'rgba(48,209,88,0.25)' : 'rgba(255,255,255,0.06)'}`,
-                        borderRadius: 14,
-                        padding: '12px 10px',
+                        background: active ? 'rgba(48,209,88,0.1)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${active ? 'rgba(48,209,88,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                        borderRadius: 12,
+                        padding: '10px 6px',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 8,
+                        gap: 6,
                         transition: 'all 0.15s',
                         outline: 'none'
                       }}
                       onMouseEnter={e => {
                         if (!active) {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
                           e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                         }
                       }}
                       onMouseLeave={e => {
                         if (!active) {
-                          e.currentTarget.style.background = '#0f0f11';
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
                         }
                       }}
                     >
-                      <Icon size={20} color={active ? '#30d158' : 'rgba(255,255,255,0.3)'} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: active ? '#30d158' : 'rgba(255,255,255,0.5)' }}>{item.label}</span>
+                      <Icon size={16} color={active ? '#30d158' : 'rgba(255,255,255,0.3)'} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#30d158' : 'rgba(255,255,255,0.5)' }}>{item.label}</span>
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+
+              {/* Checklist Section */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Daily Goals Checklist</div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDailyGoals(!isEditingDailyGoals)}
+                    style={{ background: 'none', border: 'none', color: isEditingDailyGoals ? '#ff453a' : 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    {isEditingDailyGoals ? 'Done' : 'Edit Goals'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {dailyForm.customDailyGoalsList?.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '12px 0' }}>
+                      No goals added yet. Add goals below!
+                    </div>
+                  ) : (
+                    dailyForm.customDailyGoalsList?.map((g) => {
+                      const checked = dailyForm.checkedDailyGoalIds?.includes(g.id);
+                      return (
+                        <div
+                          key={g.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            background: 'rgba(255,255,255,0.01)',
+                            border: '1px solid rgba(255,255,255,0.03)',
+                            borderRadius: 10
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditingDailyGoals) return;
+                              const currentChecked = dailyForm.checkedDailyGoalIds || [];
+                              const updated = checked
+                                ? currentChecked.filter(id => id !== g.id)
+                                : [...currentChecked, g.id];
+                              updateDailyForm({ checkedDailyGoalIds: updated });
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              background: 'none',
+                              border: 'none',
+                              cursor: isEditingDailyGoals ? 'default' : 'pointer',
+                              gap: 10,
+                              flex: 1,
+                              textAlign: 'left',
+                              outline: 'none'
+                            }}
+                          >
+                            {checked
+                              ? <CheckCircle2 size={16} color="#30d158" fill="rgba(48,209,88,0.15)" />
+                              : <Circle size={16} color="rgba(255,255,255,0.2)" />
+                            }
+                            
+                            {isEditingDailyGoals ? (
+                              <input
+                                type="text"
+                                value={g.label}
+                                onChange={(e) => handleUpdateDailyGoalLabel(g.id, e.target.value)}
+                                style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: 13, fontWeight: 500, outline: 'none', width: '100%', padding: 0 }}
+                              />
+                            ) : (
+                              <span style={{ fontSize: 13, fontWeight: 500, color: checked ? '#fff' : 'rgba(255,255,255,0.6)', textDecoration: checked ? 'line-through' : 'none' }}>
+                                {g.label}
+                              </span>
+                            )}
+                          </button>
+
+                          {isEditingDailyGoals && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDailyGoal(g.id)}
+                              style={{ background: 'transparent', border: 'none', color: '#ff453a', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '2px 6px' }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {isEditingDailyGoals && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <input
+                      type="text"
+                      placeholder="Add goal (e.g. 4l Water)..."
+                      value={newDailyGoalLabel}
+                      onChange={(e) => setNewDailyGoalLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddDailyGoal();
+                        }
+                      }}
+                      style={{ flex: 1, background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px', fontSize: 12, color: '#fff', outline: 'none' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDailyGoal}
+                      style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#000', cursor: 'pointer' }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
