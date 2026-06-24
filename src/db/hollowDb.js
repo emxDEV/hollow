@@ -275,6 +275,17 @@ db.version(5).stores({
   workouts: 'id, date, type'
 });
 
+db.version(6).stores({
+  accounts: 'id, name, type',
+  trades: 'id, accountId, symbol, model, bias, status, date',
+  executions: 'id, tradeId, timestamp, side',
+  dailyJournals: 'date, status',
+  weeklyPlanners: 'weekId, status',
+  groups: 'id, name, leaderAccountId',
+  workouts: 'id, date, type',
+  workoutPlans: 'id, name'
+});
+
 // Activate hooks
 registerSyncHooks();
 
@@ -641,6 +652,7 @@ export async function clearDatabaseAndCloud() {
     await db.weeklyPlanners.clear();
     await db.groups.clear();
     if (db.workouts) await db.workouts.clear();
+    if (db.workoutPlans) await db.workoutPlans.clear();
 
     // Clear local localStorage settings starting with 'hollow' or 'playbook' to ensure fresh stats
     Object.keys(localStorage).forEach(key => {
@@ -709,6 +721,7 @@ export async function clearDatabase() {
     await db.weeklyPlanners.clear();
     await db.groups.clear();
     if (db.workouts) await db.workouts.clear();
+    if (db.workoutPlans) await db.workoutPlans.clear();
     return true;
   } catch (err) {
     console.error('Failed to clear local database:', err);

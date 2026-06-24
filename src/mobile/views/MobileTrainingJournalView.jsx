@@ -1,27 +1,201 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../db/hollowDb';
 import { 
-  Plus, Trash2, Dumbbell, Clock, Activity, Zap, 
-  ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, Save
+  Plus, Trash2, ChevronLeft, ChevronRight, X, 
+  ChevronDown, ChevronUp, Save, Edit3
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
-export default function MobileTrainingJournalView({ addToast, onBack }) {
-  const workouts = useLiveQuery(() => db.workouts.toArray()) || [];
+const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core', 'Cardio', 'Other'];
 
-  // Local state for logging workout
+const getTodayDateString = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const generateUniqueId = (prefix = 'id') => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+
+const isDraftEmpty = (draft) => {
+  if (!draft) return true;
+  const hasNotes = !!(draft.workoutNotes && draft.workoutNotes.trim());
+  const hasMultipleEx = draft.exercisesList && draft.exercisesList.length > 1;
+  const hasExName = draft.exercisesList && draft.exercisesList.some(ex => ex.name && ex.name.trim());
+  const hasSetData = draft.exercisesList && draft.exercisesList.some(ex => 
+    ex.sets && ex.sets.some(s => s.weight || s.reps)
+  );
+  return !draft.editingWorkoutId && !hasNotes && !hasMultipleEx && !hasExName && !hasSetData;
+};
+
+export default function MobileTrainingJournalView({ addToast, onBack }) {
+  const rawWorkouts = useLiveQuery(() => db.workouts.toArray());
+  const workouts = useMemo(() => rawWorkouts || [], [rawWorkouts]);
+
+  const getLastSessionSets = (exerciseName) => {
+    if (!exerciseName || !exerciseName.trim()) return null;
+    const nameLower = exerciseName.trim().toLowerCase();
+    const sortedWorkouts = [...workouts]
+      .filter(w => w.date < workoutDate)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    
+    for (const w of sortedWorkouts) {
+      const matchingEx = (w.exercises || []).find(ex => ex.name.trim().toLowerCase() === nameLower);
+      if (matchingEx && matchingEx.sets && matchingEx.sets.length > 0) {
+        return matchingEx.sets;
+      }
+    }
+    return null;
+  };
+
+  // Selected Date for the main training journal view
+  const [selectedJournalDate, setSelectedJournalDate] = useState(() => getTodayDateString());
+
+  const shiftJournalDate = (dir) => {
+    const [y, m, d] = selectedJournalDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + dir);
+    setSelectedJournalDate(
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    );
+  };
+
+  // Workout Plans States
+  const rawWorkoutPlans = useLiveQuery(() => db.workoutPlans ? db.workoutPlans.toArray() : []);
+  const workoutPlans = useMemo(() => rawWorkoutPlans || [], [rawWorkoutPlans]);
+  const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'plans'
+
+  // Plan Creator Bottom Sheet States
+  const [showAddPlan, setShowAddPlan] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState(null);
+  const [planName, setPlanName] = useState('');
+  const [planExercises, setPlanExercises] = useState([{ id: 1, name: '', muscleGroup: 'Chest' }]);
+
+  const handleAddPlanExercise = () => {
+    setPlanExercises(prev => [
+      ...prev,
+      { id: generateUniqueId('ex'), name: '', muscleGroup: 'Chest' }
+    ]);
+  };
+
+  const handleRemovePlanExercise = (id) => {
+    setPlanExercises(prev => prev.filter(ex => ex.id !== id));
+  };
+
+  const handlePlanExerciseNameChange = (id, name) => {
+    setPlanExercises(prev => prev.map(ex => ex.id === id ? { ...ex, name } : ex));
+  };
+
+  const handlePlanExerciseMuscleChange = (id, muscleGroup) => {
+    setPlanExercises(prev => prev.map(ex => ex.id === id ? { ...ex, muscleGroup } : ex));
+  };
+
+  const handleSavePlan = async () => {
+    if (!planName.trim()) {
+      addToast('Plan name is required.', 'error');
+      return;
+    }
+    const valid = planExercises.filter(ex => ex.name.trim());
+    if (valid.length === 0) {
+      addToast('Add at least one exercise.', 'error');
+      return;
+    }
+
+    const planData = {
+      name: planName.trim(),
+      exercises: valid.map(ex => ({
+        name: ex.name.trim(),
+        muscleGroup: ex.muscleGroup || 'Other'
+      }))
+    };
+
+    try {
+      if (editingPlanId) {
+        await db.workoutPlans.put({
+          ...planData,
+          id: editingPlanId
+        });
+        addToast('Plan updated.', 'success');
+      } else {
+        await db.workoutPlans.add({
+          ...planData,
+          id: generateUniqueId('plan')
+        });
+        addToast('Plan created.', 'success');
+      }
+      setShowAddPlan(false);
+      setEditingPlanId(null);
+      setPlanName('');
+      setPlanExercises([{ id: 1, name: '', muscleGroup: 'Chest' }]);
+    } catch {
+      addToast('Failed to save plan.', 'error');
+    }
+  };
+
+  const handleEditPlan = (plan) => {
+    setEditingPlanId(plan.id);
+    setPlanName(plan.name);
+    setPlanExercises((plan.exercises || []).map((ex) => ({
+      id: generateUniqueId('ex-plan'),
+      name: ex.name,
+      muscleGroup: ex.muscleGroup || 'Other'
+    })));
+    setShowAddPlan(true);
+  };
+
+  const handleDeletePlan = async (id) => {
+    if (confirm('Are you sure you want to delete this workout plan?')) {
+      try {
+        await db.workoutPlans.delete(id);
+        addToast('Plan deleted.', 'success');
+      } catch {
+        addToast('Failed to delete plan.', 'error');
+      }
+    }
+  };
+
+  const handleLogUsingPlan = (plan) => {
+    setEditingWorkoutId(null);
+    setWorkoutDate(selectedJournalDate);
+    setWorkoutType(plan.name);
+    setWorkoutDuration(60);
+    setWorkoutFocus(3);
+    setWorkoutNotes('');
+    setExercisesList(plan.exercises.map((ex) => ({
+      id: generateUniqueId('ex-plan-log'),
+      name: ex.name,
+      muscleGroup: ex.muscleGroup || 'Other',
+      sets: [{ id: generateUniqueId('set-plan-log'), weight: '', reps: '' }]
+    })));
+    setShowAddWorkout(true);
+  };
+
+  // Local state for logging/editing workout
   const [showAddWorkout, setShowAddWorkout] = useState(false);
+  const [editingWorkoutId, setEditingWorkoutId] = useState(() => {
+    const draft = localStorage.getItem('hollow_workout_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.editingWorkoutId) return parsed.editingWorkoutId;
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  });
+
   const [workoutDate, setWorkoutDate] = useState(() => {
     const draft = localStorage.getItem('hollow_workout_draft');
     if (draft) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.workoutDate) return parsed.workoutDate;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
-    return new Date().toISOString().split('T')[0];
+    return getTodayDateString();
   });
   const [workoutType, setWorkoutType] = useState(() => {
     const draft = localStorage.getItem('hollow_workout_draft');
@@ -29,7 +203,9 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.workoutType) return parsed.workoutType;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     return 'Push';
   });
@@ -39,7 +215,9 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.workoutDuration !== undefined) return parsed.workoutDuration;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     return 60;
   });
@@ -49,7 +227,9 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.workoutFocus !== undefined) return parsed.workoutFocus;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     return 3;
   });
@@ -59,7 +239,9 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.workoutNotes !== undefined) return parsed.workoutNotes;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     return '';
   });
@@ -69,15 +251,18 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       try {
         const parsed = JSON.parse(draft);
         if (parsed.exercisesList) return parsed.exercisesList;
-      } catch (e) {}
+      } catch {
+        // ignore
+      }
     }
     return [
-      { id: 1, name: '', sets: [{ id: 101, weight: '', reps: '' }] }
+      { id: 1, name: '', muscleGroup: 'Chest', sets: [{ id: 101, weight: '', reps: '' }] }
     ];
   });
 
   useEffect(() => {
     const draft = {
+      editingWorkoutId,
       workoutDate,
       workoutType,
       workoutDuration,
@@ -86,7 +271,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       exercisesList
     };
     localStorage.setItem('hollow_workout_draft', JSON.stringify(draft));
-  }, [workoutDate, workoutType, workoutDuration, workoutFocus, workoutNotes, exercisesList]);
+  }, [editingWorkoutId, workoutDate, workoutType, workoutDuration, workoutFocus, workoutNotes, exercisesList]);
 
   const [expandedWorkouts, setExpandedWorkouts] = useState({});
 
@@ -140,12 +325,22 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
     });
   }, [workouts]);
 
+  const dailyWorkouts = useMemo(() => {
+    return [...workouts]
+      .filter(w => w.date === selectedJournalDate)
+      .sort((a, b) => b.id.localeCompare(a.id));
+  }, [workouts, selectedJournalDate]);
+
   // Add exercise to builder
   const handleAddExercise = () => {
     setExercisesList(prev => [
       ...prev,
-      { id: Date.now(), name: '', sets: [{ id: Date.now() + 1, weight: '', reps: '' }] }
+      { id: generateUniqueId('ex'), name: '', muscleGroup: 'Chest', sets: [{ id: generateUniqueId('set'), weight: '', reps: '' }] }
     ]);
+  };
+
+  const handleExerciseMuscleGroupChange = (id, muscleGroup) => {
+    setExercisesList(prev => prev.map(ex => ex.id === id ? { ...ex, muscleGroup } : ex));
   };
 
   // Add set to builder exercise
@@ -154,7 +349,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       if (ex.id === exerciseId) {
         return {
           ...ex,
-          sets: [...ex.sets, { id: Date.now(), weight: '', reps: '' }]
+          sets: [...ex.sets, { id: generateUniqueId('set'), weight: '', reps: '' }]
         };
       }
       return ex;
@@ -204,8 +399,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       return;
     }
 
-    const newWorkout = {
-      id: `wo-${Date.now()}`,
+    const workoutData = {
       date: workoutDate,
       type: workoutType,
       duration: workoutDuration,
@@ -213,6 +407,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
       notes: workoutNotes.trim(),
       exercises: valid.map(ex => ({
         name: ex.name.trim(),
+        muscleGroup: ex.muscleGroup || 'Other',
         sets: ex.sets.map(s => ({
           weight: parseFloat(s.weight) || 0,
           reps: parseInt(s.reps) || 0
@@ -221,15 +416,30 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
     };
 
     try {
-      await db.workouts.add(newWorkout);
-      addToast('Workout logged.', 'success');
+      if (editingWorkoutId) {
+        await db.workouts.put({
+          ...workoutData,
+          id: editingWorkoutId
+        });
+        addToast('Workout updated.', 'success');
+      } else {
+        await db.workouts.add({
+          ...workoutData,
+          id: generateUniqueId('wo')
+        });
+        addToast('Workout logged.', 'success');
+      }
+      
       setShowAddWorkout(false);
-      // Reset form
+      setEditingWorkoutId(null);
+      
+      // Clear draft & Reset form
+      localStorage.removeItem('hollow_workout_draft');
       setWorkoutNotes('');
       setWorkoutDuration(60);
       setWorkoutFocus(3);
-      setExercisesList([{ id: 1, name: '', sets: [{ id: 101, weight: '', reps: '' }] }]);
-    } catch (err) {
+      setExercisesList([{ id: 1, name: '', muscleGroup: 'Chest', sets: [{ id: 101, weight: '', reps: '' }] }]);
+    } catch {
       addToast('Failed to save workout.', 'error');
     }
   };
@@ -237,19 +447,45 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
   const handleResetWorkoutForm = () => {
     if (confirm('Are you sure you want to clear the active workout draft?')) {
       localStorage.removeItem('hollow_workout_draft');
+      setEditingWorkoutId(null);
       setWorkoutNotes('');
       setWorkoutFocus(3);
       setWorkoutDuration(60);
       setWorkoutType('Push');
-      setWorkoutDate(new Date().toISOString().split('T')[0]);
+      setWorkoutDate(selectedJournalDate);
       setExercisesList([
         {
           id: 1,
           name: '',
+          muscleGroup: 'Chest',
           sets: [{ id: 101, weight: '', reps: '' }]
         }
       ]);
     }
+  };
+
+  const handleEditWorkout = (workout) => {
+    setEditingWorkoutId(workout.id);
+    setWorkoutDate(workout.date);
+    setWorkoutType(workout.type);
+    setWorkoutDuration(workout.duration);
+    setWorkoutFocus(workout.focusRating);
+    setWorkoutNotes(workout.notes || '');
+    
+    // Map exercises with unique React IDs for the builder
+    const mappedEx = (workout.exercises || []).map((ex, exIdx) => ({
+      id: `ex-${Date.now()}-${exIdx}-${Math.random()}`,
+      name: ex.name,
+      muscleGroup: ex.muscleGroup || 'Other',
+      sets: (ex.sets || []).map((s, sIdx) => ({
+        id: `set-${Date.now()}-${exIdx}-${sIdx}-${Math.random()}`,
+        weight: s.weight,
+        reps: s.reps
+      }))
+    }));
+    
+    setExercisesList(mappedEx);
+    setShowAddWorkout(true);
   };
 
   // Delete workout log
@@ -257,215 +493,495 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
     try {
       await db.workouts.delete(id);
       addToast('Workout deleted.', 'success');
-    } catch (err) {
+    } catch {
       addToast('Delete failed.', 'error');
     }
   };
 
-  return (
+    return (
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#000' }}>
       {/* Header */}
-      <div style={{ paddingTop: 'calc(var(--safe-top) + 8px)', paddingLeft: '16px', paddingRight: '16px', paddingBottom: 0, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ paddingTop: 'calc(var(--safe-top) + 8px)', paddingLeft: '16px', paddingRight: '16px', paddingBottom: 10, flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', padding: 4, display: 'flex', alignItems: 'center' }}>
               <ChevronLeft size={22} />
             </button>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>training journal.</h1>
           </div>
-          <button
-            onClick={() => setShowAddWorkout(true)}
+          {activeTab === 'logs' ? (
+            <button
+              onClick={() => {
+                let draftObj = null;
+                try {
+                  const raw = localStorage.getItem('hollow_workout_draft');
+                  if (raw) draftObj = JSON.parse(raw);
+                } catch {
+                  // ignore
+                }
+
+                if (isDraftEmpty(draftObj)) {
+                  setEditingWorkoutId(null);
+                  setWorkoutDate(selectedJournalDate);
+                  setWorkoutType('Push');
+                  setWorkoutDuration(60);
+                  setWorkoutFocus(3);
+                  setWorkoutNotes('');
+                  setExercisesList([{ id: 1, name: '', muscleGroup: 'Chest', sets: [{ id: 101, weight: '', reps: '' }] }]);
+                }
+                setShowAddWorkout(true);
+              }}
+              style={{
+                background: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '8px 12px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#000',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <Plus size={14} />
+              Log
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingPlanId(null);
+                setPlanName('');
+                setPlanExercises([{ id: 1, name: '', muscleGroup: 'Chest' }]);
+                setShowAddPlan(true);
+              }}
+              style={{
+                background: '#bf5af2',
+                border: 'none',
+                borderRadius: 10,
+                padding: '8px 12px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <Plus size={14} />
+              New Plan
+            </button>
+          )}
+        </div>
+
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
+          <button 
+            onClick={() => setActiveTab('logs')}
             style={{
-              background: '#fff',
+              background: 'none',
               border: 'none',
-              borderRadius: 10,
-              padding: '8px 12px',
-              fontSize: 13,
+              color: activeTab === 'logs' ? '#fff' : 'rgba(255,255,255,0.4)',
+              fontSize: 14,
               fontWeight: 700,
-              color: '#000',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4
+              padding: '6px 0',
+              borderBottom: activeTab === 'logs' ? '2.5px solid #bf5af2' : 'none'
             }}
           >
-            <Plus size={14} />
-            Log
+            Logs
+          </button>
+          <button 
+            onClick={() => setActiveTab('plans')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: activeTab === 'plans' ? '#fff' : 'rgba(255,255,255,0.4)',
+              fontSize: 14,
+              fontWeight: 700,
+              padding: '6px 0',
+              borderBottom: activeTab === 'plans' ? '2.5px solid #bf5af2' : 'none'
+            }}
+          >
+            Plans
           </button>
         </div>
+
+        {/* Date Selector (Only for logs) */}
+        {activeTab === 'logs' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: '#0f0f11',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 12,
+            padding: '6px 12px',
+            marginTop: 10
+          }}>
+            <button
+              onClick={() => shiftJournalDate(-1)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', padding: '6px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <button
+              onClick={() => setSelectedJournalDate(getTodayDateString())}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 700,
+                textAlign: 'center',
+                textTransform: 'lowercase',
+                cursor: 'pointer'
+              }}
+            >
+              {selectedJournalDate === getTodayDateString() 
+                ? 'today' 
+                : new Date(selectedJournalDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+              }
+            </button>
+
+            <button
+              onClick={() => shiftJournalDate(1)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', padding: '6px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Scrollable contents */}
       <div className="scroll-area" style={{ flex: 1, padding: '0 16px 100px' }}>
         
-        {/* KPI Summary Rows */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
-          <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Workouts</span>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.count}</div>
-          </div>
-          <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Volume</span>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.volume >= 1000 ? `${(stats.volume / 1000).toFixed(1)}k` : stats.volume}</div>
-          </div>
-          <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Avg Focus</span>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.focus}/5</div>
-          </div>
-        </div>
-
-        {/* Volume Trend Chart */}
-        {trendData.length > 0 && (
-          <div style={{
-            background: '#0f0f11',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 20,
-            height: 180,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10
-          }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Volume Trend</span>
-            <div style={{ flex: 1 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#bf5af2" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#bf5af2" stopOpacity={0.0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={9} />
-                  <YAxis stroke="rgba(255,255,255,0.2)" fontSize={9} />
-                  <Tooltip contentStyle={{ background: '#1c1c1e', borderColor: 'rgba(255,255,255,0.08)' }} />
-                  <Area type="monotone" dataKey="volume" stroke="#bf5af2" strokeWidth={2} fillOpacity={1} fill="url(#colorVol)" />
-                </AreaChart>
-              </ResponsiveContainer>
+        {activeTab === 'logs' ? (
+          <>
+            {/* KPI Summary Rows */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+              <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Workouts</span>
+                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.count}</div>
+              </div>
+              <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Volume</span>
+                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.volume >= 1000 ? `${(stats.volume / 1000).toFixed(1)}k` : stats.volume}</div>
+              </div>
+              <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 12, textAlign: 'center' }}>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Avg Focus</span>
+                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stats.focus}/5</div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Workouts History */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Workout Logs</span>
-          {workouts.length > 0 ? (
-            [...workouts].sort((a,b) => b.date.localeCompare(a.date)).map(w => {
-              const expanded = !!expandedWorkouts[w.id];
-              let vol = 0;
-              let setsCount = 0;
-              w.exercises.forEach(ex => {
-                setsCount += ex.sets.length;
-                ex.sets.forEach(s => vol += s.weight * s.reps);
-              });
+            {/* Volume Trend Chart */}
+            {trendData.length > 0 && (
+              <div style={{
+                background: '#0f0f11',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 20,
+                height: 180,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Volume Trend</span>
+                <div style={{ flex: 1 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trendData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#bf5af2" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#bf5af2" stopOpacity={0.0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={9} />
+                      <YAxis stroke="rgba(255,255,255,0.2)" fontSize={9} />
+                      <Tooltip contentStyle={{ background: '#1c1c1e', borderColor: 'rgba(255,255,255,0.08)' }} />
+                      <Area type="monotone" dataKey="volume" stroke="#bf5af2" strokeWidth={2} fillOpacity={1} fill="url(#colorVol)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
-              return (
+            {/* Workouts History */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Workout Logs for {selectedJournalDate === getTodayDateString() 
+                  ? 'today' 
+                  : selectedJournalDate
+                }
+              </span>
+              {dailyWorkouts.length > 0 ? (
+                dailyWorkouts.map(w => {
+                  const expanded = !!expandedWorkouts[w.id];
+                  let vol = 0;
+                  let setsCount = 0;
+                  w.exercises.forEach(ex => {
+                    setsCount += ex.sets.length;
+                    ex.sets.forEach(s => vol += s.weight * s.reps);
+                  });
+
+                  return (
+                    <div 
+                      key={w.id}
+                      style={{
+                        background: '#0f0f11',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: 16,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div 
+                        onClick={() => setExpandedWorkouts(p => ({ ...p, [w.id]: !expanded }))}
+                        style={{
+                          padding: 14,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{w.type} Session</span>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>· {w.duration}m</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                            {vol.toLocaleString()} lbs volume ({setsCount} sets)
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 11, color: '#bf5af2', fontWeight: 600 }}>Focus: {w.focusRating}/5</span>
+                          {expanded ? <ChevronUp size={16} color="rgba(255,255,255,0.4)" /> : <ChevronDown size={16} color="rgba(255,255,255,0.4)" />}
+                        </div>
+                      </div>
+
+                      <AnimatePresence>
+                        {expanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)', overflow: 'hidden' }}
+                          >
+                            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              {(() => {
+                                const groups = {};
+                                w.exercises.forEach(ex => {
+                                  const mg = ex.muscleGroup || 'Other';
+                                  if (!groups[mg]) groups[mg] = [];
+                                  groups[mg].push(ex);
+                                });
+                                
+                                const sortedGroups = Object.keys(groups).sort();
+                                return sortedGroups.map(mg => (
+                                  <div key={mg} style={{ display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: 6 }}>
+                                    <span style={{ fontSize: 9, fontWeight: 800, color: '#bf5af2', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{mg}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 6 }}>
+                                      {groups[mg].map((ex, exIdx) => (
+                                        <div key={exIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                          <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{ex.name}</span>
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {ex.sets.map((s, sIdx) => (
+                                              <div 
+                                                key={sIdx}
+                                                style={{
+                                                  background: 'rgba(255,255,255,0.04)',
+                                                  borderRadius: 6,
+                                                  padding: '4px 8px',
+                                                  fontSize: 11,
+                                                  color: 'rgba(255,255,255,0.7)',
+                                                  border: '1px solid rgba(255,255,255,0.03)'
+                                                }}
+                                              >
+                                                Set {sIdx + 1}: {s.weight} lbs × {s.reps}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ));
+                              })()}
+                              
+                              {w.notes && (
+                                <div style={{ marginTop: 4, padding: 8, background: 'rgba(255,255,255,0.02)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
+                                  {w.notes}
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                                <button
+                                  onClick={() => handleEditWorkout(w)}
+                                  style={{
+                                    background: 'rgba(255,255,255,0.06)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    color: '#fff',
+                                    borderRadius: 8,
+                                    padding: '6px 12px',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <Edit3 size={12} />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWorkout(w.id)}
+                                  style={{
+                                    background: 'rgba(255,69,58,0.1)',
+                                    border: 'none',
+                                    color: '#ff453a',
+                                    borderRadius: 8,
+                                    padding: '6px 12px',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <Trash2 size={12} />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ padding: '30px 16px', color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16 }}>
+                  No workouts logged for this day.
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Workout Plans list */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Your Workout Plans ({workoutPlans.length})
+            </span>
+            {workoutPlans.length > 0 ? (
+              workoutPlans.map(plan => (
                 <div 
-                  key={w.id}
+                  key={plan.id}
                   style={{
                     background: '#0f0f11',
                     border: '1px solid rgba(255,255,255,0.06)',
                     borderRadius: 16,
-                    overflow: 'hidden'
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
                   }}
                 >
-                  <div 
-                    onClick={() => setExpandedWorkouts(p => ({ ...p, [w.id]: !expanded }))}
-                    style={{
-                      padding: 14,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{w.type} Session</span>
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>· {w.duration}m</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                        {w.date} · {vol.toLocaleString()} lbs volume ({setsCount} sets)
-                      </div>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>{plan.name}</h3>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        {plan.exercises ? plan.exercises.length : 0} exercises
+                      </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 11, color: '#bf5af2', fontWeight: 600 }}>Focus: {w.focusRating}/5</span>
-                      {expanded ? <ChevronUp size={16} color="rgba(255,255,255,0.4)" /> : <ChevronDown size={16} color="rgba(255,255,255,0.4)" />}
-                    </div>
+                    <button
+                      onClick={() => handleLogUsingPlan(plan)}
+                      style={{
+                        background: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Plus size={12} /> Log Session
+                    </button>
                   </div>
 
-                  <AnimatePresence>
-                    {expanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)', overflow: 'hidden' }}
-                      >
-                        <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {w.exercises.map((ex, exIdx) => (
-                            <div key={exIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{ex.name}</span>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {ex.sets.map((s, sIdx) => (
-                                  <div 
-                                    key={sIdx}
-                                    style={{
-                                      background: 'rgba(255,255,255,0.04)',
-                                      borderRadius: 6,
-                                      padding: '4px 8px',
-                                      fontSize: 11,
-                                      color: 'rgba(255,255,255,0.7)',
-                                      border: '1px solid rgba(255,255,255,0.03)'
-                                    }}
-                                  >
-                                    Set {sIdx + 1}: {s.weight} lbs × {s.reps}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {w.notes && (
-                            <div style={{ marginTop: 4, padding: 8, background: 'rgba(255,255,255,0.02)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
-                              {w.notes}
-                            </div>
-                          )}
-
-                          <button
-                            onClick={() => handleDeleteWorkout(w.id)}
-                            style={{
-                              alignSelf: 'flex-end',
-                              background: 'rgba(255,69,58,0.1)',
-                              border: 'none',
-                              color: '#ff453a',
-                              borderRadius: 8,
-                              padding: '6px 12px',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              cursor: 'pointer',
-                              marginTop: 4
-                            }}
-                          >
-                            <Trash2 size={12} />
-                            Delete Workout
-                          </button>
+                  {/* Exercises grouped by muscle group */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(255,255,255,0.01)', borderRadius: 10, padding: 10 }}>
+                    {(() => {
+                      const groups = {};
+                      (plan.exercises || []).forEach(ex => {
+                        const mg = ex.muscleGroup || 'Other';
+                        if (!groups[mg]) groups[mg] = [];
+                        groups[mg].push(ex.name);
+                      });
+                      return Object.keys(groups).sort().map(mg => (
+                        <div key={mg} style={{ fontSize: 12 }}>
+                          <span style={{ color: '#bf5af2', fontWeight: 700, textTransform: 'uppercase', fontSize: 9, marginRight: 6 }}>{mg}:</span>
+                          <span style={{ color: 'rgba(255,255,255,0.7)' }}>{groups[mg].join(', ')}</span>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      ));
+                    })()}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      onClick={() => handleEditPlan(plan)}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: '#fff',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Edit3 size={12} /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeletePlan(plan.id)}
+                      style={{
+                        background: 'rgba(255,69,58,0.1)',
+                        border: 'none',
+                        color: '#ff453a',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </div>
                 </div>
-              );
-            })
-          ) : (
-            <div style={{ padding: '40px 0', textCenter: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center' }}>
-              No workouts logged yet.
-            </div>
-          )}
-        </div>
+              ))
+            ) : (
+              <div style={{ padding: '40px 16px', color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16 }}>
+                You haven't created any workout plans yet. Create one to easily pre-fill your logs!
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Log Workout Bottom Sheet */}
@@ -498,7 +1014,7 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                 >
                   Reset
                 </button>
-                <span style={{ fontSize: 17, fontWeight: 700, position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>Log Workout</span>
+                <span style={{ fontSize: 17, fontWeight: 700, position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>{editingWorkoutId ? 'Edit Workout' : 'Log Workout'}</span>
                 <button type="button" onClick={() => setShowAddWorkout(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0 }}>
                   <X size={20} />
                 </button>
@@ -535,15 +1051,52 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Exercises</span>
-                    <button 
-                      onClick={handleAddExercise}
-                      style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-                    >
-                      <Plus size={14} /> Add Ex
-                    </button>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      {workoutPlans.length > 0 && (
+                        <select
+                          onChange={e => {
+                            const planId = e.target.value;
+                            if (!planId) return;
+                            const plan = workoutPlans.find(p => p.id === planId);
+                            if (plan && confirm(`Load plan "${plan.name}"? This will overwrite the current exercise builder.`)) {
+                              setExercisesList(plan.exercises.map((ex, idx) => ({
+                                id: `ex-plan-${Date.now()}-${idx}-${Math.random()}`,
+                                name: ex.name,
+                                muscleGroup: ex.muscleGroup || 'Other',
+                                sets: [{ id: `set-plan-${Date.now()}-${idx}-${Math.random()}`, weight: '', reps: '' }]
+                              })));
+                              setWorkoutType(plan.name);
+                            }
+                            e.target.value = '';
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: 'none',
+                            color: '#bf5af2',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            borderRadius: 6,
+                            padding: '2px 6px',
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="">Load Plan...</option>
+                          {workoutPlans.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button 
+                        onClick={handleAddExercise}
+                        style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                      >
+                        <Plus size={14} /> Add Ex
+                      </button>
+                    </div>
                   </div>
 
-                  {exercisesList.map((ex, exIdx) => (
+                  {exercisesList.map((ex) => (
                     <div 
                       key={ex.id}
                       style={{
@@ -565,8 +1118,18 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                           className="ios-input"
                           style={{ flex: 1, padding: '8px 10px' }}
                         />
+                        <select
+                          value={ex.muscleGroup || 'Chest'}
+                          onChange={e => handleExerciseMuscleGroupChange(ex.id, e.target.value)}
+                          className="ios-input"
+                          style={{ width: 90, padding: '8px 4px', fontSize: 12, flexShrink: 0 }}
+                        >
+                          {MUSCLE_GROUPS.map(mg => (
+                            <option key={mg} value={mg}>{mg}</option>
+                          ))}
+                        </select>
                         {exercisesList.length > 1 && (
-                          <button onClick={() => handleRemoveExercise(ex.id)} style={{ background: 'none', border: 'none', color: '#ff453a', padding: 4 }}>
+                          <button onClick={() => handleRemoveExercise(ex.id)} style={{ background: 'none', border: 'none', color: '#ff453a', padding: 4, flexShrink: 0 }}>
                             <X size={16} />
                           </button>
                         )}
@@ -574,35 +1137,48 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
 
                       {/* Sets list */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {ex.sets.map((set, setIdx) => (
-                          <div key={set.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', width: 36 }}>Set {setIdx + 1}</span>
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              value={set.weight}
-                              onChange={e => handleSetChange(ex.id, set.id, 'weight', e.target.value)}
-                              placeholder="Lbs"
-                              className="ios-input"
-                              style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
-                            />
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>×</span>
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              value={set.reps}
-                              onChange={e => handleSetChange(ex.id, set.id, 'reps', e.target.value)}
-                              placeholder="Reps"
-                              className="ios-input"
-                              style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
-                            />
-                            {ex.sets.length > 1 && (
-                              <button onClick={() => handleRemoveSet(ex.id, set.id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)' }}>
-                                <X size={14} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {(() => {
+                          const prevSets = getLastSessionSets(ex.name);
+                          return ex.sets.map((set, setIdx) => {
+                            const prevSet = prevSets && prevSets[setIdx];
+                            return (
+                              <div key={set.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', width: 42, flexShrink: 0 }}>
+                                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Set {setIdx + 1}</span>
+                                  {prevSet && (
+                                    <span style={{ fontSize: 8, color: '#bf5af2', whiteSpace: 'nowrap' }}>
+                                      Last: {prevSet.weight}×{prevSet.reps}
+                                    </span>
+                                  )}
+                                </div>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  value={set.weight}
+                                  onChange={e => handleSetChange(ex.id, set.id, 'weight', e.target.value)}
+                                  placeholder={prevSet ? String(prevSet.weight) : "Lbs"}
+                                  className="ios-input"
+                                  style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                                />
+                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>×</span>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={set.reps}
+                                  onChange={e => handleSetChange(ex.id, set.id, 'reps', e.target.value)}
+                                  placeholder={prevSet ? String(prevSet.reps) : "Reps"}
+                                  className="ios-input"
+                                  style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                                />
+                                {ex.sets.length > 1 && (
+                                  <button onClick={() => handleRemoveSet(ex.id, set.id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)' }}>
+                                    <X size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                         <button
                           onClick={() => handleAddSet(ex.id)}
                           style={{
@@ -656,7 +1232,144 @@ export default function MobileTrainingJournalView({ addToast, onBack }) {
                   }}
                 >
                   <Save size={16} />
-                  Save Workout Log
+                  {editingWorkoutId ? 'Save Changes' : 'Save Workout Log'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create / Edit Workout Plan Bottom Sheet */}
+      <AnimatePresence>
+        {showAddPlan && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAddPlan(false)}
+            className="bottom-sheet-overlay"
+            style={{ zIndex: 1200 }}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+              onClick={e => e.stopPropagation()}
+              className="bottom-sheet"
+              style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '80vh', overflow: 'hidden' }}
+            >
+              <div className="sheet-handle" />
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', position: 'relative', height: 28, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Clear this plan template?')) {
+                      setPlanName('');
+                      setPlanExercises([{ id: 1, name: '', muscleGroup: 'Chest' }]);
+                    }
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#ff453a', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                >
+                  Clear
+                </button>
+                <span style={{ fontSize: 17, fontWeight: 700, position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+                  {editingPlanId ? 'Edit Plan Template' : 'New Plan Template'}
+                </span>
+                <button type="button" onClick={() => setShowAddPlan(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0 }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Form Scroll Area */}
+              <div className="scroll-area" style={{ flex: 1, padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Plan Name</label>
+                  <input 
+                    type="text" 
+                    value={planName} 
+                    onChange={e => setPlanName(e.target.value)} 
+                    placeholder="e.g. Push Day, Upper Power" 
+                    className="ios-input" 
+                  />
+                </div>
+
+                {/* Exercises list builder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Exercises</span>
+                    <button 
+                      onClick={handleAddPlanExercise}
+                      style={{ background: 'none', border: 'none', color: '#bf5af2', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                    >
+                      <Plus size={14} /> Add Ex
+                    </button>
+                  </div>
+
+                  {planExercises.map((ex) => (
+                    <div 
+                      key={ex.id}
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 12,
+                        padding: 10,
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'center'
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={ex.name}
+                        onChange={e => handlePlanExerciseNameChange(ex.id, e.target.value)}
+                        placeholder="Exercise name (e.g. Bench Press)"
+                        className="ios-input"
+                        style={{ flex: 1, padding: '8px 10px' }}
+                      />
+                      <select
+                        value={ex.muscleGroup || 'Chest'}
+                        onChange={e => handlePlanExerciseMuscleChange(ex.id, e.target.value)}
+                        className="ios-input"
+                        style={{ width: 90, padding: '8px 4px', fontSize: 12, flexShrink: 0 }}
+                      >
+                        {MUSCLE_GROUPS.map(mg => (
+                          <option key={mg} value={mg}>{mg}</option>
+                        ))}
+                      </select>
+                      {planExercises.length > 1 && (
+                        <button onClick={() => handleRemovePlanExercise(ex.id)} style={{ background: 'none', border: 'none', color: '#ff453a', padding: 4, flexShrink: 0 }}>
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div style={{ padding: '0 20px 20px' }}>
+                <button
+                  onClick={handleSavePlan}
+                  style={{
+                    width: '100%',
+                    background: '#fff',
+                    border: 'none',
+                    borderRadius: 14,
+                    padding: 15,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6
+                  }}
+                >
+                  <Save size={16} />
+                  {editingPlanId ? 'Save Plan Template' : 'Create Plan Template'}
                 </button>
               </div>
             </motion.div>
