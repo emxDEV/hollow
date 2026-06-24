@@ -115,6 +115,29 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     });
     return finalObj;
   }
+  if (tableName === 'workouts') {
+    const allowed = ['id', 'date', 'type', 'duration', 'notes', 'exercises', 'focusRating', 'user_id'];
+    const cleaned = {};
+    allowed.forEach(k => {
+      if (obj[k] !== undefined) cleaned[k] = obj[k];
+    });
+    // exercises is a complex nested object — serialize to JSON string for Supabase TEXT column
+    if (cleaned.exercises !== undefined && typeof cleaned.exercises !== 'string') {
+      cleaned.exercises = JSON.stringify(cleaned.exercises);
+    }
+    return cleaned;
+  }
+  if (tableName === 'workoutPlans') {
+    const allowed = ['id', 'name', 'exercises', 'user_id'];
+    const cleaned = {};
+    allowed.forEach(k => {
+      if (obj[k] !== undefined) cleaned[k] = obj[k];
+    });
+    if (cleaned.exercises !== undefined && typeof cleaned.exercises !== 'string') {
+      cleaned.exercises = JSON.stringify(cleaned.exercises);
+    }
+    return cleaned;
+  }
   return obj;
 }
 
@@ -139,7 +162,9 @@ const registerSyncHooks = () => {
     { name: 'executions', store: db.executions, pk: 'id' },
     { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
     { name: 'weeklyPlanners', store: db.weeklyPlanners, pk: 'weekId' },
-    { name: 'groups', store: db.groups, pk: 'id' }
+    { name: 'groups', store: db.groups, pk: 'id' },
+    { name: 'workouts', store: db.workouts, pk: 'id' },
+    { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' }
   ];
 
   tables.forEach(table => {
@@ -376,6 +401,10 @@ export function prefixRecord(obj, userId, tableName) {
         }
       } catch (e) {}
     }
+  } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
+    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
+      prefixed.id = `${userId}:${prefixed.id}`;
+    }
   }
   
   return prefixed;
@@ -452,6 +481,16 @@ export function unprefixRecord(obj, userId, tableName) {
         }
       } catch (e) {}
     }
+  } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
+    clean.id = strip(clean.id);
+    // exercises is stored as JSON string in Supabase — parse back to object
+    if (clean.exercises && typeof clean.exercises === 'string') {
+      try {
+        clean.exercises = JSON.parse(clean.exercises);
+      } catch (e) {
+        console.error(`Failed to parse exercises JSON for ${tableName}:`, e);
+      }
+    }
   }
   
   return clean;
@@ -485,7 +524,9 @@ export async function syncWithSupabase() {
       { name: 'executions', store: db.executions, pk: 'id' },
       { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
       { name: 'weeklyPlanners', store: db.weeklyPlanners, pk: 'weekId' },
-      { name: 'groups', store: db.groups, pk: 'id' }
+      { name: 'groups', store: db.groups, pk: 'id' },
+      { name: 'workouts', store: db.workouts, pk: 'id' },
+      { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' }
     ];
 
     // 1. Process pending deletions from localStorage first
@@ -746,6 +787,8 @@ export async function subscribeToRealtimeSync() {
     { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
     { name: 'weeklyPlanners',store: db.weeklyPlanners,pk: 'weekId' },
     { name: 'groups',        store: db.groups,        pk: 'id' },
+    { name: 'workouts',      store: db.workouts,      pk: 'id' },
+    { name: 'workoutPlans',  store: db.workoutPlans,  pk: 'id' },
   ];
 
   console.log(`Subscribing to realtime sync channel for user: ${userId}`);
