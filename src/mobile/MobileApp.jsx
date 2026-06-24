@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
-import { db, seedDatabaseIfEmpty, syncWithSupabase, clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
+import { db, clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
 import { supabase } from '../db/supabaseClient';
 import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
@@ -31,6 +31,15 @@ export default function MobileApp() {
   const [activeTradeId, setActiveTradeId] = useState(null);
   const [selectedAccountId, setSelectedAccountId] = useState('all');
   const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((message, type = 'success') => {
+    const id = `toast-${Date.now()}`;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+  }, []);
+
   const [subView, setSubView] = useState(null); // null | 'weeklyReview' | 'trainingJournal' | 'groups'
   const [showSharePnL, setShowSharePnL] = useState(false);
   const [sharePnLMode, setSharePnLMode] = useState('daily');
@@ -97,6 +106,7 @@ export default function MobileApp() {
         setSession(session);
         if (session) {
           syncProfileFromMetadata(session.user);
+          localStorage.setItem('hollow_last_user_id', session.user.id);
         }
         if (!session) {
           setAppInitialized(true);
@@ -119,14 +129,25 @@ export default function MobileApp() {
         }
 
         if (event === 'SIGNED_IN') {
-          await clearDatabase();
-          setSession(currentSession);
-          if (currentSession) {
-            syncProfileFromMetadata(currentSession.user);
+          const lastUserId = localStorage.getItem('hollow_last_user_id');
+          const isSameUser = lastUserId && currentSession && currentSession.user && (lastUserId === currentSession.user.id);
+          
+          if (!isSameUser) {
+            await clearDatabase();
+            if (currentSession && currentSession.user) {
+              localStorage.setItem('hollow_last_user_id', currentSession.user.id);
+            }
+            setSession(currentSession);
+            if (currentSession) {
+              syncProfileFromMetadata(currentSession.user);
+            }
+            setAppInitialized(false);
+          } else {
+            setSession(currentSession);
           }
-          setAppInitialized(false);
         } else if (event === 'SIGNED_OUT') {
           await clearDatabase();
+          localStorage.removeItem('hollow_last_user_id');
           setSession(null);
           setAppInitialized(true);
         } else {
@@ -181,21 +202,13 @@ export default function MobileApp() {
     };
 
     checkBackup();
-  }, [appInitialized, session]);
+  }, [appInitialized, session, addToast]);
 
   const rawAccounts = useLiveQuery(() => db.accounts.toArray());
   const accounts = rawAccounts || [];
   const accountsLoaded = rawAccounts !== undefined;
   const trades = useLiveQuery(() => db.trades.toArray()) || [];
   const executions = useLiveQuery(() => db.executions.toArray()) || [];
-
-  const addToast = (message, type = 'success') => {
-    const id = `toast-${Date.now()}`;
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
-  };
 
   const handleTabChange = (tab) => {
     setPrevTab(activeTab);
@@ -207,7 +220,7 @@ export default function MobileApp() {
     try {
       await db.trades.put(updatedTrade);
       addToast('Trade saved.', 'success');
-    } catch (err) {
+    } catch {
       addToast('Failed to save trade.', 'error');
     }
   };
@@ -218,7 +231,7 @@ export default function MobileApp() {
       await db.executions.where({ tradeId: id }).delete();
       setActiveTradeId(null);
       addToast('Trade deleted.', 'success');
-    } catch (err) {
+    } catch {
       addToast('Failed to delete.', 'error');
     }
   };

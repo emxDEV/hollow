@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, seedDatabaseIfEmpty, syncWithSupabase, clearDatabase, subscribeToRealtimeSync } from './db/hollowDb';
+import { db, clearDatabase, subscribeToRealtimeSync } from './db/hollowDb';
 import { supabase } from './db/supabaseClient';
 import AuthView from './components/AuthView';
 import LoadingScreen from './components/LoadingScreen';
@@ -110,6 +110,7 @@ export default function App() {
         setSession(session);
         if (session) {
           syncProfileFromMetadata(session.user);
+          localStorage.setItem('hollow_last_user_id', session.user.id);
         }
         if (!session) {
           setAppInitialized(true);
@@ -132,14 +133,25 @@ export default function App() {
         }
 
         if (event === 'SIGNED_IN') {
-          await clearDatabase();
-          setSession(currentSession);
-          if (currentSession) {
-            syncProfileFromMetadata(currentSession.user);
+          const lastUserId = localStorage.getItem('hollow_last_user_id');
+          const isSameUser = lastUserId && currentSession && currentSession.user && (lastUserId === currentSession.user.id);
+          
+          if (!isSameUser) {
+            await clearDatabase();
+            if (currentSession && currentSession.user) {
+              localStorage.setItem('hollow_last_user_id', currentSession.user.id);
+            }
+            setSession(currentSession);
+            if (currentSession) {
+              syncProfileFromMetadata(currentSession.user);
+            }
+            setAppInitialized(false);
+          } else {
+            setSession(currentSession);
           }
-          setAppInitialized(false);
         } else if (event === 'SIGNED_OUT') {
           await clearDatabase();
+          localStorage.removeItem('hollow_last_user_id');
           setSession(null);
           setAppInitialized(true);
         } else {
@@ -230,7 +242,7 @@ export default function App() {
       await db.trades.put(updatedTrade);
       // Re-evaluate account balance if it was a closed trade
       if (updatedTrade.status === 'CLOSED') {
-        const tradeExecs = await db.executions.where({ tradeId: updatedTrade.id }).toArray();
+        // const tradeExecs = await db.executions.where({ tradeId: updatedTrade.id }).toArray();
         // Compute total Net PnL and update account balance
         // (For simulation, we compute on the fly, but we can also write the balance field)
       }
@@ -251,6 +263,7 @@ export default function App() {
     }
   };
 
+  /* Unused manual trade/execution handlers (can be re-enabled if needed)
   const handleAddExecution = async (newExec) => {
     try {
       await db.executions.add(newExec);
@@ -310,6 +323,7 @@ export default function App() {
       console.error('Failed to create manual trade:', err);
     }
   };
+  */
 
   if (!supabase) {
     return (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, TrendingUp, TrendingDown, ChevronRight, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { calculateTradePnL, isTradeBE } from '../../utils/tradeMath';
@@ -13,7 +13,7 @@ const fmt = (n) => {
 const FILTER_BIASES = ['All', 'LONG', 'SHORT'];
 const FILTER_OUTCOMES = ['All', 'Win', 'Loss', 'Breakeven'];
 
-export default function TradesView({ trades, executions, accounts, selectedAccountId, onSelectTrade, onScrollChange }) {
+export default function TradesView({ trades, executions, selectedAccountId, onSelectTrade, onScrollChange }) {
   const [query, setQuery] = useState('');
   const [biasFil, setBiasFil] = useState('All');
   const [outcomeFil, setOutcomeFil] = useState('All');
