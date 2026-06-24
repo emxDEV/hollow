@@ -7,7 +7,7 @@ import { APP_VERSION } from '../../utils/version';
 import {
   User, Settings, CreditCard, ChevronRight, Bell,
   Moon, Layers, Wifi, WifiOff, Plus, Trash2, Edit2, X, Check,
-  HelpCircle, ClipboardCheck, Info, LogOut, Activity, Dumbbell, Users, TrendingUp
+  HelpCircle, ClipboardCheck, Info, LogOut, Activity, Dumbbell, Users, TrendingUp, DollarSign
 } from 'lucide-react';
 
 export default function ProfileView({ selectedAccountId, setSelectedAccountId, accounts, addToast, onNavigate, onScrollChange }) {
@@ -326,6 +326,7 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
           {[
             { label: 'Trading Accounts', desc: 'Manage, select, and edit your trading accounts', icon: CreditCard, view: 'accounts' },
             { label: 'Performance Stats', desc: 'Detailed playbook edge, discipline, and session statistics', icon: TrendingUp, view: 'stats' },
+            { label: 'Payout Tracker', desc: 'Track payouts from prop firms and accounts', icon: DollarSign, view: 'payouts' },
             { label: 'Weekly Review', desc: 'Stoic weekly review audit board', icon: ClipboardCheck, view: 'weeklyReview' },
             { label: 'Training Journal', desc: 'Workout log, reps, weight, volume curves', icon: Dumbbell, view: 'trainingJournal' },
             { label: 'Copy Groups', desc: 'Mirror leader trades to follower accounts', icon: Users, view: 'groups' }

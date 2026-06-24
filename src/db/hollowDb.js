@@ -794,3 +794,24 @@ export async function subscribeToRealtimeSync() {
     supabase.removeChannel(channel);
   };
 }
+
+// Payouts DB Helpers
+export async function getPayouts() {
+  const row = await db.dailyJournals.get('payouts-data');
+  if (!row || !row.postMarketNotes) return [];
+  try {
+    return JSON.parse(row.postMarketNotes);
+  } catch (e) {
+    console.error("Failed to parse payouts:", e);
+    return [];
+  }
+}
+
+export async function savePayouts(payouts) {
+  await db.dailyJournals.put({
+    date: 'payouts-data',
+    status: 'COMPLETED',
+    postMarketNotes: JSON.stringify(payouts)
+  });
+}
+

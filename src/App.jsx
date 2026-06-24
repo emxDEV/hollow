@@ -16,6 +16,7 @@ import PortfolioView from './components/PortfolioView';
 import SettingsView from './components/SettingsView';
 import GroupsView from './components/GroupsView';
 import TrainingJournalView from './components/TrainingJournalView';
+import PayoutsView from './components/PayoutsView';
 import './App.css';
 import AddTradeModal from './components/AddTradeModal';
 import NoAccountsModal from './components/NoAccountsModal';
@@ -525,6 +526,20 @@ export default function App() {
                   selectedAccountId={selectedAccountId}
                   onSelectTrade={setActiveTradeId}
                 />
+              </motion.div>
+            )}
+
+            {view === 'payouts' && (
+              <motion.div
+                key="payouts"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.18, ease: "easeInOut" }}
+                className="view-transition-wrapper"
+                style={{ height: '100%', width: '100%' }}
+              >
+                <PayoutsView />
               </motion.div>
             )}
 

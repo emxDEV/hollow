@@ -10,7 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
-  Dumbbell
+  Dumbbell,
+  CircleDollarSign
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HollowLogo from './HollowLogo';
@@ -40,9 +41,11 @@ export default function Sidebar({
   const financialsMenuItems = [
     { id: 'dashboard', label: 'dashboard.', icon: <LayoutDashboard size={18} /> },
     { id: 'stats', label: 'performance stats.', icon: <LineChart size={18} /> },
+    { id: 'payouts', label: 'payouts.', icon: <CircleDollarSign size={18} /> },
     { id: 'weeklyReview', label: 'weekly review.', icon: <ClipboardCheck size={18} /> },
     { id: 'groups', label: 'groups.', icon: <Users size={18} /> }
   ];
+
 
   // Fitness navigation
   const fitnessMenuItems = [

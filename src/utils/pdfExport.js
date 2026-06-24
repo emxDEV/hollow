@@ -357,8 +357,10 @@ export async function checkAndRunWeeklyBackup(addToast) {
 // FULL DATA BACKUP GENERATOR (PDF)
 // ----------------------------------------------------
 export function exportAllDataBackupPDF(accounts, trades, executions, dailyJournals, weeklyPlanners, groups, workouts) {
+  dailyJournals = (dailyJournals || []).filter(j => j.date !== 'payouts-data');
   const doc = new jsPDF();
   let y = 15;
+
 
   const addPageIfOverflow = (heightNeeded) => {
     if (y + heightNeeded > 275) {
