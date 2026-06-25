@@ -1487,8 +1487,8 @@ export default function TrainingJournalView() {
                   </div>
                 </div>
 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'hidden' }}>
-                  {(sharingWorkout.exercises || []).slice(0, 5).map((ex, idx) => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
+                  {(sharingWorkout.exercises || []).map((ex, idx) => {
                     const isCardioEx = ex.muscleGroup === 'Cardio';
                     return (
                       <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -1499,7 +1499,7 @@ export default function TrainingJournalView() {
                           </span>
                         </span>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {ex.sets.slice(0, 4).map((s, si) => (
+                          {(ex.sets || []).map((s, si) => (
                             <span key={si} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '5px', padding: '2px 5px', fontSize: '9.5px', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-mono)' }}>
                               {isCardioEx 
                                 ? `${s.distance}km in ${s.duration}m`
@@ -1507,16 +1507,10 @@ export default function TrainingJournalView() {
                               }
                             </span>
                           ))}
-                          {ex.sets.length > 4 && <span style={{ fontSize: '9px', color: 'var(--colors-stone)', alignSelf: 'center' }}>+{ex.sets.length - 4} more</span>}
                         </div>
                       </div>
                     );
                   })}
-                  {(sharingWorkout.exercises || []).length > 5 && (
-                    <div style={{ fontSize: '9.5px', color: 'var(--colors-stone)', textAlign: 'center', marginTop: '4px' }}>
-                      + {(sharingWorkout.exercises || []).length - 5} more exercises
-                    </div>
-                  )}
                 </div>
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
