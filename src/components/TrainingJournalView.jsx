@@ -20,7 +20,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
-  Target
+  Target,
+  Share2,
+  Download,
+  Heart
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -51,6 +54,14 @@ const generateUniqueId = (prefix = 'id') =>
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
+const formatPace = (durationMinutes, distanceKm) => {
+  if (!durationMinutes || !distanceKm) return '—';
+  const totalSeconds = Math.round((durationMinutes / distanceKm) * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
+};
+
 export default function TrainingJournalView() {
   const isMobile = useUIStore(state => state.isMobile);
 
@@ -63,6 +74,8 @@ export default function TrainingJournalView() {
 
   // ─── Tabs ─────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('logs');
+  const [sharingWorkout, setSharingWorkout] = useState(null);
+  const [editingWorkoutId, setEditingWorkoutId] = useState(null);
 
   // ─── Logger drawer ────────────────────────────────────────────────────────
   const [loggerOpen, setLoggerOpen] = useState(false);
@@ -71,7 +84,10 @@ export default function TrainingJournalView() {
     if (date) setWorkoutDate(date);
     setLoggerOpen(true);
   };
-  const closeLogger = () => setLoggerOpen(false);
+  const closeLogger = () => {
+    setLoggerOpen(false);
+    setEditingWorkoutId(null);
+  };
 
   // ─── Calendar state ───────────────────────────────────────────────────────
   const now = new Date();
@@ -197,6 +213,83 @@ export default function TrainingJournalView() {
     [workouts]
   );
 
+  const cardioStats = useMemo(() => {
+    let totalDistance = 0;
+    let totalDuration = 0;
+    let hrSum = 0;
+    let hrCount = 0;
+    let totalCalories = 0;
+    workouts.forEach(w => {
+      let hasCardio = false;
+      (w.exercises || []).forEach(ex => {
+        if (ex.muscleGroup === 'Cardio') {
+          hasCardio = true;
+          (ex.sets || []).forEach(s => {
+            totalDistance += parseFloat(s.distance) || 0;
+            totalDuration += parseFloat(s.duration) || 0;
+            if (s.heartRate > 0) {
+              hrSum += parseInt(s.heartRate);
+              hrCount++;
+            }
+            totalCalories += parseInt(s.calories) || 0;
+          });
+        }
+      });
+      if (w.type === 'Cardio' && !hasCardio) {
+        totalDuration += w.duration || 0;
+      }
+    });
+    const avgPace = totalDistance > 0 ? (totalDuration / totalDistance) : 0;
+    return {
+      totalDistance: parseFloat(totalDistance.toFixed(1)),
+      totalDuration: Math.round(totalDuration),
+      avgHeartRate: hrCount > 0 ? Math.round(hrSum / hrCount) : 0,
+      totalCalories,
+      avgPace
+    };
+  }, [workouts]);
+
+  const filteredCardioWorkouts = useMemo(() => {
+    const sorted = [...workouts]
+      .filter(w => w.type === 'Cardio' || w.exercises?.some(ex => ex.muscleGroup === 'Cardio'))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (!searchQuery.trim()) return sorted;
+    const q = searchQuery.toLowerCase();
+    return sorted.filter(w =>
+      w.type?.toLowerCase().includes(q) || w.notes?.toLowerCase().includes(q) ||
+      w.date?.includes(q) || w.exercises?.some(ex => ex.name?.toLowerCase().includes(q))
+    );
+  }, [workouts, searchQuery]);
+
+  const cardioTrendData = useMemo(() => {
+    const list = [...workouts]
+      .filter(w => w.type === 'Cardio' || w.exercises?.some(ex => ex.muscleGroup === 'Cardio'))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-10);
+    return list.map(w => {
+      let totalDist = 0;
+      let totalTime = 0;
+      (w.exercises || []).forEach(ex => {
+        if (ex.muscleGroup === 'Cardio') {
+          (ex.sets || []).forEach(s => {
+            totalDist += parseFloat(s.distance) || 0;
+            totalTime += parseFloat(s.duration) || 0;
+          });
+        }
+      });
+      if (totalTime === 0 && w.type === 'Cardio') {
+        totalTime = w.duration || 0;
+      }
+      const paceVal = totalDist > 0 ? parseFloat((totalTime / totalDist).toFixed(2)) : 0;
+      return {
+        date: w.date.split('-').slice(1).join('/'),
+        distance: totalDist,
+        pace: paceVal,
+        duration: totalTime
+      };
+    });
+  }, [workouts]);
+
   // ─── Last-session lookup ──────────────────────────────────────────────────
   const getLastSessionSets = (exerciseName) => {
     if (!exerciseName?.trim()) return null;
@@ -240,11 +333,28 @@ export default function TrainingJournalView() {
     e.preventDefault();
     const validExercises = exercisesList
       .filter(ex => ex.name.trim())
-      .map(ex => ({
-        name: ex.name,
-        muscleGroup: ex.muscleGroup || 'Other',
-        sets: ex.sets.map(s => ({ weight: parseFloat(s.weight) || 0, reps: parseInt(s.reps) || 0 }))
-      }));
+      .map(ex => {
+        const isCardio = ex.muscleGroup === 'Cardio';
+        return {
+          name: ex.name,
+          muscleGroup: ex.muscleGroup || 'Other',
+          sets: ex.sets.map(s => {
+            if (isCardio) {
+              return {
+                distance: parseFloat(s.distance) || 0,
+                duration: parseFloat(s.duration) || 0,
+                heartRate: parseInt(s.heartRate) || 0,
+                calories: parseInt(s.calories) || 0
+              };
+            } else {
+              return {
+                weight: parseFloat(s.weight) || 0,
+                reps: parseInt(s.reps) || 0
+              };
+            }
+          })
+        };
+      });
     if (!validExercises.length) {
       setSaveStatus('add at least one exercise.');
       setTimeout(() => setSaveStatus(''), 3000);
@@ -252,21 +362,61 @@ export default function TrainingJournalView() {
     }
     setSaveStatus('saving...');
     try {
-      await db.workouts.add({
-        id: generateUniqueId('wo'), date: workoutDate, type: workoutType,
+      const workoutData = {
+        date: workoutDate, type: workoutType,
         duration: parseInt(workoutDuration) || 0, notes: workoutNotes,
         exercises: validExercises, focusRating: parseInt(workoutFocus) || 3
-      });
-      setSaveStatus('logged!');
+      };
+      if (editingWorkoutId) {
+        await db.workouts.put({ ...workoutData, id: editingWorkoutId });
+      } else {
+        await db.workouts.add({ ...workoutData, id: generateUniqueId('wo') });
+      }
+      setSaveStatus(editingWorkoutId ? 'updated!' : 'logged!');
       localStorage.removeItem('hollow_workout_draft');
       setWorkoutNotes('');
       setWorkoutFocus(3);
       setExercisesList([]);
+      setEditingWorkoutId(null);
       setTimeout(() => { setSaveStatus(''); closeLogger(); }, 1200);
     } catch (err) {
       console.error(err);
       setSaveStatus('save failed.');
     }
+  };
+
+  const handleEditWorkout = (workout) => {
+    setEditingWorkoutId(workout.id);
+    setWorkoutDate(workout.date);
+    setWorkoutType(workout.type);
+    setWorkoutDuration(workout.duration);
+    setWorkoutFocus(workout.focusRating || 3);
+    setWorkoutNotes(workout.notes || '');
+    setExercisesList(
+      (workout.exercises || []).map((ex, idx) => ({
+        id: `ex-edit-${Date.now()}-${idx}-${Math.random()}`,
+        name: ex.name,
+        muscleGroup: ex.muscleGroup || 'Other',
+        sets: (ex.sets || []).map((s, si) => {
+          if (ex.muscleGroup === 'Cardio') {
+            return {
+              id: `set-edit-${Date.now()}-${idx}-${si}-${Math.random()}`,
+              distance: String(s.distance || ''),
+              duration: String(s.duration || ''),
+              heartRate: String(s.heartRate || ''),
+              calories: String(s.calories || '')
+            };
+          } else {
+            return {
+              id: `set-edit-${Date.now()}-${idx}-${si}-${Math.random()}`,
+              weight: String(s.weight || ''),
+              reps: String(s.reps || '')
+            };
+          }
+        })
+      }))
+    );
+    setLoggerOpen(true);
   };
 
   const handleDeleteWorkout = async (id) => {
@@ -375,10 +525,11 @@ export default function TrainingJournalView() {
             <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#fff', textTransform: 'lowercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Plus size={18} /> log workout.
+                  {editingWorkoutId ? <Edit3 size={18} /> : <Plus size={18} />}
+                  {editingWorkoutId ? 'edit workout.' : 'log workout.'}
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--colors-stone)' }}>
-                  track your session — exercises, sets &amp; weights.
+                  {editingWorkoutId ? 'modify your session details.' : 'track your session — exercises, sets & weights.'}
                 </p>
               </div>
               <button onClick={closeLogger} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
@@ -533,21 +684,71 @@ export default function TrainingJournalView() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {(() => {
                           const prevSets = getLastSessionSets(ex.name);
+                          const isCardio = ex.muscleGroup === 'Cardio';
                           return ex.sets.map((set, setIdx) => {
                             const prev = prevSets?.[setIdx];
+                            if (isCardio) {
+                              const distVal = parseFloat(set.distance) || 0;
+                              const durVal = parseFloat(set.duration) || 0;
+                              const paceStr = formatPace(durVal, distVal);
+                              return (
+                                <div key={set.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', width: '24px', flexShrink: 0 }}>S{setIdx + 1}</span>
+                                    <input type="number" placeholder="dist" className="hollow-glass-input"
+                                      style={{ padding: '6px 6px', fontSize: '12px', textAlign: 'center', flex: 1 }}
+                                      value={set.distance || ''} onChange={e => handleSetChange(ex.id, set.id, 'distance', e.target.value)}
+                                      min="0" step="0.1"
+                                    />
+                                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)', flexShrink: 0 }}>km</span>
+                                    <input type="number" placeholder="time" className="hollow-glass-input"
+                                      style={{ padding: '6px 6px', fontSize: '12px', textAlign: 'center', flex: 1 }}
+                                      value={set.duration || ''} onChange={e => handleSetChange(ex.id, set.id, 'duration', e.target.value)}
+                                      min="0" step="0.5"
+                                    />
+                                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)', flexShrink: 0 }}>min</span>
+                                    <input type="number" placeholder="hr" className="hollow-glass-input"
+                                      style={{ padding: '6px 6px', fontSize: '12px', textAlign: 'center', flex: 0.8 }}
+                                      value={set.heartRate || ''} onChange={e => handleSetChange(ex.id, set.id, 'heartRate', e.target.value)}
+                                      min="0"
+                                    />
+                                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)', flexShrink: 0 }}>bpm</span>
+                                    <input type="number" placeholder="kcal" className="hollow-glass-input"
+                                      style={{ padding: '6px 6px', fontSize: '12px', textAlign: 'center', flex: 0.8 }}
+                                      value={set.calories || ''} onChange={e => handleSetChange(ex.id, set.id, 'calories', e.target.value)}
+                                      min="0"
+                                    />
+                                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)', flexShrink: 0 }}>kcal</span>
+                                    {ex.sets.length > 1 && (
+                                      <button type="button" onClick={() => handleRemoveSet(ex.id, set.id)}
+                                        style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.25)', cursor: 'pointer', padding: '2px', fontSize: '14px', flexShrink: 0 }}
+                                      >×</button>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '30px', fontSize: '9px' }}>
+                                    <span style={{ color: 'var(--colors-stone)' }}>pace: <b style={{ color: '#00d2d3' }}>{paceStr}</b></span>
+                                    {prev && (
+                                      <span style={{ color: '#bf5af2', opacity: 0.85 }}>
+                                        last: {prev.distance}km in {prev.duration}m ({formatPace(prev.duration, prev.distance)})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
                             return (
                               <div key={set.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', width: '28px', flexShrink: 0 }}>S{setIdx + 1}</span>
                                   <input type="number" placeholder={prev ? String(prev.weight) : 'weight'} className="hollow-glass-input"
                                     style={{ padding: '6px 8px', fontSize: '12px', textAlign: 'center', flex: 1 }}
-                                    value={set.weight} onChange={e => handleSetChange(ex.id, set.id, 'weight', e.target.value)}
+                                    value={set.weight || ''} onChange={e => handleSetChange(ex.id, set.id, 'weight', e.target.value)}
                                     min="0" step="0.5"
                                   />
                                   <span style={{ fontSize: '11px', color: 'var(--colors-stone)', flexShrink: 0 }}>kg</span>
                                   <input type="number" placeholder={prev ? String(prev.reps) : 'reps'} className="hollow-glass-input"
                                     style={{ padding: '6px 8px', fontSize: '12px', textAlign: 'center', flex: 1 }}
-                                    value={set.reps} onChange={e => handleSetChange(ex.id, set.id, 'reps', e.target.value)} min="1"
+                                    value={set.reps || ''} onChange={e => handleSetChange(ex.id, set.id, 'reps', e.target.value)} min="1"
                                   />
                                   <span style={{ fontSize: '11px', color: 'var(--colors-stone)', flexShrink: 0 }}>r</span>
                                   {ex.sets.length > 1 && (
@@ -595,7 +796,7 @@ export default function TrainingJournalView() {
                 onMouseEnter={e => e.currentTarget.style.background = '#e5e5e5'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fff'}
               >
-                <Check size={15} /> Log Workout
+                <Check size={15} /> {editingWorkoutId ? 'Save Changes' : 'Log Workout'}
                 {saveStatus && <span style={{ fontSize: '11px', marginLeft: '4px', opacity: 0.7 }}>({saveStatus})</span>}
               </button>
               <button type="button" onClick={closeLogger}
@@ -640,7 +841,7 @@ export default function TrainingJournalView() {
 
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginTop: '-8px', flexShrink: 0 }}>
-          {[['logs', 'logs'], ['plans', 'workout templates']].map(([id, label]) => (
+          {[['logs', 'logs'], ['cardio', 'cardio'], ['plans', 'workout templates']].map(([id, label]) => (
             <button key={id} onClick={() => setActiveTab(id)} style={{
               background: 'none', border: 'none', color: activeTab === id ? '#fff' : 'rgba(255,255,255,0.35)',
               fontSize: '15px', fontWeight: '700', cursor: 'pointer', padding: '6px 0', position: 'relative', transition: 'color 0.15s'
@@ -821,6 +1022,12 @@ export default function TrainingJournalView() {
                                 <Zap size={8} style={{ fill: '#fff' }} /> {w.focusRating}
                               </span>
                             )}
+                            <button onClick={() => setSharingWorkout(w)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              <Share2 size={12} />
+                            </button>
+                            <button onClick={() => handleEditWorkout(w)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              <Edit3 size={12} />
+                            </button>
                             <button onClick={() => toggleExpand(w.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
                               {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             </button>
@@ -853,10 +1060,17 @@ export default function TrainingJournalView() {
                                         </div>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                                           {ex.sets.map((s, si) => (
-                                            <div key={si} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '3px 7px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.75)' }}>
-                                              <span style={{ color: 'rgba(255,255,255,0.3)', marginRight: '3px' }}>#{si + 1}</span>
-                                              <b>{s.weight}</b>kg×<b>{s.reps}</b>r
-                                            </div>
+                                            mg === 'Cardio' ? (
+                                              <div key={si} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '3px 7px', fontSize: '10px', color: 'rgba(255,255,255,0.75)' }}>
+                                                <span style={{ color: 'rgba(255,255,255,0.3)', marginRight: '3px' }}>#{si + 1}</span>
+                                                <b>{s.distance}</b>km in <b>{s.duration}</b>m ({formatPace(s.duration, s.distance)})
+                                              </div>
+                                            ) : (
+                                              <div key={si} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '3px 7px', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.75)' }}>
+                                                <span style={{ color: 'rgba(255,255,255,0.3)', marginRight: '3px' }}>#{si + 1}</span>
+                                                <b>{s.weight}</b>kg×<b>{s.reps}</b>r
+                                              </div>
+                                            )
                                           ))}
                                         </div>
                                       </div>
@@ -906,6 +1120,160 @@ export default function TrainingJournalView() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 )}
+              </div>
+            </div>
+          </>
+        ) : activeTab === 'cardio' ? (
+          <>
+            {/* Cardio Stats Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: '12px' }}>
+              {[
+                { icon: <Activity size={18} />, label: 'Total Distance', value: `${cardioStats.totalDistance.toLocaleString()} km` },
+                { icon: <Clock size={18} />, label: 'Total Time', value: `${cardioStats.totalDuration} min` },
+                { icon: <TrendingUp size={18} />, label: 'Avg Pace', value: cardioStats.avgPace > 0 ? formatPace(cardioStats.avgPace, 1) : '—' },
+                { icon: <Heart size={18} />, label: 'Avg Heart Rate', value: cardioStats.avgHeartRate > 0 ? `${cardioStats.avgHeartRate} bpm` : '—' },
+                { icon: <Flame size={18} />, label: 'Calories Burned', value: `${cardioStats.totalCalories.toLocaleString()} kcal` }
+              ].map((stat, i) => (
+                <div key={i} style={{ ...cardStyle, flexDirection: 'row', alignItems: 'center', gap: '14px', padding: '16px 18px' }}>
+                  <div style={statIconStyle}>{stat.icon}</div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.6px', textTransform: 'uppercase' }}>{stat.label}</div>
+                    <div className="mono" style={{ fontSize: '20px', fontWeight: '800', color: '#fff', marginTop: '2px' }}>{stat.value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 2-Column: Trend Chart + History */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: '20px', alignItems: 'stretch' }}>
+              {/* Left Column: Cardio Trend Chart */}
+              <div style={{ ...cardStyle, padding: '20px 24px', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'lowercase', margin: 0 }}>
+                    <TrendingUp size={15} /> cardio volume &amp; pace trend.
+                  </h3>
+                  <span style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>last 10 sessions</span>
+                </div>
+                <div style={{ height: '240px', width: '100%', marginTop: '12px' }}>
+                  {cardioTrendData.length === 0 ? (
+                    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--colors-stone)', fontSize: '11px' }}>
+                      log cardio sessions to see the trend.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={cardioTrendData} margin={{ top: 8, right: -10, left: -25, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorDist" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#00d2d3" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#00d2d3" stopOpacity={0.0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgba(255,255,255,0.02)" vertical={false} />
+                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.25)" fontSize={9} tickLine={false} axisLine={false} />
+                        <YAxis yAxisId="left" stroke="rgba(255,255,255,0.25)" fontSize={9} tickLine={false} axisLine={false} tickFormatter={v => `${v}km`} />
+                        <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.25)" fontSize={9} tickLine={false} axisLine={false} tickFormatter={v => `${v}m/k`} />
+                        <Tooltip contentStyle={{ background: 'rgba(15,15,17,0.96)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', color: '#fff', fontSize: '11px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }} cursor={{ stroke: 'rgba(255,255,255,0.05)' }} />
+                        <Area yAxisId="left" type="monotone" dataKey="distance" stroke="#00d2d3" strokeWidth={1.5} fillOpacity={1} fill="url(#colorDist)" name="Distance" />
+                        <Line yAxisId="right" type="monotone" dataKey="pace" stroke="#bf5af2" strokeWidth={2} dot={{ r: 2.5, fill: '#0f0f11', strokeWidth: 1.5 }} activeDot={{ r: 4 }} name="Pace" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Cardio Sessions list */}
+              <div style={{ ...cardStyle, gap: '14px', padding: '22px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'lowercase', margin: 0 }}>
+                    <Activity size={15} /> cardio history.
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>{filteredCardioWorkouts.length} logged</span>
+                    <button onClick={() => {
+                      setWorkoutType('Cardio');
+                      setWorkoutDuration(30);
+                      setWorkoutFocus(3);
+                      setWorkoutNotes('');
+                      setExercisesList([{ id: generateUniqueId('ex'), name: '', muscleGroup: 'Cardio', sets: [{ id: generateUniqueId('set'), distance: '', duration: '', heartRate: '', calories: '' }] }]);
+                      setLoggerOpen(true);
+                    }}
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: '600' }}
+                    >
+                      <Plus size={12} /> new
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cardio list cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '560px', paddingRight: '4px', flex: 1 }}>
+                  {filteredCardioWorkouts.length === 0 ? (
+                    <div style={{ color: 'var(--colors-stone)', fontSize: '12px', textAlign: 'center', padding: '48px 12px', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '14px', background: 'rgba(0,0,0,0.1)' }}>
+                      no cardio workouts logged yet.
+                    </div>
+                  ) : filteredCardioWorkouts.map(w => {
+                    const isExpanded = !!expandedWorkouts[w.id];
+                    let totalDist = 0;
+                    (w.exercises || []).forEach(ex => {
+                      if (ex.muscleGroup === 'Cardio') {
+                        (ex.sets || []).forEach(s => { totalDist += parseFloat(s.distance) || 0; });
+                      }
+                    });
+                    return (
+                      <div key={w.id} style={{ background: 'rgba(0,0,0,0.14)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1 }} onClick={() => toggleExpand(w.id)}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00d2d3', flexShrink: 0 }} />
+                            <span style={{ fontSize: '11px', color: '#fff', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>{w.date}</span>
+                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', padding: '1px 7px', borderRadius: '5px', textTransform: 'lowercase' }}>{w.type}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>{w.duration}m</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <span className="mono" style={{ fontSize: '10px', color: '#00d2d3', fontWeight: '700' }}>{totalDist.toFixed(1)}km</span>
+                            <button onClick={() => setSharingWorkout(w)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              <Share2 size={12} />
+                            </button>
+                            <button onClick={() => handleEditWorkout(w)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              <Edit3 size={12} />
+                            </button>
+                            <button onClick={() => toggleExpand(w.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
+                            <button onClick={() => handleDeleteWorkout(w.id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,69,58,0.6)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        {w.notes && (
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.01)', padding: '6px 10px', borderRadius: '7px', borderLeft: '2px solid rgba(255,255,255,0.07)' }}>{w.notes}</div>
+                        )}
+                        {isExpanded && w.exercises?.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                            {w.exercises.map((ex, idx) => (
+                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#fff' }}>{ex.name.toLowerCase()}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                  {(ex.sets || []).map((s, si) => (
+                                    <div key={si} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', color: 'rgba(255,255,255,0.85)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <span>
+                                        <span style={{ color: 'rgba(255,255,255,0.3)', marginRight: '6px' }}>#{si + 1}</span>
+                                        <b>{s.distance}</b> km in <b>{s.duration}</b> min
+                                      </span>
+                                      <span style={{ fontSize: '10px', color: 'var(--colors-stone)' }}>
+                                        pace: <b style={{ color: '#00d2d3' }}>{formatPace(s.duration, s.distance)}</b>
+                                        {s.heartRate > 0 && ` | HR: ${s.heartRate} bpm`}
+                                        {s.calories > 0 && ` | ${s.calories} kcal`}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </>
@@ -1072,6 +1440,124 @@ export default function TrainingJournalView() {
           </div>
         )}
       </div>
+
+      {sharingWorkout && (
+        <div className="hollow-drawer-backdrop" onClick={() => setSharingWorkout(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="hollow-drawer-container" onClick={e => e.stopPropagation()} style={{ width: '420px', borderRadius: '24px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#fff', textTransform: 'lowercase' }}>share workout.</h3>
+              <button onClick={() => setSharingWorkout(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                id="workout-showcase-card"
+                style={{
+                  width: '360px',
+                  minHeight: '360px',
+                  background: sharingWorkout.type === 'Cardio'
+                    ? 'radial-gradient(circle at 100% 0%, rgba(0, 210, 211, 0.15) 0%, transparent 60%), radial-gradient(circle at 0% 100%, rgba(191, 90, 242, 0.08) 0%, transparent 60%), #09090b'
+                    : 'radial-gradient(circle at 100% 0%, rgba(84, 160, 255, 0.15) 0%, transparent 60%), radial-gradient(circle at 0% 100%, rgba(191, 90, 242, 0.08) 0%, transparent 60%), #09090b',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  color: '#fff',
+                  boxSizing: 'border-box',
+                  position: 'relative'
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%',
+                  background: sharingWorkout.type === 'Cardio' ? '#00d2d3' : '#bf5af2',
+                  opacity: 0.15, filter: 'blur(30px)', pointerEvents: 'none'
+                }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+                  <div>
+                    <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '800' }}>training session</span>
+                    <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '2px 0 0 0', textTransform: 'lowercase' }}>{sharingWorkout.type} day.</h2>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#fff', fontFamily: 'var(--font-mono)' }}>{sharingWorkout.date}</span>
+                    <div style={{ fontSize: '9px', color: 'var(--colors-stone)', marginTop: '2px' }}>{sharingWorkout.duration} mins</div>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'hidden' }}>
+                  {(sharingWorkout.exercises || []).slice(0, 5).map((ex, idx) => {
+                    const isCardioEx = ex.muscleGroup === 'Cardio';
+                    return (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#fff', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{ex.name.toLowerCase()}</span>
+                          <span style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.4)', fontWeight: 'normal' }}>
+                            {isCardioEx ? 'cardio' : `${ex.sets.length} set${ex.sets.length > 1 ? 's' : ''}`}
+                          </span>
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {ex.sets.slice(0, 4).map((s, si) => (
+                            <span key={si} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '5px', padding: '2px 5px', fontSize: '9.5px', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-mono)' }}>
+                              {isCardioEx 
+                                ? `${s.distance}km in ${s.duration}m`
+                                : `${s.weight}kg × ${s.reps}`
+                              }
+                            </span>
+                          ))}
+                          {ex.sets.length > 4 && <span style={{ fontSize: '9px', color: 'var(--colors-stone)', alignSelf: 'center' }}>+{ex.sets.length - 4} more</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(sharingWorkout.exercises || []).length > 5 && (
+                    <div style={{ fontSize: '9.5px', color: 'var(--colors-stone)', textAlign: 'center', marginTop: '4px' }}>
+                      + {(sharingWorkout.exercises || []).length - 5} more exercises
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', fontWeight: '800' }}>hollow.</span>
+                  </div>
+                  {sharingWorkout.focusRating && (
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <Zap size={8} style={{ fill: '#fff' }} /> Focus: {sharingWorkout.focusRating}/5
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                const cardEl = document.getElementById('workout-showcase-card');
+                if (!cardEl) return;
+                const html2canvas = (await import('html2canvas')).default;
+                html2canvas(cardEl, {
+                  scale: 3,
+                  useCORS: true,
+                  backgroundColor: '#000000',
+                  logging: false
+                }).then(canvas => {
+                  const imgData = canvas.toDataURL('image/png');
+                  const link = document.createElement('a');
+                  link.download = `hollow_workout_${sharingWorkout.date}_${sharingWorkout.type.toLowerCase()}.png`;
+                  link.href = imgData;
+                  link.click();
+                  setSharingWorkout(null);
+                });
+              }}
+              style={{ background: '#fff', border: 'none', color: '#000', borderRadius: '12px', padding: '12px', fontWeight: '700', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <Download size={16} /> export showcase image
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

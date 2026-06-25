@@ -116,11 +116,14 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     return finalObj;
   }
   if (tableName === 'workouts') {
-    const allowed = ['id', 'date', 'type', 'duration', 'notes', 'exercises', 'user_id'];
+    const allowed = ['id', 'date', 'type', 'duration', 'notes', 'exercises', 'user_id', 'focusrating'];
     const cleaned = {};
     allowed.forEach(k => {
       if (obj[k] !== undefined) cleaned[k] = obj[k];
     });
+    if (obj.focusRating !== undefined) {
+      cleaned.focusrating = obj.focusRating;
+    }
     // exercises is a complex nested object — serialize to JSON string for Supabase TEXT column
     if (cleaned.exercises !== undefined && typeof cleaned.exercises !== 'string') {
       cleaned.exercises = JSON.stringify(cleaned.exercises);
@@ -483,6 +486,10 @@ export function unprefixRecord(obj, userId, tableName) {
     }
   } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
     clean.id = strip(clean.id);
+    if (tableName === 'workouts' && clean.focusrating !== undefined) {
+      clean.focusRating = clean.focusrating;
+      delete clean.focusrating;
+    }
     // exercises is stored as JSON string in Supabase — parse back to object
     if (clean.exercises && typeof clean.exercises === 'string') {
       try {
