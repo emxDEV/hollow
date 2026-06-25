@@ -128,7 +128,7 @@ export default function TrainingJournalView() {
   const [workoutFocus, setWorkoutFocus] = useState(() => readDraft('workoutFocus', 3));
   const [workoutNotes, setWorkoutNotes] = useState(() => readDraft('workoutNotes', ''));
   const [exercisesList, setExercisesList] = useState(() =>
-    readDraft('exercisesList', [{ id: 1, name: '', muscleGroup: 'Chest', sets: [{ id: 101, weight: '', reps: '' }] }])
+    readDraft('exercisesList', [])
   );
   const [saveStatus, setSaveStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -261,7 +261,7 @@ export default function TrainingJournalView() {
       localStorage.removeItem('hollow_workout_draft');
       setWorkoutNotes('');
       setWorkoutFocus(3);
-      setExercisesList([{ id: 1, name: '', muscleGroup: 'Chest', sets: [{ id: 101, weight: '', reps: '' }] }]);
+      setExercisesList([]);
       setTimeout(() => { setSaveStatus(''); closeLogger(); }, 1200);
     } catch (err) {
       console.error(err);
@@ -486,7 +486,18 @@ export default function TrainingJournalView() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {exercisesList.map(ex => (
+                  {exercisesList.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '28px 16px', border: '1px dashed rgba(255,255,255,0.07)', borderRadius: '14px', background: 'rgba(255,255,255,0.01)', textAlign: 'center' }}>
+                      <Dumbbell size={22} style={{ opacity: 0.2 }} />
+                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>no exercises yet — add one manually or select a plan from the split dropdown above.</span>
+                      <button type="button" onClick={handleAddExercise} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '9px', padding: '7px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      >
+                        <Plus size={12} /> add first exercise
+                      </button>
+                    </div>
+                  ) : exercisesList.map(ex => (
                     <div key={ex.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '14px 16px', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {/* Name + muscle + remove */}
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -500,7 +511,7 @@ export default function TrainingJournalView() {
                         >
                           {MUSCLE_GROUPS.map(mg => <option key={mg} value={mg}>{mg}</option>)}
                         </select>
-                        {exercisesList.length > 1 && (
+                        {(
                           <button type="button" onClick={() => handleRemoveExercise(ex.id)}
                             style={{ background: 'transparent', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
                           ><Trash2 size={13} /></button>
