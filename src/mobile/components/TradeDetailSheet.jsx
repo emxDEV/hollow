@@ -68,7 +68,19 @@ export default function TradeDetailSheet({
   // Tab Control when editing
   const [activeTab, setActiveTab] = useState('execution');
   const [activeSnapshotType, setActiveSnapshotType] = useState('HTF');
-  const [playbookTags, setPlaybookTags] = useState([]);
+
+  const playbookTags = useMemo(() => {
+    let localTags = [];
+    try {
+      localTags = JSON.parse(localStorage.getItem('playbookTags') || 'null') || [];
+    } catch (e) {}
+
+    const tradeModels = trades
+      .map(t => t.model)
+      .filter(m => m && m.trim() !== '' && m !== 'Unmapped');
+
+    return [...new Set([...localTags, ...tradeModels])];
+  }, [trades]);
 
   // Pill customization states
   const [symbols, setSymbols] = useState(() => {
@@ -124,12 +136,6 @@ export default function TradeDetailSheet({
         imageMTF: trade.images?.[1] || null,
         imageHTF: trade.images?.[2] || null,
       });
-
-      try {
-        setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
-      } catch {
-        setPlaybookTags([]);
-      }
     }
   }, [trade]);
 

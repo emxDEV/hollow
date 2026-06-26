@@ -35,7 +35,21 @@ const SENTIMENT_EMOJIS = ['😭', '😟', '😐', '😊', '🔥', '🧘', '😤'
 export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) {
   const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
   const groups = useLiveQuery(() => db.groups.toArray()) || [];
-  
+  const trades = useLiveQuery(() => db.trades.toArray()) || [];
+
+  const playbookTags = React.useMemo(() => {
+    let localTags = [];
+    try {
+      localTags = JSON.parse(localStorage.getItem('playbookTags') || 'null') || [];
+    } catch (e) {}
+
+    const tradeModels = trades
+      .map(t => t.model)
+      .filter(m => m && m.trim() !== '' && m !== 'Unmapped');
+
+    return [...new Set([...localTags, ...tradeModels])];
+  }, [trades]);
+
   // Tab control: 'execution' | 'reflections' | 'charts'
   const [activeTab, setActiveTab] = useState('execution');
   
@@ -49,11 +63,6 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
 
   // Reset form states on mount / open
   React.useEffect(() => {
-    try {
-      setPlaybookTags(JSON.parse(localStorage.getItem('playbookTags') || 'null') || []);
-    } catch {
-      setPlaybookTags([]);
-    }
     setActiveTab('execution');
     setName('');
     setDate(new Date().toISOString().split('T')[0]);
@@ -115,7 +124,6 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [entryTf, setEntryTf] = useState('');
   const [session, setSession] = useState('NY AM');
   const [model, setModel] = useState('');
-  const [playbookTags, setPlaybookTags] = useState([]);
   const [dol, setDol] = useState('');
   const [outcome, setOutcome] = useState('Win');
   const [bias, setBias] = useState('LONG');
