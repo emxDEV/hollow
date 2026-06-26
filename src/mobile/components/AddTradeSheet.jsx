@@ -513,6 +513,9 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
           const { id: accId, multiplier } = targets[i];
           const finalTradeId = `trade-${Date.now()}-${accId}-${i}`;
 
+          const mult = finalSymbol === 'NQ' ? 20 : finalSymbol === 'ES' ? 50 : finalSymbol === 'GC' ? 100 : finalSymbol === 'CL' ? 1000 : 100;
+          const biasFactor = bias === 'LONG' ? 1 : -1;
+
           const followerPnL = pnlVal * multiplier;
           const followerContracts = 1 * multiplier;
           const followerCommissions = 2.40 * multiplier;
