@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../db/hollowDb';
 import { 
-  Plus, Trash2, Users, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, Save, CreditCard, ShieldAlert, Zap
+  Plus, Trash2, Users, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, Save, CreditCard, ShieldAlert, Zap, Edit2
 } from 'lucide-react';
 
 export default function MobileGroupsView({ accounts, addToast, onBack }) {
@@ -13,6 +13,7 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
   const [groupName, setGroupName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [selectedFollowers, setSelectedFollowers] = useState([]);
+  const [editingGroupId, setEditingGroupId] = useState(null);
   
   const [expandedGroups, setExpandedGroups] = useState({});
 
@@ -31,7 +32,33 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
     );
   };
 
-  const handleCreateGroup = async () => {
+  const openCreateGroup = () => {
+    setGroupName('');
+    setLeaderId('');
+    setSelectedFollowers([]);
+    setEditingGroupId(null);
+    setShowAddGroup(true);
+  };
+
+  const openEditGroup = (g) => {
+    setGroupName(g.name);
+    setLeaderId(g.leaderAccountId);
+    setSelectedFollowers(g.followerAccountIds || []);
+    setEditingGroupId(g.id);
+    setShowAddGroup(true);
+  };
+
+  const closeGroupSheet = () => {
+    setShowAddGroup(false);
+    setTimeout(() => {
+      setGroupName('');
+      setLeaderId('');
+      setSelectedFollowers([]);
+      setEditingGroupId(null);
+    }, 300);
+  };
+
+  const handleSaveGroup = async () => {
     if (!groupName.trim()) {
       addToast('Please enter a group name.', 'error');
       return;
@@ -42,21 +69,26 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
     }
 
     try {
-      const newGroup = {
-        id: `group-${Date.now()}`,
+      const payload = {
         name: groupName.trim(),
         leaderAccountId: leaderId,
         followerAccountIds: selectedFollowers
       };
-      await db.groups.add(newGroup);
-      addToast('Group created.', 'success');
-      setShowAddGroup(false);
-      // Reset
-      setGroupName('');
-      setLeaderId('');
-      setSelectedFollowers([]);
+
+      if (editingGroupId) {
+        await db.groups.update(editingGroupId, payload);
+        addToast('Group updated.', 'success');
+      } else {
+        const newGroup = {
+          id: `group-${Date.now()}`,
+          ...payload
+        };
+        await db.groups.add(newGroup);
+        addToast('Group created.', 'success');
+      }
+      closeGroupSheet();
     } catch (err) {
-      addToast('Failed to create group.', 'error');
+      addToast(editingGroupId ? 'Failed to update group.' : 'Failed to create group.', 'error');
     }
   };
 
@@ -72,7 +104,7 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>copy groups.</h1>
           </div>
           <button
-            onClick={() => setShowAddGroup(true)}
+            onClick={openCreateGroup}
             style={{
               background: '#fff',
               border: 'none',
@@ -189,27 +221,46 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
                           </div>
 
                           {/* Actions */}
-                          <button
-                            onClick={() => handleDeleteGroup(g.id)}
-                            style={{
-                              alignSelf: 'flex-end',
-                              background: 'rgba(255,69,58,0.1)',
-                              border: 'none',
-                              color: '#ff453a',
-                              borderRadius: 8,
-                              padding: '6px 12px',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              cursor: 'pointer',
-                              marginTop: 4
-                            }}
-                          >
-                            <Trash2 size={12} />
-                            Delete Group
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                            <button
+                              onClick={() => openEditGroup(g)}
+                              style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#fff',
+                                borderRadius: 8,
+                                padding: '6px 12px',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Edit2 size={12} />
+                              Edit Group
+                            </button>
+                            <button
+                              onClick={() => handleDeleteGroup(g.id)}
+                              style={{
+                                background: 'rgba(255,69,58,0.1)',
+                                border: 'none',
+                                color: '#ff453a',
+                                borderRadius: 8,
+                                padding: '6px 12px',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={12} />
+                              Delete Group
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -232,7 +283,7 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowAddGroup(false)}
+            onClick={closeGroupSheet}
             className="bottom-sheet-overlay"
             style={{ zIndex: 1200 }}
           >
@@ -248,8 +299,8 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
               <div className="sheet-handle" />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
-                <span style={{ fontSize: 17, fontWeight: 700 }}>Create Copy Group</span>
-                <button onClick={() => setShowAddGroup(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                <span style={{ fontSize: 17, fontWeight: 700 }}>{editingGroupId ? 'Edit Copy Group' : 'Create Copy Group'}</span>
+                <button onClick={closeGroupSheet} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
                   <X size={20} />
                 </button>
               </div>
@@ -334,7 +385,7 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
               {/* Action Button */}
               <div style={{ padding: '0 20px 20px' }}>
                 <button
-                  onClick={handleCreateGroup}
+                  onClick={handleSaveGroup}
                   disabled={!groupName.trim() || !leaderId}
                   style={{
                     width: '100%',
@@ -352,7 +403,7 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
                   }}
                 >
                   <Save size={16} />
-                  Create Group
+                  {editingGroupId ? 'Save Changes' : 'Create Group'}
                 </button>
               </div>
             </motion.div>
