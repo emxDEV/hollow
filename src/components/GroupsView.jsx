@@ -330,7 +330,8 @@ export default function GroupsView() {
             
             // Gather details of accounts in the group
             const leaderAcc = accounts.find(a => a.id === group.leaderAccountId);
-            const followerAccs = accounts.filter(a => (group.followerAccountIds || []).includes(a.id));
+            const cleanFollowerIds = (group.followerAccountIds || []).map(fId => fId.split(':')[0]);
+            const followerAccs = accounts.filter(a => cleanFollowerIds.includes(a.id));
             const allGroupAccs = [leaderAcc, ...followerAccs].filter(Boolean);
             const groupTotalBalance = allGroupAccs.reduce((sum, a) => sum + (a.balance || 0), 0);
 
@@ -460,7 +461,26 @@ export default function GroupsView() {
                                     <Crown size={12} fill="#ffffff" /> Leader
                                   </div>
                                 ) : (
-                                  <span style={{ color: 'var(--colors-mute)' }}>Follower</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ color: 'var(--colors-mute)' }}>Follower</span>
+                                    {(() => {
+                                      const fItem = (group.followerAccountIds || []).find(f => f.startsWith(acc.id + ':'));
+                                      const mult = fItem ? parseFloat(fItem.split(':')[1]) : 1;
+                                      return mult > 1 ? (
+                                        <span style={{ 
+                                          fontSize: '9px', 
+                                          color: '#ff9500', 
+                                          background: 'rgba(255, 149, 0, 0.1)', 
+                                          border: '1px solid rgba(255, 149, 0, 0.2)', 
+                                          borderRadius: '4px', 
+                                          padding: '1px 5px',
+                                          fontWeight: '700'
+                                        }}>
+                                          {mult}x mult
+                                        </span>
+                                      ) : null;
+                                    })()}
+                                  </div>
                                 )}
                               </td>
                               <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#fff' }}>
@@ -505,7 +525,22 @@ function ManageGroupModal({ isOpen, onClose, group, accounts, groups }) {
   // Modal configuration states
   const [groupName, setGroupName] = useState(group ? group.name : '');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFollowerIds, setSelectedFollowerIds] = useState(group ? (group.followerAccountIds || []) : []);
+  const [selectedFollowerIds, setSelectedFollowerIds] = useState(() => {
+    if (!group || !group.followerAccountIds) return [];
+    return group.followerAccountIds.map(f => f.split(':')[0]);
+  });
+  const [followerMultipliers, setFollowerMultipliers] = useState(() => {
+    const mults = {};
+    if (group && group.followerAccountIds) {
+      group.followerAccountIds.forEach(f => {
+        const parts = f.split(':');
+        const accId = parts[0];
+        const mult = parts[1] ? parseFloat(parts[1]) : 1;
+        mults[accId] = isNaN(mult) ? 1 : mult;
+      });
+    }
+    return mults;
+  });
   const [leaderId, setLeaderId] = useState(group ? (group.leaderAccountId || '') : '');
 
   // ID of the account currently being dragged
@@ -624,7 +659,7 @@ function ManageGroupModal({ isOpen, onClose, group, accounts, groups }) {
   const getExistingGroupName = (accId) => {
     const matchedGroup = groups.find(g => 
       g.id !== (group ? group.id : null) && 
-      (g.leaderAccountId === accId || (g.followerAccountIds || []).includes(accId))
+      (g.leaderAccountId === accId || (g.followerAccountIds || []).map(f => f.split(':')[0]).includes(accId))
     );
     return matchedGroup ? matchedGroup.name : null;
   };
@@ -735,7 +770,7 @@ function ManageGroupModal({ isOpen, onClose, group, accounts, groups }) {
     const payload = {
       name: groupName.trim(),
       leaderAccountId: leaderId,
-      followerAccountIds: selectedFollowerIds
+      followerAccountIds: selectedFollowerIds.map(fId => `${fId}:${followerMultipliers[fId] || 1}`)
     };
 
     try {
@@ -1128,6 +1163,35 @@ function ManageGroupModal({ isOpen, onClose, group, accounts, groups }) {
                             Bal: ${followerAcc?.balance ? followerAcc.balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
                           </span>
                         </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px' }}>
+                        <span style={{ fontSize: '9px', color: 'var(--colors-stone)', textTransform: 'uppercase' }}>Multiplier:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={followerMultipliers[fId] || 1}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setFollowerMultipliers(prev => ({
+                              ...prev,
+                              [fId]: Math.max(1, Math.min(100, isNaN(val) ? 1 : val))
+                            }));
+                          }}
+                          style={{
+                            width: '36px',
+                            height: '20px',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            borderRadius: '4px',
+                            color: '#fff',
+                            fontSize: '10px',
+                            textAlign: 'center',
+                            outline: 'none'
+                          }}
+                        />
+                        <span style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: 'bold' }}>x</span>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

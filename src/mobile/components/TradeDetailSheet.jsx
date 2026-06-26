@@ -56,7 +56,7 @@ export default function TradeDetailSheet({
     if (!trade) return '—';
     const acc = accounts.find(a => a.id === trade.accountId);
     if (!acc) return '—';
-    const grp = groups.find(g => g.id === trade.accountId || g.leaderAccountId === acc.id || g.followerAccountIds?.includes(acc.id));
+    const grp = groups.find(g => g.id === trade.accountId || g.leaderAccountId === acc.id || g.followerAccountIds?.map(f => f.split(':')[0]).includes(acc.id));
     if (grp) return `${acc.name} (${grp.name})`;
     return acc.name;
   }, [trade, accounts, groups]);

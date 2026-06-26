@@ -98,7 +98,10 @@ export default function HomeView({
     if (selectedAccountId.startsWith('group-')) {
       const selectedGroup = groups.find(g => g.id === selectedAccountId);
       if (selectedGroup) {
-        const groupAccs = [selectedGroup.leaderAccountId, ...(selectedGroup.followerAccountIds || [])].filter(Boolean);
+        const groupAccs = [
+          selectedGroup.leaderAccountId,
+          ...(selectedGroup.followerAccountIds || []).map(f => f.split(':')[0])
+        ].filter(Boolean);
         return trades.filter(t => groupAccs.includes(t.accountId));
       }
     }

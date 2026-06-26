@@ -510,30 +510,44 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       const savedManualPnL = manualPnL;
 
 
-      // Determine target account IDs
-      let targetAccountIds = [];
+      // Determine target accounts and their multipliers
+      let targets = [];
       if (targetType === 'group') {
         const selectedGroup = groups.find(g => g.id === targetAccountId);
         if (selectedGroup) {
-          targetAccountIds = [
-            selectedGroup.leaderAccountId,
-            ...(selectedGroup.followerAccountIds || [])
-          ].filter(Boolean);
+          if (selectedGroup.leaderAccountId) {
+            targets.push({ id: selectedGroup.leaderAccountId, multiplier: 1 });
+          }
+          if (selectedGroup.followerAccountIds) {
+            selectedGroup.followerAccountIds.forEach(fStr => {
+              if (fStr) {
+                const parts = fStr.split(':');
+                const accId = parts[0];
+                const mult = parts[1] ? parseFloat(parts[1]) : 1;
+                targets.push({ id: accId, multiplier: isNaN(mult) ? 1 : mult });
+              }
+            });
+          }
         }
       } else {
-        targetAccountIds = [targetAccountId];
+        targets = [{ id: targetAccountId, multiplier: 1 }];
       }
 
-      if (targetAccountIds.length === 0) {
+      if (targets.length === 0) {
         showToast('No valid accounts found for this target.', 'error');
         setSaving(false);
         return;
       }
 
       await db.transaction('rw', db.trades, db.executions, async () => {
-        for (let i = 0; i < targetAccountIds.length; i++) {
-          const accId = targetAccountIds[i];
+        for (let i = 0; i < targets.length; i++) {
+          const { id: accId, multiplier } = targets[i];
           const finalTradeId = `trade-${Date.now()}-${accId}-${i}`;
+
+          const followerPnL = pnlVal * multiplier;
+          const followerContracts = 1 * multiplier;
+          const followerCommissions = 2.40 * multiplier;
+          const exitPrice = entryPrice + ((followerPnL + (followerCommissions * 2)) / (followerContracts * mult * biasFactor));
 
           const tradeObj = {
             id: finalTradeId,
@@ -547,7 +561,9 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             setupRating: rating.toUpperCase(),
             wl: outcome,
             rr: 0,
-            manualPnL: savedManualPnL,
+            manualPnL: savedManualPnL && !isNaN(parseFloat(savedManualPnL)) 
+              ? (parseFloat(savedManualPnL) * multiplier).toString() 
+              : savedManualPnL,
             session: session || 'NY AM',
             tp: null,
             sl: null,
@@ -573,14 +589,10 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             timestamp: mockExecTime,
             side: bias === 'LONG' ? 'BUY' : 'SELL',
             price: entryPrice,
-            contracts: 1,
-            commissions: 2.40,
+            contracts: followerContracts,
+            commissions: followerCommissions,
             type: 'ENTRY'
           };
-
-          const mult = finalSymbol === 'NQ' ? 20 : finalSymbol === 'ES' ? 50 : finalSymbol === 'GC' ? 100 : finalSymbol === 'CL' ? 1000 : finalSymbol === 'EURUSD' ? 100000 : 100;
-          const biasFactor = bias === 'LONG' ? 1 : -1;
-          const exitPrice = entryPrice + ((pnlVal + 4.80) / (1 * mult * biasFactor));
 
           const exitExec = {
             id: `exec-exit-${Date.now() + 1}-${accId}-${i}`,
@@ -588,8 +600,8 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             timestamp: new Date(`${date}T10:15:00`).toISOString(),
             side: bias === 'LONG' ? 'SELL' : 'BUY',
             price: exitPrice,
-            contracts: 1,
-            commissions: 2.40,
+            contracts: followerContracts,
+            commissions: followerCommissions,
             type: 'EXIT'
           };
 

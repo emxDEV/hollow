@@ -26,10 +26,56 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
     }
   };
 
+  const getFollowerIndex = (accId) => {
+    return selectedFollowers.findIndex(f => f === accId || f.startsWith(accId + ':'));
+  };
+
+  const isFollowerSelected = (accId) => {
+    return getFollowerIndex(accId) !== -1;
+  };
+
+  const getMultiplierValue = (accId) => {
+    const idx = getFollowerIndex(accId);
+    if (idx === -1) return 1;
+    const item = selectedFollowers[idx];
+    if (item.includes(':')) {
+      const mult = parseInt(item.split(':')[1]);
+      return isNaN(mult) ? 1 : mult;
+    }
+    return 1;
+  };
+
   const handleToggleFollower = (accId) => {
-    setSelectedFollowers(prev => 
-      prev.includes(accId) ? prev.filter(id => id !== accId) : [...prev, accId]
-    );
+    const idx = getFollowerIndex(accId);
+    setSelectedFollowers(prev => {
+      if (idx !== -1) {
+        return prev.filter((_, i) => i !== idx);
+      } else {
+        return [...prev, `${accId}:1`];
+      }
+    });
+  };
+
+  const handleUpdateMultiplier = (accId, delta) => {
+    setSelectedFollowers(prev => prev.map(f => {
+      if (f === accId || f.startsWith(accId + ':')) {
+        const parts = f.split(':');
+        const currentMult = parts[1] ? parseInt(parts[1]) : 1;
+        const newMult = Math.max(1, Math.min(100, (isNaN(currentMult) ? 1 : currentMult) + delta));
+        return `${accId}:${newMult}`;
+      }
+      return f;
+    }));
+  };
+
+  const handleSetMultiplier = (accId, val) => {
+    const cleanVal = Math.max(1, Math.min(100, isNaN(val) ? 1 : val));
+    setSelectedFollowers(prev => prev.map(f => {
+      if (f === accId || f.startsWith(accId + ':')) {
+        return `${accId}:${cleanVal}`;
+      }
+      return f;
+    }));
   };
 
   const openCreateGroup = () => {
@@ -206,11 +252,21 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                               {g.followerAccountIds && g.followerAccountIds.length > 0 ? (
                                 g.followerAccountIds.map(fId => {
-                                  const fAcc = accounts.find(a => a.id === fId);
+                                  const parts = fId.split(':');
+                                  const actualId = parts[0];
+                                  const mult = parts[1] ? parseFloat(parts[1]) : 1;
+                                  const fAcc = accounts.find(a => a.id === actualId);
                                   return (
-                                    <div key={fId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)' }}>
-                                      <CreditCard size={14} color="rgba(255,255,255,0.4)" />
-                                      <span style={{ fontSize: 13, color: '#fff' }}>{fAcc ? fAcc.name : 'Unknown'}</span>
+                                    <div key={fId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 8, background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <CreditCard size={14} color="rgba(255,255,255,0.4)" />
+                                        <span style={{ fontSize: 13, color: '#fff' }}>{fAcc ? fAcc.name : 'Unknown'}</span>
+                                      </div>
+                                      {mult > 1 && (
+                                        <span style={{ fontSize: 11, color: '#ff9500', fontWeight: 700, paddingRight: 4 }}>
+                                          {mult}x mult
+                                        </span>
+                                      )}
                                     </div>
                                   );
                                 })
@@ -342,15 +398,16 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Follower Accounts</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {accounts.filter(a => a.id !== leaderId).map(a => {
-                      const selected = selectedFollowers.includes(a.id);
+                      const selected = isFollowerSelected(a.id);
+                      const mult = getMultiplierValue(a.id);
                       return (
                         <div
                           key={a.id}
                           onClick={() => handleToggleFollower(a.id)}
                           style={{
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
+                            flexDirection: 'column',
+                            gap: 8,
                             padding: '12px 14px',
                             background: selected ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
                             borderRadius: 12,
@@ -359,19 +416,97 @@ export default function MobileGroupsView({ accounts, addToast, onBack }) {
                             cursor: 'pointer'
                           }}
                         >
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{a.name}</span>
-                          <div style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 6,
-                            border: '2px solid rgba(255,255,255,0.2)',
-                            background: selected ? '#fff' : 'transparent',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
-                            {selected && <div style={{ width: 8, height: 8, borderRadius: 1.5, background: '#000' }} />}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{a.name}</span>
+                            <div style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 6,
+                              border: '2px solid rgba(255,255,255,0.2)',
+                              background: selected ? '#fff' : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              {selected && <div style={{ width: 8, height: 8, borderRadius: 1.5, background: '#000' }} />}
+                            </div>
                           </div>
+
+                          {selected && (
+                            <div 
+                              onClick={e => e.stopPropagation()}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                borderTop: '1px solid rgba(255,255,255,0.08)',
+                                paddingTop: 8,
+                                marginTop: 2
+                              }}
+                            >
+                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Multiplier:</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button 
+                                  onClick={() => handleUpdateMultiplier(a.id, -1)}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 6,
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    color: '#fff',
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="100"
+                                  value={mult}
+                                  onChange={e => handleSetMultiplier(a.id, parseInt(e.target.value))}
+                                  style={{
+                                    width: 44,
+                                    height: 24,
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    borderRadius: 6,
+                                    color: '#fff',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    textAlign: 'center',
+                                    outline: 'none'
+                                  }}
+                                />
+                                <button 
+                                  onClick={() => handleUpdateMultiplier(a.id, 1)}
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 6,
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    color: '#fff',
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  +
+                                </button>
+                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>x</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
