@@ -11,7 +11,8 @@ import {
   ChevronUp,
   Users,
   Dumbbell,
-  CircleDollarSign
+  CircleDollarSign,
+  Image
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HollowLogo from './HollowLogo';
@@ -26,7 +27,8 @@ export default function Sidebar({
   setSidebarCollapsed,
   onAddTradeClick,
   isMobile = false,
-  onClose
+  onClose,
+  onExitApp
 }) {
 
   const handleTabClick = (viewId) => {
@@ -43,6 +45,7 @@ export default function Sidebar({
     { id: 'stats', label: 'performance stats.', icon: <LineChart size={18} /> },
     { id: 'payouts', label: 'payouts.', icon: <CircleDollarSign size={18} /> },
     { id: 'weeklyReview', label: 'weekly review.', icon: <ClipboardCheck size={18} /> },
+    { id: 'gallery', label: 'trade gallery.', icon: <Image size={18} /> },
     { id: 'groups', label: 'groups.', icon: <Users size={18} /> }
   ];
 

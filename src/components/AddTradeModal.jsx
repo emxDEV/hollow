@@ -580,7 +580,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             commentFazit: `Logged via PC.`,
             sentimentPre,
             sentimentPost,
-            images: [imageLTF, imageMTF, imageHTF].filter(Boolean),
+            images: [imageLTF || null, imageMTF || null, imageHTF || null],
             imageAnnotations: {}
           };
 

@@ -534,7 +534,7 @@ export default function TradeDetailSheet({
       sentimentPost: form.sentimentPost,
       commentBias: form.commentBias, // trade name
       commentExecution: form.commentExecution, // reflections
-      images: [form.imageLTF, form.imageMTF, form.imageHTF].filter(Boolean),
+      images: [form.imageLTF || null, form.imageMTF || null, form.imageHTF || null],
     };
     await onSaveTrade(updatedTrade);
     setEditing(false);

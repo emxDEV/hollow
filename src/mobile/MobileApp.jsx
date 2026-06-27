@@ -16,6 +16,7 @@ import MobileTrainingJournalView from './views/MobileTrainingJournalView';
 import MobileGroupsView from './views/MobileGroupsView';
 import MobileAccountsView from './views/MobileAccountsView';
 import MobilePayoutsView from './views/MobilePayoutsView';
+import MobileGalleryView from './views/MobileGalleryView';
 import MobileBottomNav from './components/MobileBottomNav';
 import AddTradeSheet from './components/AddTradeSheet';
 import TradeDetailSheet from './components/TradeDetailSheet';
@@ -490,6 +491,20 @@ export default function MobileApp() {
             style={{ position: 'fixed', inset: 0, zIndex: 1100 }}
           >
             <MobilePayoutsView
+              {...viewProps}
+              onBack={() => setSubView(null)}
+            />
+          </motion.div>
+        )}
+        {subView === 'gallery' && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 1100 }}
+          >
+            <MobileGalleryView
               {...viewProps}
               onBack={() => setSubView(null)}
             />

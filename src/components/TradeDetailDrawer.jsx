@@ -430,7 +430,7 @@ export default function TradeDetailDrawer({
       reader.onloadend = async () => {
         const base64Str = reader.result;
         const updatedImages = trade.images ? [...trade.images] : [];
-        const indexMap = { HTF: 0, MTF: 1, LTF: 2 };
+        const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
         updatedImages[indexMap[type]] = base64Str;
         await db.trades.update(trade.id, { images: updatedImages });
       };
@@ -439,7 +439,7 @@ export default function TradeDetailDrawer({
   };
 
   const getSnapshotImage = (type) => {
-    const indexMap = { HTF: 0, MTF: 1, LTF: 2 };
+    const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
     return trade.images ? trade.images[indexMap[type]] : null;
   };
 

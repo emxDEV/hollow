@@ -557,7 +557,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             commentFazit: `Logged via mobile.`,
             sentimentPre,
             sentimentPost,
-            images: [imageLTF, imageMTF, imageHTF].filter(Boolean),
+            images: [imageLTF || null, imageMTF || null, imageHTF || null],
             imageAnnotations: {}
           };
 
