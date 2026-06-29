@@ -18,7 +18,11 @@ export default function GalleryView() {
   // Helper to extract LTF image robustly (with fallback for legacy formats)
   const getLTFImage = (trade) => {
     if (!trade || !Array.isArray(trade.images) || trade.images.length === 0) return null;
-    return trade.images[0] || trade.images[1] || trade.images[2] || null;
+    const getFirst = (val) => {
+      if (!val) return null;
+      return Array.isArray(val) ? (val[0] || null) : val;
+    };
+    return getFirst(trade.images[0]) || getFirst(trade.images[1]) || getFirst(trade.images[2]) || null;
   };
 
   // Filtered and sorted gallery trades

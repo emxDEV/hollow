@@ -132,9 +132,9 @@ export default function TradeDetailSheet({
         entryTf: trade.entryTf || '',
         dol: trade.dol || '',
         session: trade.session || 'NY AM',
-        imageLTF: trade.images?.[0] || null,
-        imageMTF: trade.images?.[1] || null,
-        imageHTF: trade.images?.[2] || null,
+        imagesLTF: Array.isArray(trade.images?.[0]) ? trade.images[0] : (trade.images?.[0] ? [trade.images[0]] : []),
+        imagesMTF: Array.isArray(trade.images?.[1]) ? trade.images[1] : (trade.images?.[1] ? [trade.images[1]] : []),
+        imagesHTF: Array.isArray(trade.images?.[2]) ? trade.images[2] : (trade.images?.[2] ? [trade.images[2]] : []),
       });
     }
   }, [trade]);
@@ -499,14 +499,25 @@ export default function TradeDetailSheet({
     }
   };
 
-  const handleImageUpload = (e, targetSetter) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm(f => ({ ...f, [targetSetter]: reader.result }));
-      };
-      reader.readAsDataURL(file);
+  const handleImageUpload = (e, fieldKey) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      let loaded = 0;
+      const loadedBase64s = [];
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          loadedBase64s.push(reader.result);
+          loaded++;
+          if (loaded === files.length) {
+            setForm(f => {
+              const currentList = f[fieldKey] || [];
+              return { ...f, [fieldKey]: [...currentList, ...loadedBase64s] };
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
@@ -534,7 +545,7 @@ export default function TradeDetailSheet({
       sentimentPost: form.sentimentPost,
       commentBias: form.commentBias, // trade name
       commentExecution: form.commentExecution, // reflections
-      images: [form.imageLTF || null, form.imageMTF || null, form.imageHTF || null],
+      images: [form.imagesLTF || [], form.imagesMTF || [], form.imagesHTF || []],
     };
     await onSaveTrade(updatedTrade);
     setEditing(false);
@@ -1378,51 +1389,72 @@ export default function TradeDetailSheet({
                     style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
                   >
                     {[
-                      { label: 'lower time frame (ltf)', val: form.imageLTF, key: 'imageLTF' },
-                      { label: 'medium time frame (mtf)', val: form.imageMTF, key: 'imageMTF' },
-                      { label: 'higher time frame (htf)', val: form.imageHTF, key: 'imageHTF' }
-                    ].map(imgField => (
-                      <div key={imgField.label} style={{
-                        border: '1px dashed rgba(255,255,255,0.15)',
-                        borderRadius: 10,
-                        padding: '10px',
-                        textAlign: 'center',
-                        background: imgField.val ? 'rgba(255,255,255,0.02)' : 'transparent',
-                        position: 'relative'
-                      }}>
-                        {imgField.val ? (
-                          <div>
-                            <img src={imgField.val} alt={imgField.label} style={{ width: '100%', maxHeight: 90, objectFit: 'contain', borderRadius: 5 }} />
-                            <button
-                              type="button"
-                              onClick={() => setForm(f => ({ ...f, [imgField.key]: null }))}
-                              style={{
-                                position: 'absolute',
-                                top: 5,
-                                right: 5,
-                                background: 'rgba(255,69,58,0.85)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: 20,
-                                height: 20,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <Trash2 size={9} color="#fff" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label style={{ cursor: 'pointer', display: 'block' }}>
-                            <Upload size={14} color="rgba(255,255,255,0.4)" style={{ margin: '0 auto 4px' }} />
-                            <span style={{ fontSize: 11.5, color: '#fff', fontWeight: 600, display: 'block', textTransform: 'lowercase' }}>upload {imgField.label}</span>
-                            <input type="file" accept="image/*" onChange={e => handleImageUpload(e, imgField.key)} style={{ display: 'none' }} />
+                      { label: 'lower time frame (ltf)', val: form.imagesLTF || [], key: 'imagesLTF' },
+                      { label: 'medium time frame (mtf)', val: form.imagesMTF || [], key: 'imagesMTF' },
+                      { label: 'higher time frame (htf)', val: form.imagesHTF || [], key: 'imagesHTF' }
+                    ].map(imgField => {
+                      const hasImages = imgField.val.length > 0;
+                      return (
+                        <div key={imgField.label} style={{
+                          border: '1px dashed rgba(255,255,255,0.15)',
+                          borderRadius: 10,
+                          padding: '10px',
+                          textAlign: 'center',
+                          background: hasImages ? 'rgba(255,255,255,0.02)' : 'transparent',
+                          position: 'relative',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase' }}>{imgField.label}</div>
+                          
+                          {/* Grid of uploaded images */}
+                          {hasImages && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', maxHeight: '110px', overflowY: 'auto' }}>
+                              {imgField.val.map((url, idx) => (
+                                <div key={idx} style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#070709', borderRadius: '5px', overflow: 'hidden' }}>
+                                  <img src={url} alt={`${imgField.label} thumbnail`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setForm(f => ({
+                                        ...f,
+                                        [imgField.key]: imgField.val.filter((_, i) => i !== idx)
+                                      }));
+                                    }}
+                                    style={{
+                                      position: 'absolute',
+                                      top: 3,
+                                      right: 3,
+                                      background: 'rgba(255,69,58,0.85)',
+                                      border: 'none',
+                                      borderRadius: '50%',
+                                      width: 16,
+                                      height: 16,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      zIndex: 10
+                                    }}
+                                  >
+                                    <Trash2 size={7} color="#fff" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Upload button area */}
+                          <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '8px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '6px', background: 'rgba(255,255,255,0.015)' }}>
+                            <Upload size={12} color="rgba(255,255,255,0.4)" />
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Add image(s)</span>
+                            <input type="file" multiple accept="image/*" onChange={e => handleImageUpload(e, imgField.key)} style={{ display: 'none' }} />
                           </label>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1643,6 +1675,39 @@ export default function TradeDetailSheet({
                   </div>
                 </div>
               )}
+
+              {/* Snapshots Read-Only Selector */}
+              {(() => {
+                const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
+                const allImages = [];
+                ['HTF', 'MTF', 'LTF'].forEach(t => {
+                  const val = trade.images?.[indexMap[t]];
+                  if (val) {
+                    const list = Array.isArray(val) ? val : [val];
+                    list.forEach((url, i) => {
+                      allImages.push({ url, label: `${t.toLowerCase()} #${i + 1}` });
+                    });
+                  }
+                });
+
+                if (allImages.length === 0) return null;
+
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Snapshots</div>
+                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
+                      {allImages.map((img, idx) => (
+                        <div key={idx} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <a href={img.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: 140, height: 80, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </a>
+                          <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>{img.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Delete Area */}
               {confirmDelete ? (

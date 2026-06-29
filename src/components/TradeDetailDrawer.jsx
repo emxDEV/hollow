@@ -51,6 +51,7 @@ export default function TradeDetailDrawer({
 
   // Annotation Canvas State
   const [activeSnapshotType, setActiveSnapshotType] = useState('HTF'); // 'HTF', 'MTF', 'LTF'
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [canvasDrawingMode, setCanvasDrawingMode] = useState('pen'); // 'pen', 'eraser'
   const [brushColor, setBrushColor] = useState('#ffffff');
   const [brushSize, setBrushSize] = useState(4);
@@ -233,7 +234,7 @@ export default function TradeDetailDrawer({
 
     if (!trade) return;
     const annotations = trade.imageAnnotations || {};
-    const strokes = annotations[activeSnapshotType] || [];
+    const strokes = annotations[getAnnotationKey()] || [];
     
     strokes.forEach(stroke => {
       ctx.beginPath();
@@ -265,7 +266,7 @@ export default function TradeDetailDrawer({
         }
       }, 100);
     }
-  }, [activeTab, activeSnapshotType, trade?.imageAnnotations]);
+  }, [activeTab, activeSnapshotType, activeImageIndex, trade?.imageAnnotations]);
 
   if (!trade) {
     return (
@@ -361,7 +362,7 @@ export default function TradeDetailDrawer({
 
     // Save starting point
     const annotations = trade.imageAnnotations || {};
-    const strokes = annotations[activeSnapshotType] || [];
+    const strokes = annotations[getAnnotationKey()] || [];
     const newStroke = {
       tool: canvasDrawingMode,
       color: canvasDrawingMode === 'eraser' ? '#0f0f11' : brushColor,
@@ -369,7 +370,7 @@ export default function TradeDetailDrawer({
       points: [{ x, y }]
     };
     strokes.push(newStroke);
-    annotations[activeSnapshotType] = strokes;
+    annotations[getAnnotationKey()] = strokes;
     trade.imageAnnotations = annotations;
   };
 
@@ -396,11 +397,11 @@ export default function TradeDetailDrawer({
 
     // Append point to active stroke
     const annotations = trade.imageAnnotations || {};
-    const strokes = annotations[activeSnapshotType] || [];
+    const strokes = annotations[getAnnotationKey()] || [];
     if (strokes.length > 0) {
       strokes[strokes.length - 1].points.push({ x, y });
     }
-    annotations[activeSnapshotType] = strokes;
+    annotations[getAnnotationKey()] = strokes;
     trade.imageAnnotations = annotations;
   };
 
@@ -417,30 +418,81 @@ export default function TradeDetailDrawer({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const annotations = trade.imageAnnotations || {};
-    annotations[activeSnapshotType] = [];
+    annotations[getAnnotationKey()] = [];
     trade.imageAnnotations = annotations;
     db.trades.update(trade.id, { imageAnnotations: annotations });
   };
 
   // Image Upload Helper for specific snapshot
   const handleSnapshotUpload = (e, type) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Str = reader.result;
-        const updatedImages = trade.images ? [...trade.images] : [];
-        const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
-        updatedImages[indexMap[type]] = base64Str;
-        await db.trades.update(trade.id, { images: updatedImages });
-      };
-      reader.readAsDataURL(file);
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
+      let loaded = 0;
+      const loadedBase64s = [];
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          loadedBase64s.push(reader.result);
+          loaded++;
+          if (loaded === files.length) {
+            const updatedImages = trade.images ? [...trade.images] : [[], [], []];
+            const currentList = getSnapshotImages(type);
+            const nextList = [...currentList, ...loadedBase64s];
+            updatedImages[indexMap[type]] = nextList;
+            await db.trades.update(trade.id, { images: updatedImages });
+            setActiveImageIndex(nextList.length - 1);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
-  const getSnapshotImage = (type) => {
+  const getSnapshotImages = (type) => {
     const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
-    return trade.images ? trade.images[indexMap[type]] : null;
+    if (!trade || !trade.images) return [];
+    const val = trade.images[indexMap[type]];
+    if (!val) return [];
+    return Array.isArray(val) ? val : [val];
+  };
+
+  const getSnapshotImage = (type) => {
+    const list = getSnapshotImages(type);
+    return list[activeImageIndex] || null;
+  };
+
+  const getAnnotationKey = () => {
+    return activeImageIndex === 0 ? activeSnapshotType : `${activeSnapshotType}_${activeImageIndex}`;
+  };
+
+  const handleDeleteImage = async () => {
+    const indexMap = { LTF: 0, MTF: 1, HTF: 2 };
+    const currentList = getSnapshotImages(activeSnapshotType);
+    if (currentList.length === 0) return;
+    const nextList = currentList.filter((_, idx) => idx !== activeImageIndex);
+    const updatedImages = trade.images ? [...trade.images] : [[], [], []];
+    updatedImages[indexMap[activeSnapshotType]] = nextList;
+
+    // Clean up and shift annotations
+    const annotations = trade.imageAnnotations ? { ...trade.imageAnnotations } : {};
+    const keyToDelete = getAnnotationKey();
+    delete annotations[keyToDelete];
+    
+    for (let i = activeImageIndex + 1; i <= currentList.length; i++) {
+      const oldKey = `${activeSnapshotType}_${i}`;
+      const newKey = i - 1 === 0 ? activeSnapshotType : `${activeSnapshotType}_${i - 1}`;
+      if (annotations[oldKey]) {
+        annotations[newKey] = annotations[oldKey];
+        delete annotations[oldKey];
+      }
+    }
+
+    await db.trades.update(trade.id, {
+      images: updatedImages,
+      imageAnnotations: annotations
+    });
+    setActiveImageIndex(Math.max(0, activeImageIndex - 1));
   };
 
   const finalSymbolDisplay = symbol === 'CUSTOM' ? (customSymbol || 'CUSTOM') : symbol;
@@ -1036,11 +1088,14 @@ export default function TradeDetailDrawer({
             <div style={styles.tabContent}>
               
               {/* Snapshot Category selector */}
-              <div style={styles.snapshotTypeTabs}>
+               <div style={styles.snapshotTypeTabs}>
                 {['HTF', 'MTF', 'LTF'].map(t => (
                   <button
                     key={t}
-                    onClick={() => setActiveSnapshotType(t)}
+                    onClick={() => {
+                      setActiveSnapshotType(t);
+                      setActiveImageIndex(0);
+                    }}
                     style={{
                       ...styles.snapshotTabItem,
                       background: activeSnapshotType === t ? '#2c2c2e' : 'rgba(255,255,255,0.02)',
@@ -1051,6 +1106,82 @@ export default function TradeDetailDrawer({
                     {isMobile ? t : `${t} Chart Frame`}
                   </button>
                 ))}
+              </div>
+
+              {/* Snapshot image thumbnail list & actions */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', margin: '0 0 12px 0', overflowX: 'auto', paddingBottom: '4px' }}>
+                {getSnapshotImages(activeSnapshotType).map((img, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => setActiveImageIndex(idx)}
+                    style={{
+                      position: 'relative',
+                      width: '50px',
+                      height: '35px',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      border: activeImageIndex === idx ? '2px solid #fff' : '1px solid rgba(255,255,255,0.1)',
+                      boxSizing: 'border-box',
+                      flexShrink: 0
+                    }}
+                  >
+                    <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteImage();
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        background: 'rgba(255,69,58,0.85)',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 12,
+                        height: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        zIndex: 10
+                      }}
+                      title="Delete this image"
+                    >
+                      <Trash2 size={6} color="#fff" />
+                    </button>
+                  </div>
+                ))}
+                
+                {/* Upload button to add another image */}
+                <label 
+                  style={{
+                    width: '50px',
+                    height: '35px',
+                    borderRadius: '6px',
+                    border: '1px dashed rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.02)',
+                    flexShrink: 0,
+                    fontSize: '11px',
+                    color: 'rgba(255,255,255,0.45)'
+                  }}
+                  title="Upload more charts"
+                >
+                  <Plus size={12} />
+                  <input 
+                    type="file" 
+                    multiple 
+                    accept="image/*" 
+                    onChange={e => handleSnapshotUpload(e, activeSnapshotType)} 
+                    style={{ display: 'none' }}
+                  />
+                </label>
               </div>
 
               {/* Drawing Toolbar Overlay */}
@@ -1153,6 +1284,7 @@ export default function TradeDetailDrawer({
                       Upload Snap
                       <input 
                         type="file" 
+                        multiple
                         accept="image/*" 
                         onChange={e => handleSnapshotUpload(e, activeSnapshotType)} 
                         style={{ display: 'none' }}

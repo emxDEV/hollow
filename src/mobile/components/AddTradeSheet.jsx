@@ -145,9 +145,9 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
   const [sentimentPost, setSentimentPost] = useState(3);
 
   // Form State Page 3: Snapshot uploads
-  const [imageLTF, setImageLTF] = useState(null);
-  const [imageMTF, setImageMTF] = useState(null);
-  const [imageHTF, setImageHTF] = useState(null);
+  const [imagesLTF, setImagesLTF] = useState([]);
+  const [imagesMTF, setImagesMTF] = useState([]);
+  const [imagesHTF, setImagesHTF] = useState([]);
   
   const [saving, setSaving] = useState(false);
 
@@ -444,14 +444,22 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
     setCustomMistake('');
   };
 
-  const handleImageUpload = (e, targetSetter) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        targetSetter(reader.result);
-      };
-      reader.readAsDataURL(file);
+  const handleImageUpload = (e, targetSetter, currentVal = []) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      let loaded = 0;
+      const loadedBase64s = [];
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          loadedBase64s.push(reader.result);
+          loaded++;
+          if (loaded === files.length) {
+            targetSetter([...currentVal, ...loadedBase64s]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
@@ -564,7 +572,7 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
             commentFazit: `Logged via mobile.`,
             sentimentPre,
             sentimentPost,
-            images: [imageLTF || null, imageMTF || null, imageHTF || null],
+            images: [imagesLTF, imagesMTF, imagesHTF],
             imageAnnotations: {}
           };
 
@@ -1678,50 +1686,69 @@ export default function AddTradeSheet({ onClose, selectedAccountId, addToast }) 
                 style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
               >
                 {[
-                  { label: 'lower time frame (ltf)', val: imageLTF, setter: setImageLTF },
-                  { label: 'medium time frame (mtf)', val: imageMTF, setter: setImageMTF },
-                  { label: 'higher time frame (htf)', val: imageHTF, setter: setImageHTF }
-                ].map(imgField => (
-                  <div key={imgField.label} style={{
-                    border: '1px dashed rgba(255,255,255,0.15)',
-                    borderRadius: 10,
-                    padding: '10px',
-                    textAlign: 'center',
-                    background: imgField.val ? 'rgba(255,255,255,0.02)' : 'transparent',
-                    position: 'relative'
-                  }}>
-                    {imgField.val ? (
-                      <div>
-                        <img src={imgField.val} alt={imgField.label} style={{ width: '100%', maxHeight: 90, objectFit: 'contain', borderRadius: 5 }} />
-                        <button
-                          onClick={() => imgField.setter(null)}
-                          style={{
-                            position: 'absolute',
-                            top: 5,
-                            right: 5,
-                            background: 'rgba(255,69,58,0.85)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: 20,
-                            height: 20,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Trash2 size={9} color="#fff" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label style={{ cursor: 'pointer', display: 'block' }}>
-                        <Upload size={14} color="rgba(255,255,255,0.4)" style={{ margin: '0 auto 4px' }} />
-                        <span style={{ fontSize: 11.5, color: '#fff', fontWeight: 600, display: 'block', textTransform: 'lowercase' }}>upload {imgField.label}</span>
-                        <input type="file" accept="image/*" onChange={e => handleImageUpload(e, imgField.setter)} style={{ display: 'none' }} />
+                  { label: 'lower time frame (ltf)', val: imagesLTF, setter: setImagesLTF },
+                  { label: 'medium time frame (mtf)', val: imagesMTF, setter: setImagesMTF },
+                  { label: 'higher time frame (htf)', val: imagesHTF, setter: setImagesHTF }
+                ].map(imgField => {
+                  const hasImages = imgField.val.length > 0;
+                  return (
+                    <div key={imgField.label} style={{
+                      border: '1px dashed rgba(255,255,255,0.15)',
+                      borderRadius: 10,
+                      padding: '10px',
+                      textAlign: 'center',
+                      background: hasImages ? 'rgba(255,255,255,0.02)' : 'transparent',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'lowercase' }}>{imgField.label}</div>
+                      
+                      {/* Grid of uploaded images */}
+                      {hasImages && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', maxHeight: '110px', overflowY: 'auto' }}>
+                          {imgField.val.map((url, idx) => (
+                            <div key={idx} style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#070709', borderRadius: '5px', overflow: 'hidden' }}>
+                              <img src={url} alt={`${imgField.label} thumbnail`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  imgField.setter(imgField.val.filter((_, i) => i !== idx));
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: 3,
+                                  right: 3,
+                                  background: 'rgba(255,69,58,0.85)',
+                                  border: 'none',
+                                  borderRadius: '50%',
+                                  width: 16,
+                                  height: 16,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  zIndex: 10
+                                }}
+                              >
+                                <Trash2 size={7} color="#fff" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Upload button area */}
+                      <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '8px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '6px', background: 'rgba(255,255,255,0.015)' }}>
+                        <Upload size={12} color="rgba(255,255,255,0.4)" />
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Add image(s)</span>
+                        <input type="file" multiple accept="image/*" onChange={e => handleImageUpload(e, imgField.setter, imgField.val)} style={{ display: 'none' }} />
                       </label>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </motion.div>
             )}
 
