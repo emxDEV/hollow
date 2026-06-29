@@ -1234,11 +1234,9 @@ export default function HomeView({
                 }
 
                 const hasTrades = day.tradesCount > 0;
-                const tradesForDay = enriched.filter(t => t.date === day.dateString);
-                const hasBETrade = tradesForDay.some(t => isTradeBE(t));
-                const isStrictBE = hasTrades && (day.netPnL === 0 || hasBETrade);
-                const isGain = hasTrades && !isStrictBE && day.netPnL > 0;
-                const isLoss = hasTrades && !isStrictBE && day.netPnL < 0;
+                const isStrictBE = hasTrades && day.netPnL === 0;
+                const isGain = hasTrades && day.netPnL > 0;
+                const isLoss = hasTrades && day.netPnL < 0;
                 const isSelected = selectedDate === day.dateString;
 
                 let bg = 'rgba(255, 255, 255, 0.02)';

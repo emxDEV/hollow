@@ -2081,11 +2081,9 @@ export default function DashboardView({
 
                       // A day is considered "BE" if the netPnL is exactly 0 and it has trades, 
                       // OR if at least one trade in the day has an outcome classified as BE.
-                      const tradesForDay = filteredAccountTrades.filter(t => t.date === day.dateString);
-                      const hasBETrade = tradesForDay.some(t => isTradeBE(t));
-                      const isStrictBE = hasTrades && (day.netPnL === 0 || hasBETrade);
-                      const isGain = hasTrades && !isStrictBE && day.netPnL > 0;
-                      const isLoss = hasTrades && !isStrictBE && day.netPnL < 0;
+                      const isStrictBE = hasTrades && day.netPnL === 0;
+                      const isGain = hasTrades && day.netPnL > 0;
+                      const isLoss = hasTrades && day.netPnL < 0;
 
                       let bg = isHovered ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.015)';
                       let border = '1px solid rgba(255, 255, 255, 0.03)';

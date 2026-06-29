@@ -45,6 +45,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
   const isGroupInit = selectedAccountId && selectedAccountId.startsWith('group-');
   const [targetType, setTargetType] = useState(isGroupInit ? 'group' : 'account');
   const [targetAccountId, setTargetAccountId] = useState(selectedAccountId || 'acc-funded-1');
+  const [selectedAccountIds, setSelectedAccountIds] = useState([]);
   const [showAccDropdown, setShowAccDropdown] = useState(false);
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -145,6 +146,7 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       setTargetAccountId(defaultId);
       const isGroupInit = defaultId && defaultId.startsWith('group-');
       setTargetType(isGroupInit ? 'group' : 'account');
+      setSelectedAccountIds(isGroupInit ? [] : [defaultId]);
       setShowAccDropdown(false);
       
       const savedSymbols = localStorage.getItem('hollow_pill_symbols');
@@ -529,6 +531,10 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
             });
           }
         }
+      } else if (targetType === 'multiple') {
+        selectedAccountIds.forEach(accId => {
+          targets.push({ id: accId, multiplier: 1 });
+        });
       } else {
         targets = [{ id: targetAccountId, multiplier: 1 }];
       }
@@ -636,6 +642,11 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
       selectedAccountType = 'group';
       activeColor = getAccountColor('group');
     }
+  } else if (targetType === 'multiple') {
+    const names = selectedAccountIds.map(id => accounts.find(a => a.id === id)?.name).filter(Boolean);
+    selectedName = names.length > 2 ? `${names.length} accounts` : names.join(', ');
+    selectedAccountType = 'multiple';
+    activeColor = '#bf5af2';
   } else {
     const currentAcc = accounts.find(acc => acc.id === targetAccountId);
     if (currentAcc) {
@@ -825,7 +836,9 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                                   accounts
                                 </div>
                                 {accounts.map(acc => {
-                                  const isCurrent = targetType === 'account' && targetAccountId === acc.id;
+                                  const isSelected = targetType === 'multiple' 
+                                    ? selectedAccountIds.includes(acc.id) 
+                                    : (targetType === 'account' && targetAccountId === acc.id);
                                   const accColor = getAccountColor(acc.type);
                                   return (
                                     <button
@@ -834,11 +847,12 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                                       onClick={() => {
                                         setTargetType('account');
                                         setTargetAccountId(acc.id);
+                                        setSelectedAccountIds([acc.id]);
                                         setShowAccDropdown(false);
                                       }}
                                       style={{
                                         width: '100%',
-                                        background: isCurrent ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                        background: isSelected ? 'rgba(255,255,255,0.04)' : 'transparent',
                                         border: 'none',
                                         borderRadius: 6,
                                         padding: '8px 10px',
@@ -852,12 +866,47 @@ export default function AddTradeModal({ isOpen, onClose, selectedAccountId }) {
                                       }}
                                     >
                                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: accColor }} />
-                                      <span style={{ fontSize: 13, color: accColor, fontWeight: isCurrent ? '700' : '500', textTransform: 'lowercase', flex: 1 }}>
+                                      <span style={{ fontSize: 13, color: accColor, fontWeight: isSelected ? '700' : '500', textTransform: 'lowercase', flex: 1 }}>
                                         {acc.name}
                                       </span>
                                       <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', textTransform: 'lowercase' }}>
                                         {acc.type.toLowerCase()}
                                       </span>
+                                      <div 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const isSel = selectedAccountIds.includes(acc.id);
+                                          let nextIds;
+                                          if (targetType === 'group') {
+                                            nextIds = [acc.id];
+                                          } else if (isSel) {
+                                            nextIds = selectedAccountIds.length > 1 ? selectedAccountIds.filter(id => id !== acc.id) : [acc.id];
+                                          } else {
+                                            nextIds = [...selectedAccountIds, acc.id];
+                                          }
+                                          setSelectedAccountIds(nextIds);
+                                          if (nextIds.length === 1) {
+                                            setTargetType('account');
+                                            setTargetAccountId(nextIds[0]);
+                                          } else {
+                                            setTargetType('multiple');
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '4px 6px',
+                                          borderRadius: '4px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'pointer',
+                                          background: isSelected ? 'rgba(48, 209, 88, 0.2)' : 'rgba(255,255,255,0.03)',
+                                          border: isSelected ? '1px solid #30d158' : '1px solid rgba(255,255,255,0.1)',
+                                          transition: 'all 0.15s',
+                                          marginLeft: '8px'
+                                        }}
+                                      >
+                                        {isSelected ? <Check size={10} color="#30d158" strokeWidth={3} /> : <div style={{ width: 10, height: 10 }} />}
+                                      </div>
                                     </button>
                                   );
                                 })}
