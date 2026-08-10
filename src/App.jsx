@@ -237,7 +237,16 @@ export default function App() {
   }
 
   return (
-    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div style={{
+      height: '100vh',
+      height: '100dvh',
+      width: '100vw',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      position: 'relative',
+      background: 'var(--colors-canvas-dark)'
+    }}>
       {uiOptions.enableClouds && (
         <div className="cloudy-backdrop">
           <div className="cloud-blur cloud-1" />
@@ -251,7 +260,8 @@ export default function App() {
       <EOWReminderModal />
       <AddExecutionModal />
 
-      <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', flexDirection: 'row' }}>
+      {/* Main row: sidebar + content */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', flexDirection: 'row' }}>
         
         {/* Global Sidebar Nav — desktop only */}
         {!isMobile && (
@@ -267,14 +277,12 @@ export default function App() {
         <div style={{
           flex: 1,
           minWidth: 0,
-          height: '100%',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
-          padding: 0,
           position: 'relative',
           zIndex: 1,
-          // On mobile, leave room for the bottom nav
-          paddingBottom: isMobile ? 'calc(60px + env(safe-area-inset-bottom))' : 0,
-          boxSizing: 'border-box'
         }}>
           <AnimatePresence mode="wait">
             {view === 'dashboard' && (
@@ -285,7 +293,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <DashboardView sidebarCollapsed={sidebarCollapsed} />
               </motion.div>
@@ -299,7 +307,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <AnalyticsView />
               </motion.div>
@@ -313,7 +321,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <CalendarView />
               </motion.div>
@@ -327,7 +335,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <JournalView />
               </motion.div>
@@ -341,7 +349,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <WeeklyReviewView />
               </motion.div>
@@ -355,7 +363,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="view-transition-wrapper"
-                style={{ height: '100%', width: '100%' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
               >
                 <SettingsView />
               </motion.div>
@@ -366,16 +374,13 @@ export default function App() {
         {/* Floating AI Panel Overlay */}
         <CognitiveAgentPanel />
 
-        {/* Custom Toast Container */}
+        {/* Toast Container */}
         <div className="hollow-toast-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <AnimatePresence>
             {toasts.map(toast => {
               let icon = <CheckCircle size={16} color="var(--colors-gain)" />;
-              if (toast.type === 'error') {
-                icon = <AlertCircle size={16} color="var(--colors-loss)" />;
-              } else if (toast.type === 'info') {
-                icon = <Info size={16} color="#ffffff" />;
-              }
+              if (toast.type === 'error') icon = <AlertCircle size={16} color="var(--colors-loss)" />;
+              else if (toast.type === 'info') icon = <Info size={16} color="#ffffff" />;
               return (
                 <motion.div
                   key={toast.id}
@@ -403,3 +408,4 @@ export default function App() {
     </div>
   );
 }
+

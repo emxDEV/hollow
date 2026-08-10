@@ -85,7 +85,9 @@ body {
 
 #root {
   width: 100vw;
+  /* Use dynamic viewport height to account for mobile browser chrome */
   height: 100vh;
+  height: 100dvh;
   background-color: transparent;
   position: relative;
   overflow: hidden;
@@ -303,7 +305,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Safe area for iPhone notch / Dynamic Island */
 @supports (padding: env(safe-area-inset-top)) {
-  body {
-    padding-top: env(safe-area-inset-top);
+  .hollow-toast-container {
+    /* already handled per context */
   }
 }

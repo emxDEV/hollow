@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export const useUIStore = create((set) => ({
   view: 'dashboard',
   sidebarCollapsed: false,
-  isMobile: false,
+  isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
   mobileSidebarOpen: false,
   toasts: [],
   selectedDate: new Date().toISOString().split('T')[0],
