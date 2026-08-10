@@ -333,6 +333,7 @@ const SWATCH_PALETTE = [
 ];
 
 function CustomPillManager() {
+  const isMobile = useUIStore(state => state.isMobile);
   const [models, setModels] = useState(() => {
     try {
       const saved = localStorage.getItem('hollowCustomModels');
@@ -1416,7 +1417,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           {[
             { id: 'profile', label: 'Profile', icon: <User size={16} /> },
             { id: 'pills', label: 'Custom Pills', icon: <Tag size={16} /> },
-            { id: 'weeklyReview', label: 'Weekly Review', icon: <ClipboardCheck size={16} /> }
+            ...(isMobile ? [{ id: 'weeklyReview', label: 'Weekly Review', icon: <ClipboardCheck size={16} /> }] : [])
           ].map(tab => {
             const isSelected = activeTab === tab.id;
             return (
