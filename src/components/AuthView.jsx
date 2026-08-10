@@ -94,8 +94,9 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
+      width: '100%',
+      height: '100%',
+      minHeight: '100dvh',
       background: '#070709',
       display: 'flex',
       overflow: 'hidden',
