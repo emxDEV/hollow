@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, X, Save, Calendar, Clock,
   TrendingUp, TrendingDown, Target, Zap, Shield, Image as ImageIcon,
-  CheckCircle, Sparkles, AlertCircle, Plus, Trash2, Check, Palette
+  CheckCircle, Sparkles, AlertCircle, Plus, Trash2, Check, Palette,
+  ZoomIn, ZoomOut, Upload, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { db } from '../db/hollowDb';
 import { useUIStore } from '../store/useUIStore';
@@ -79,6 +80,8 @@ export default function AddExecutionModal() {
   const addToast = useUIStore(state => state.addToast);
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [activeViewerImage, setActiveViewerImage] = useState(null); // { key, index }
+  const [zoomScale, setZoomScale] = useState(1);
 
   // Persistent Custom Lists (User Created Only)
   const [customModels, setCustomModels] = useState(() => {
@@ -1404,7 +1407,22 @@ export default function AddExecutionModal() {
                             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }} className="hollow-menu-scrollbar">
                               {imgList.map((src, idx) => (
                                 <div key={idx} style={{ position: 'relative', flexShrink: 0 }}>
-                                  <img src={src} alt={`${label}-${idx}`} style={{ width: '100px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                  <img 
+                                    src={src} 
+                                    alt={`${label}-${idx}`} 
+                                    onClick={() => {
+                                      setActiveViewerImage({ key, index: idx });
+                                      setZoomScale(1);
+                                    }}
+                                    style={{ 
+                                      width: '100px', 
+                                      height: '70px', 
+                                      objectFit: 'cover', 
+                                      borderRadius: '8px', 
+                                      border: '1px solid rgba(255,255,255,0.1)',
+                                      cursor: 'pointer'
+                                    }} 
+                                  />
                                   <button
                                     onClick={() => handleRemoveImage(key, idx)}
                                     style={{
@@ -1641,6 +1659,330 @@ export default function AddExecutionModal() {
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {activeViewerImage && (() => {
+          const { key, index } = activeViewerImage;
+          const imgList = form[key] || [];
+          const currentSrc = imgList[index];
+
+          const handleViewerClose = () => {
+            setActiveViewerImage(null);
+          };
+
+          const handleViewerPrev = () => {
+            if (index > 0) {
+              setActiveViewerImage({ key, index: index - 1 });
+              setZoomScale(1);
+            }
+          };
+
+          const handleViewerNext = () => {
+            if (index < imgList.length - 1) {
+              setActiveViewerImage({ key, index: index + 1 });
+              setZoomScale(1);
+            }
+          };
+
+          const handleViewerDelete = () => {
+            handleRemoveImage(key, index);
+            if (imgList.length <= 1) {
+              setActiveViewerImage(null);
+            } else {
+              const nextIndex = index === imgList.length - 1 ? index - 1 : index;
+              setActiveViewerImage({ key, index: nextIndex });
+              setZoomScale(1);
+            }
+          };
+
+          const handleViewerReplace = (files) => {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              setForm(prev => {
+                const updatedList = [...(prev[key] || [])];
+                updatedList[index] = e.target.result;
+                return { ...prev, [key]: updatedList };
+              });
+              addToast('Photo replaced successfully.', 'success');
+            };
+            reader.readAsDataURL(file);
+          };
+
+          const handleSwapLeft = () => {
+            if (index > 0) {
+              setForm(prev => {
+                const updatedList = [...(prev[key] || [])];
+                const temp = updatedList[index];
+                updatedList[index] = updatedList[index - 1];
+                updatedList[index - 1] = temp;
+                return { ...prev, [key]: updatedList };
+              });
+              setActiveViewerImage({ key, index: index - 1 });
+            }
+          };
+
+          const handleSwapRight = () => {
+            if (index < imgList.length - 1) {
+              setForm(prev => {
+                const updatedList = [...(prev[key] || [])];
+                const temp = updatedList[index];
+                updatedList[index] = updatedList[index + 1];
+                updatedList[index + 1] = temp;
+                return { ...prev, [key]: updatedList };
+              });
+              setActiveViewerImage({ key, index: index + 1 });
+            }
+          };
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(5, 5, 8, 0.95)',
+                zIndex: 99999,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                boxSizing: 'border-box',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)'
+              }}
+            >
+              {/* Close Button Top Right */}
+              <button
+                onClick={handleViewerClose}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '50%',
+                  color: '#fff',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 20
+                }}
+              >
+                <X size={20} />
+              </button>
+
+              {/* Main Image Frame */}
+              <div style={{
+                position: 'relative',
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                width: '100%',
+                maxHeight: 'calc(100% - 100px)'
+              }}>
+                <motion.img
+                  key={currentSrc}
+                  src={currentSrc}
+                  alt={`viewer-${index}`}
+                  animate={{ scale: zoomScale }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                  style={{
+                    maxHeight: '100%',
+                    maxWidth: '100%',
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                    boxShadow: '0 24px 70px rgba(0,0,0,0.8)',
+                    cursor: zoomScale > 1 ? 'grab' : 'default'
+                  }}
+                />
+              </div>
+
+              {/* Control Panel Floating bar */}
+              <div style={{
+                background: 'rgba(18, 18, 24, 0.75)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: '24px',
+                padding: '10px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+                marginTop: '20px',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                zIndex: 10
+              }}>
+                {/* Prev Photo Arrow */}
+                <button
+                  disabled={index === 0}
+                  onClick={handleViewerPrev}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: index === 0 ? 'rgba(255,255,255,0.15)' : '#fff',
+                    cursor: index === 0 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Previous Photo"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+
+                {/* Swap / Reorder Left */}
+                <button
+                  disabled={index === 0}
+                  onClick={handleSwapLeft}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: index === 0 ? 'rgba(255,255,255,0.15)' : '#64d2ff',
+                    cursor: index === 0 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Reorder Left"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+
+                {/* Zoom Out Button */}
+                <button
+                  disabled={zoomScale <= 1}
+                  onClick={() => setZoomScale(prev => Math.max(1, prev - 0.25))}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: zoomScale <= 1 ? 'rgba(255,255,255,0.15)' : '#fff',
+                    cursor: zoomScale <= 1 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={18} />
+                </button>
+
+                {/* Current Photo Index Capsule */}
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: 'rgba(255,255,255,0.6)',
+                  background: 'rgba(255,255,255,0.04)',
+                  padding: '4px 12px',
+                  borderRadius: '100px',
+                  userSelect: 'none'
+                }}>
+                  {index + 1} / {imgList.length}
+                </div>
+
+                {/* Zoom In Button */}
+                <button
+                  disabled={zoomScale >= 3}
+                  onClick={() => setZoomScale(prev => Math.min(3, prev + 0.25))}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: zoomScale >= 3 ? 'rgba(255,255,255,0.15)' : '#fff',
+                    cursor: zoomScale >= 3 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Zoom In"
+                >
+                  <ZoomIn size={18} />
+                </button>
+
+                {/* Swap / Reorder Right */}
+                <button
+                  disabled={index === imgList.length - 1}
+                  onClick={handleSwapRight}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: index === imgList.length - 1 ? 'rgba(255,255,255,0.15)' : '#64d2ff',
+                    cursor: index === imgList.length - 1 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Reorder Right"
+                >
+                  <ArrowRight size={18} />
+                </button>
+
+                {/* Next Photo Arrow */}
+                <button
+                  disabled={index === imgList.length - 1}
+                  onClick={handleViewerNext}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: index === imgList.length - 1 ? 'rgba(255,255,255,0.15)' : '#fff',
+                    cursor: index === imgList.length - 1 ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Next Photo"
+                >
+                  <ChevronRight size={20} />
+                </button>
+
+                <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
+
+                {/* Change / Replace Photo Button */}
+                <label style={{
+                  color: '#30d158',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px'
+                }} title="Replace Photo">
+                  <Upload size={18} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => handleViewerReplace(e.target.files)}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+
+                {/* Delete Photo Button */}
+                <button
+                  onClick={handleViewerDelete}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ff453a',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px'
+                  }}
+                  title="Delete Photo"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
