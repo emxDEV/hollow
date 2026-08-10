@@ -99,13 +99,25 @@ export default function App() {
     checkHashForRecovery();
     window.addEventListener('hashchange', checkHashForRecovery);
 
+    const syncFreshUserMetadata = async (fallbackUser) => {
+      if (fallbackUser) syncProfileFromMetadata(fallbackUser);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          syncProfileFromMetadata(user);
+        }
+      } catch (err) {
+        console.error('Failed to fetch fresh user details:', err);
+      }
+    };
+
     async function initAuth() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         if (session) {
-          syncProfileFromMetadata(session.user);
           localStorage.setItem('hollow_last_user_id', session.user.id);
+          syncFreshUserMetadata(session.user);
         }
         if (!session) setAppInitialized(true);
       } catch (err) {
@@ -130,7 +142,7 @@ export default function App() {
             await clearDatabase();
             if (currentSession?.user) localStorage.setItem('hollow_last_user_id', currentSession.user.id);
             setSession(currentSession);
-            if (currentSession) syncProfileFromMetadata(currentSession.user);
+            if (currentSession) syncFreshUserMetadata(currentSession.user);
             setAppInitialized(false);
           } else {
             setSession(currentSession);
@@ -142,7 +154,7 @@ export default function App() {
           setAppInitialized(true);
         } else {
           setSession(currentSession);
-          if (currentSession) syncProfileFromMetadata(currentSession.user);
+          if (currentSession) syncFreshUserMetadata(currentSession.user);
           if (!currentSession) setAppInitialized(true);
         }
       } catch (err) {
@@ -181,6 +193,56 @@ export default function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [setIsMobile]);
+
+  // Global Custom Pills Cloud Synchronizer (runs on event triggers from anywhere in the app)
+  useEffect(() => {
+    let timer = null;
+    
+    const handleGlobalSync = () => {
+      if (timer) clearTimeout(timer);
+      
+      timer = setTimeout(async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          
+          // Read the latest state from localStorage
+          const localModels = JSON.parse(localStorage.getItem('hollowCustomModels') || '[]');
+          const localDols = JSON.parse(localStorage.getItem('hollowCustomDOLs') || '[]');
+          const localPo3 = JSON.parse(localStorage.getItem('hollowCustomPO3Times') || '[]');
+          const localTfs = JSON.parse(localStorage.getItem('hollowCustomEntryTFs') || '[]');
+          const localPsych = JSON.parse(localStorage.getItem('hollowCustomPsychTags') || '[]');
+          
+          const currentMeta = user.user_metadata || {};
+          const modelsEqual = JSON.stringify(currentMeta.customModels) === JSON.stringify(localModels);
+          const dolsEqual = JSON.stringify(currentMeta.customDOLs) === JSON.stringify(localDols);
+          const po3Equal = JSON.stringify(currentMeta.customPO3Times) === JSON.stringify(localPo3);
+          const tfsEqual = JSON.stringify(currentMeta.customEntryTFs) === JSON.stringify(localTfs);
+          const psychEqual = JSON.stringify(currentMeta.customPsychTags) === JSON.stringify(localPsych);
+          
+          if (modelsEqual && dolsEqual && po3Equal && tfsEqual && psychEqual) return;
+
+          await supabase.auth.updateUser({
+            data: {
+              customModels: localModels,
+              customDOLs: localDols,
+              customPO3Times: localPo3,
+              customEntryTFs: localTfs,
+              customPsychTags: localPsych
+            }
+          });
+        } catch (err) {
+          console.error('Failed to sync custom pills globally to cloud:', err);
+        }
+      }, 1500); // 1.5s debounce to collect multiple edits
+    };
+    
+    window.addEventListener('hollowCustomPillsUpdated', handleGlobalSync);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('hollowCustomPillsUpdated', handleGlobalSync);
+    };
+  }, []);
 
   // ── EARLY RETURNS ────────────────────────────────────────────────
   if (!supabase) {

@@ -175,23 +175,43 @@ export default function AddExecutionModal() {
 
   // Save persistent lists to local storage
   useEffect(() => {
-    localStorage.setItem('hollowCustomModels', JSON.stringify(customModels));
+    const serialized = JSON.stringify(customModels);
+    if (localStorage.getItem('hollowCustomModels') !== serialized) {
+      localStorage.setItem('hollowCustomModels', serialized);
+      window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
+    }
   }, [customModels]);
 
   useEffect(() => {
-    localStorage.setItem('hollowCustomDOLs', JSON.stringify(customDOLs));
+    const serialized = JSON.stringify(customDOLs);
+    if (localStorage.getItem('hollowCustomDOLs') !== serialized) {
+      localStorage.setItem('hollowCustomDOLs', serialized);
+      window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
+    }
   }, [customDOLs]);
 
   useEffect(() => {
-    localStorage.setItem('hollowCustomPO3Times', JSON.stringify(customPO3Times));
+    const serialized = JSON.stringify(customPO3Times);
+    if (localStorage.getItem('hollowCustomPO3Times') !== serialized) {
+      localStorage.setItem('hollowCustomPO3Times', serialized);
+      window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
+    }
   }, [customPO3Times]);
 
   useEffect(() => {
-    localStorage.setItem('hollowCustomEntryTFs', JSON.stringify(customEntryTFs));
+    const serialized = JSON.stringify(customEntryTFs);
+    if (localStorage.getItem('hollowCustomEntryTFs') !== serialized) {
+      localStorage.setItem('hollowCustomEntryTFs', serialized);
+      window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
+    }
   }, [customEntryTFs]);
 
   useEffect(() => {
-    localStorage.setItem('hollowCustomPsychTags', JSON.stringify(customPsychTags));
+    const serialized = JSON.stringify(customPsychTags);
+    if (localStorage.getItem('hollowCustomPsychTags') !== serialized) {
+      localStorage.setItem('hollowCustomPsychTags', serialized);
+      window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
+    }
   }, [customPsychTags]);
 
   // Sync custom pill order from LocalStorage whenever settings updates or modal opens
@@ -199,16 +219,33 @@ export default function AddExecutionModal() {
     const syncPills = () => {
       try {
         const m = localStorage.getItem('hollowCustomModels');
-        if (m) setCustomModels(JSON.parse(m));
+        if (m) {
+          const parsed = JSON.parse(m);
+          setCustomModels(prev => JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev);
+        }
         const d = localStorage.getItem('hollowCustomDOLs');
-        if (d) setCustomDOLs(JSON.parse(d));
+        if (d) {
+          const parsed = JSON.parse(d);
+          setCustomDOLs(prev => JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev);
+        }
         const p = localStorage.getItem('hollowCustomPO3Times');
-        if (p) setCustomPO3Times(JSON.parse(p));
+        if (p) {
+          const parsed = JSON.parse(p);
+          setCustomPO3Times(prev => JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev);
+        }
         const e = localStorage.getItem('hollowCustomEntryTFs');
-        if (e) setCustomEntryTFs(JSON.parse(e));
+        if (e) {
+          const parsed = JSON.parse(e);
+          setCustomEntryTFs(prev => JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev);
+        }
         const ps = localStorage.getItem('hollowCustomPsychTags');
-        if (ps) setCustomPsychTags(JSON.parse(ps));
-      } catch (err) {}
+        if (ps) {
+          const parsed = JSON.parse(ps);
+          setCustomPsychTags(prev => JSON.stringify(prev) !== JSON.stringify(parsed) ? parsed : prev);
+        }
+      } catch (err) {
+        console.error('Failed to sync settings pills:', err);
+      }
     };
 
     syncPills();
