@@ -141,6 +141,39 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     }
     return cleaned;
   }
+  if (tableName === 'executions') {
+    const allowed = [
+      'id', 'tradeId', 'timestamp', 'side', 'price', 'contracts', 'commissions', 'type', 'user_id', 'created_at'
+    ];
+
+    let isoTs = new Date().toISOString();
+    if (obj.timestamp) {
+      const d = new Date(Number(obj.timestamp) || obj.timestamp);
+      if (!isNaN(d.getTime())) isoTs = d.toISOString();
+    } else if (obj.date) {
+      const d = new Date(obj.date);
+      if (!isNaN(d.getTime())) isoTs = d.toISOString();
+    }
+
+    const sideVal = (obj.bias || '').toUpperCase() === 'SHORT' ? 'SELL' : 'BUY';
+    const typeVal = 'ENTRY';
+
+    const cleaned = {
+      ...obj,
+      timestamp: isoTs,
+      side: sideVal,
+      type: typeVal,
+      price: parseFloat(obj.tp) || 0,
+      contracts: 1,
+      commissions: 0
+    };
+
+    const finalObj = {};
+    allowed.forEach(k => {
+      if (cleaned[k] !== undefined) finalObj[k] = cleaned[k];
+    });
+    return finalObj;
+  }
   return obj;
 }
 
@@ -160,14 +193,11 @@ const enqueueSync = (taskFn) => {
 // Register Dexie hooks for Supabase background sync
 const registerSyncHooks = () => {
   const tables = [
-    { name: 'accounts', store: db.accounts, pk: 'id' },
-    { name: 'trades', store: db.trades, pk: 'id' },
-    { name: 'executions', store: db.executions, pk: 'id' },
     { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
     { name: 'weeklyPlanners', store: db.weeklyPlanners, pk: 'weekId' },
-    { name: 'groups', store: db.groups, pk: 'id' },
     { name: 'workouts', store: db.workouts, pk: 'id' },
-    { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' }
+    { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' },
+    { name: 'executions', store: db.executions, pk: 'id' }
   ];
 
   tables.forEach(table => {
@@ -314,42 +344,33 @@ db.version(6).stores({
   workoutPlans: 'id, name'
 });
 
+// Version 7: Drop accounts, trades, executions, groups for fresh application reboot
+db.version(7).stores({
+  accounts: null,
+  trades: null,
+  executions: null,
+  groups: null,
+  dailyJournals: 'date, status',
+  weeklyPlanners: 'weekId, status',
+  workouts: 'id, date, type',
+  workoutPlans: 'id, name'
+});
+
+// Version 8: Multi-step Execution tracking table
+db.version(8).stores({
+  dailyJournals: 'date, status',
+  weeklyPlanners: 'weekId, status',
+  workouts: 'id, date, type',
+  workoutPlans: 'id, name',
+  executions: 'id, date, symbol, model, bias, wl, rating, timestamp'
+});
+
 // Activate hooks
 registerSyncHooks();
 
 // Clean orphaned records locally before sync
 export async function cleanOrphanedRecordsLocal() {
-  try {
-    const prevSyncing = isSyncingFromCloud;
-    isSyncingFromCloud = true;
-
-    const accounts = await db.accounts.toArray();
-    const accountIds = new Set(accounts.map(a => a.id));
-
-    // Find trades with non-existent accountId
-    const trades = await db.trades.toArray();
-    const orphanedTrades = trades.filter(t => !accountIds.has(t.accountId));
-    if (orphanedTrades.length > 0) {
-      console.warn(`Cleaning up ${orphanedTrades.length} orphaned trades from local DB...`);
-      const orphanedTradeIds = orphanedTrades.map(t => t.id);
-      await db.trades.bulkDelete(orphanedTradeIds);
-    }
-
-    // Find executions with non-existent tradeId
-    const remainingTrades = await db.trades.toArray();
-    const tradeIds = new Set(remainingTrades.map(t => t.id));
-    const executions = await db.executions.toArray();
-    const orphanedExecutions = executions.filter(e => !tradeIds.has(e.tradeId));
-    if (orphanedExecutions.length > 0) {
-      console.warn(`Cleaning up ${orphanedExecutions.length} orphaned executions from local DB...`);
-      const orphanedExecutionIds = orphanedExecutions.map(e => e.id);
-      await db.executions.bulkDelete(orphanedExecutionIds);
-    }
-
-    isSyncingFromCloud = prevSyncing;
-  } catch (err) {
-    console.error("Failed to clean orphaned records locally:", err);
-  }
+  // No-op for current schema
 }
 
 // Helper to prefix IDs and foreign keys with user_id
@@ -357,25 +378,7 @@ export function prefixRecord(obj, userId, tableName) {
   if (!obj || !userId) return obj;
   const prefixed = { ...obj };
   
-  if (tableName === 'accounts') {
-    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
-      prefixed.id = `${userId}:${prefixed.id}`;
-    }
-  } else if (tableName === 'trades') {
-    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
-      prefixed.id = `${userId}:${prefixed.id}`;
-    }
-    if (prefixed.accountId && !prefixed.accountId.startsWith(userId + ':')) {
-      prefixed.accountId = `${userId}:${prefixed.accountId}`;
-    }
-  } else if (tableName === 'executions') {
-    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
-      prefixed.id = `${userId}:${prefixed.id}`;
-    }
-    if (prefixed.tradeId && !prefixed.tradeId.startsWith(userId + ':')) {
-      prefixed.tradeId = `${userId}:${prefixed.tradeId}`;
-    }
-  } else if (tableName === 'dailyJournals') {
+  if (tableName === 'dailyJournals') {
     if (prefixed.date && !prefixed.date.startsWith(userId + ':')) {
       prefixed.date = `${userId}:${prefixed.date}`;
     }
@@ -383,28 +386,7 @@ export function prefixRecord(obj, userId, tableName) {
     if (prefixed.weekId && !prefixed.weekId.startsWith(userId + ':')) {
       prefixed.weekId = `${userId}:${prefixed.weekId}`;
     }
-  } else if (tableName === 'groups') {
-    if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
-      prefixed.id = `${userId}:${prefixed.id}`;
-    }
-    if (prefixed.leaderAccountId && !prefixed.leaderAccountId.startsWith(userId + ':')) {
-      prefixed.leaderAccountId = `${userId}:${prefixed.leaderAccountId}`;
-    }
-    if (Array.isArray(prefixed.followerAccountIds)) {
-      prefixed.followerAccountIds = prefixed.followerAccountIds.map(id => 
-        id && !id.startsWith(userId + ':') ? `${userId}:${id}` : id
-      );
-    } else if (typeof prefixed.followerAccountIds === 'string') {
-      try {
-        const parsed = JSON.parse(prefixed.followerAccountIds);
-        if (Array.isArray(parsed)) {
-          prefixed.followerAccountIds = JSON.stringify(parsed.map(id => 
-            id && !id.startsWith(userId + ':') ? `${userId}:${id}` : id
-          ));
-        }
-      } catch (e) {}
-    }
-  } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
+  } else if (tableName === 'workouts' || tableName === 'workoutPlans' || tableName === 'executions') {
     if (prefixed.id && !prefixed.id.startsWith(userId + ':')) {
       prefixed.id = `${userId}:${prefixed.id}`;
     }
@@ -426,32 +408,7 @@ export function unprefixRecord(obj, userId, tableName) {
     return str;
   };
 
-  if (tableName === 'accounts') {
-    clean.id = strip(clean.id);
-  } else if (tableName === 'trades') {
-    clean.id = strip(clean.id);
-    clean.accountId = strip(clean.accountId);
-    
-    // Unpack metadata from commentFazit if present
-    if (clean.commentFazit && typeof clean.commentFazit === 'string') {
-      const parts = clean.commentFazit.split('\n\n__HOLLOW_META__:');
-      if (parts.length > 1) {
-        const originalFazit = parts[0];
-        // Use the LAST part — it is the most recently written meta (guards against legacy accumulation)
-        const serializedMeta = parts[parts.length - 1];
-        try {
-          const meta = JSON.parse(serializedMeta);
-          Object.assign(clean, meta);
-        } catch (e) {
-          console.error("Failed to parse hollow metadata:", e);
-        }
-        clean.commentFazit = originalFazit;
-      }
-    }
-  } else if (tableName === 'executions') {
-    clean.id = strip(clean.id);
-    clean.tradeId = strip(clean.tradeId);
-  } else if (tableName === 'dailyJournals') {
+  if (tableName === 'dailyJournals') {
     clean.date = strip(clean.date);
     
     // Unpack metadata from postMarketNotes if present
@@ -471,18 +428,24 @@ export function unprefixRecord(obj, userId, tableName) {
     }
   } else if (tableName === 'weeklyPlanners') {
     clean.weekId = strip(clean.weekId);
-  } else if (tableName === 'groups') {
+  } else if (tableName === 'executions') {
     clean.id = strip(clean.id);
-    clean.leaderAccountId = strip(clean.leaderAccountId);
-    if (Array.isArray(clean.followerAccountIds)) {
-      clean.followerAccountIds = clean.followerAccountIds.map(strip);
-    } else if (typeof clean.followerAccountIds === 'string') {
-      try {
-        const parsed = JSON.parse(clean.followerAccountIds);
-        if (Array.isArray(parsed)) {
-          clean.followerAccountIds = JSON.stringify(parsed.map(strip));
+    if (clean.tradeId) clean.tradeId = strip(clean.tradeId);
+
+    // Unpack metadata from type column if present
+    if (clean.type && typeof clean.type === 'string') {
+      const parts = clean.type.split('\n\n__HOLLOW_META__:');
+      if (parts.length > 1) {
+        const originalType = parts[0];
+        const serializedMeta = parts[parts.length - 1];
+        try {
+          const meta = JSON.parse(serializedMeta);
+          Object.assign(clean, meta);
+        } catch (e) {
+          console.error("Failed to parse hollow executions metadata:", e);
         }
-      } catch (e) {}
+        clean.type = originalType;
+      }
     }
   } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
     clean.id = strip(clean.id);
@@ -519,19 +482,14 @@ export async function syncWithSupabase() {
       return;
     }
     const userId = session.user.id;
-    await cleanOrphanedRecordsLocal();
     console.log('Starting Supabase parallel sync check with user isolation...');
     
     // Disable hooks during initial synchronization to prevent cycles
     isSyncingFromCloud = true;
     
     const tables = [
-      { name: 'accounts', store: db.accounts, pk: 'id' },
-      { name: 'trades', store: db.trades, pk: 'id' },
-      { name: 'executions', store: db.executions, pk: 'id' },
       { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
       { name: 'weeklyPlanners', store: db.weeklyPlanners, pk: 'weekId' },
-      { name: 'groups', store: db.groups, pk: 'id' },
       { name: 'workouts', store: db.workouts, pk: 'id' },
       { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' }
     ];
@@ -573,22 +531,17 @@ export async function syncWithSupabase() {
       }
 
       const localData = await table.store.toArray();
-      const prefixedLocalData = localData.map(item => prefixRecord(sanitizeForSupabase(table.name, item), userId, table.name));
       const cleanRemoteData = remoteData.map(item => unprefixRecord(item, userId, table.name));
 
       if (remoteData.length > 0 && localData.length === 0) {
-        // Pull data from Supabase to empty local database
         const toPut = cleanRemoteData.map(item => ({ ...item, syncedToCloud: true }));
         await table.store.bulkPut(toPut);
         pulledCount++;
       } else if (localData.length > 0 && remoteData.length === 0) {
-        // If remote is empty, check if local records were previously synced.
-        // If they were synced, it means they were deleted on remote.
         const toDelete = localData.filter(item => item.syncedToCloud === true);
         if (toDelete.length > 0) {
           const idsToDelete = toDelete.map(item => item[table.pk]);
           await table.store.bulkDelete(idsToDelete);
-          console.log(`Cleaned up locally deleted records in empty remote for ${table.name}:`, idsToDelete);
         }
 
         const remainingLocal = await table.store.toArray();
@@ -605,23 +558,17 @@ export async function syncWithSupabase() {
           }
         }
       } else if (localData.length > 0 && remoteData.length > 0) {
-        // Bidirectional merge:
-        
-        // Step A: Detect and process records deleted on remote (missing in remote but marked synced locally)
         const remoteKeys = new Set(cleanRemoteData.map(r => r[table.pk]));
         const deletedOnRemote = localData.filter(item => item.syncedToCloud === true && !remoteKeys.has(item[table.pk]));
         if (deletedOnRemote.length > 0) {
           const idsToDelete = deletedOnRemote.map(item => item[table.pk]);
           await table.store.bulkDelete(idsToDelete);
-          console.log(`Sync deleted locally (since removed from remote) in ${table.name}:`, idsToDelete);
         }
 
-        // Step B: Pull/merge remote data into local
         for (const remoteItem of remoteData) {
           const cleanItem = unprefixRecord(remoteItem, userId, table.name);
           const localItem = await table.store.get(cleanItem[table.pk]);
 
-          // Skip if this item was locally deleted and we haven't synced the delete yet
           const pendingStr = localStorage.getItem('hollow_pending_deletions') || '[]';
           let isPendingDelete = false;
           try {
@@ -633,26 +580,12 @@ export async function syncWithSupabase() {
 
           if (localItem) {
             const merged = { ...localItem, ...cleanItem, syncedToCloud: true };
-            // For trades: prefer whichever side has a non-empty manualPnL.
-            // Remote wins if it has a value; local wins only if remote is empty.
-            if (table.name === 'trades') {
-              const localPnL = localItem.manualPnL;
-              const remotePnL = cleanItem.manualPnL;
-              const hasLocal = localPnL !== undefined && localPnL !== null && localPnL !== '';
-              const hasRemote = remotePnL !== undefined && remotePnL !== null && remotePnL !== '';
-              if (hasRemote) {
-                merged.manualPnL = remotePnL;  // cloud wins when it has a real value
-              } else if (hasLocal) {
-                merged.manualPnL = localPnL;   // local wins when cloud has nothing
-              }
-            }
             await table.store.put(merged);
           } else {
             await table.store.put({ ...cleanItem, syncedToCloud: true });
           }
         }
 
-        // Step C: Push local unsynced records to remote
         const currentLocal = await table.store.toArray();
         const unsyncedLocal = currentLocal.filter(item => !item.syncedToCloud);
         if (unsyncedLocal.length > 0) {
@@ -680,25 +613,19 @@ export async function syncWithSupabase() {
   }
 }
 
-
-// Seed helper function to populate the journal if empty
+// Seed helper function
 export async function seedDatabaseIfEmpty() {
-  // Disabled to ensure a completely clean fresh start
   console.log('Seeding check: database seeding is disabled for a clean fresh start.');
 }
 
-// Wipes both local Dexie database and remote Supabase tables for the current session user
+// Wipes local Dexie database and remote Supabase tables for the current session user
 export async function clearDatabaseAndCloud() {
   try {
     isSyncingFromCloud = true;
 
     // 1. Clear local IndexedDB tables
-    await db.accounts.clear();
-    await db.trades.clear();
-    await db.executions.clear();
-    await db.dailyJournals.clear();
-    await db.weeklyPlanners.clear();
-    await db.groups.clear();
+    if (db.dailyJournals) await db.dailyJournals.clear();
+    if (db.weeklyPlanners) await db.weeklyPlanners.clear();
     if (db.workouts) await db.workouts.clear();
     if (db.workoutPlans) await db.workoutPlans.clear();
 
@@ -709,37 +636,34 @@ export async function clearDatabaseAndCloud() {
       }
     });
 
-    // 2. Clear remote Supabase tables if session exists
+    // 2. Clear remote Supabase tables (including legacy trading tables if they exist in Supabase)
     if (supabase) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Table deletion order respecting potential foreign key constraints:
-        // executions -> trades -> groups -> accounts -> dailyJournals -> weeklyPlanners
         const tables = [
           { name: 'executions', pk: 'id' },
           { name: 'trades', pk: 'id' },
           { name: 'groups', pk: 'id' },
           { name: 'accounts', pk: 'id' },
           { name: 'dailyJournals', pk: 'date' },
-          { name: 'weeklyPlanners', pk: 'weekId' }
+          { name: 'weeklyPlanners', pk: 'weekId' },
+          { name: 'workouts', pk: 'id' },
+          { name: 'workoutPlans', pk: 'id' }
         ];
 
         const userId = session.user.id;
         for (const table of tables) {
-          const { data, error: selectError } = await supabase
-            .from(table.name)
-            .select(table.pk)
-            .like(table.pk, `${userId}:%`);
-          if (selectError) {
-            console.error(`Failed to select from Supabase table ${table.name}:`, selectError);
-            continue;
-          }
-          if (data && data.length > 0) {
-            const ids = data.map(row => row[table.pk]);
-            const { error: deleteError } = await supabase.from(table.name).delete().in(table.pk, ids);
-            if (deleteError) {
-              console.error(`Failed to delete from Supabase table ${table.name}:`, deleteError);
+          try {
+            const { data } = await supabase
+              .from(table.name)
+              .select(table.pk)
+              .like(table.pk, `${userId}:%`);
+            if (data && data.length > 0) {
+              const ids = data.map(row => row[table.pk]);
+              await supabase.from(table.name).delete().in(table.pk, ids);
             }
+          } catch (e) {
+            console.error(`Error deleting remote data for ${table.name}:`, e);
           }
         }
       }
@@ -762,12 +686,8 @@ export async function forceSeedDatabase() {
 export async function clearDatabase() {
   try {
     isSyncingFromCloud = true;
-    await db.accounts.clear();
-    await db.trades.clear();
-    await db.executions.clear();
-    await db.dailyJournals.clear();
-    await db.weeklyPlanners.clear();
-    await db.groups.clear();
+    if (db.dailyJournals) await db.dailyJournals.clear();
+    if (db.weeklyPlanners) await db.weeklyPlanners.clear();
     if (db.workouts) await db.workouts.clear();
     if (db.workoutPlans) await db.workoutPlans.clear();
     return true;
@@ -780,7 +700,6 @@ export async function clearDatabase() {
 }
 
 // Real-time cross-device sync via Supabase Postgres changes
-// Returns an unsubscribe function to clean up when the session ends.
 export async function subscribeToRealtimeSync() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return () => {};
@@ -788,12 +707,8 @@ export async function subscribeToRealtimeSync() {
   const userId = session.user.id;
 
   const tableMap = [
-    { name: 'accounts',      store: db.accounts,      pk: 'id' },
-    { name: 'trades',        store: db.trades,        pk: 'id' },
-    { name: 'executions',    store: db.executions,    pk: 'id' },
     { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
     { name: 'weeklyPlanners',store: db.weeklyPlanners,pk: 'weekId' },
-    { name: 'groups',        store: db.groups,        pk: 'id' },
     { name: 'workouts',      store: db.workouts,      pk: 'id' },
     { name: 'workoutPlans',  store: db.workoutPlans,  pk: 'id' },
   ];
@@ -803,22 +718,14 @@ export async function subscribeToRealtimeSync() {
   const channel = supabase
     .channel(`hollow-realtime-${userId}`)
     .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
-      console.log("Realtime sync payload received:", payload);
       const tableMeta = tableMap.find(t => t.name.toLowerCase() === payload.table.toLowerCase());
-      if (!tableMeta) {
-        console.warn(`Realtime sync warning: No table mapping found matching: ${payload.table}`);
-        return;
-      }
+      if (!tableMeta) return;
 
-      // Only process changes that belong to the current user
       const record = payload.new || payload.old;
       if (!record) return;
       const pkValue = record[tableMeta.pk];
       if (!pkValue || !String(pkValue).startsWith(userId + ':')) return;
 
-      console.log(`Applying realtime change for ${tableMeta.name} (${payload.eventType}):`, pkValue);
-
-      // Prevent sync hooks from pushing these local writes back to Supabase
       const prev = isSyncingFromCloud;
       isSyncingFromCloud = true;
 
@@ -826,26 +733,10 @@ export async function subscribeToRealtimeSync() {
         if (payload.eventType === 'DELETE') {
           const cleanPk = String(pkValue).substring(userId.length + 1);
           await tableMeta.store.delete(cleanPk);
-          console.log(`Successfully deleted local record for ${tableMeta.name}:${cleanPk}`);
         } else {
-          // INSERT or UPDATE — unprefix and write locally
           const cleanRecord = unprefixRecord(record, userId, tableMeta.name);
-          cleanRecord.syncedToCloud = true; // Mark as synced!
-          // For trades: preserve non-empty manualPnL — never overwrite a real value with empty string from cloud
-          if (tableMeta.name === 'trades') {
-            const localItem = await tableMeta.store.get(cleanRecord[tableMeta.pk]);
-            if (localItem) {
-              const localPnL = localItem.manualPnL;
-              const remotePnL = cleanRecord.manualPnL;
-              const hasLocal = localPnL !== undefined && localPnL !== null && localPnL !== '';
-              const hasRemote = remotePnL !== undefined && remotePnL !== null && remotePnL !== '';
-              if (hasLocal && !hasRemote) {
-                cleanRecord.manualPnL = localPnL;
-              }
-            }
-          }
+          cleanRecord.syncedToCloud = true;
           await tableMeta.store.put(cleanRecord);
-          console.log(`Successfully updated local record for ${tableMeta.name}:${cleanRecord[tableMeta.pk]}`);
         }
       } catch (err) {
         console.error(`Realtime sync error on ${tableMeta.name}:`, err);
@@ -853,9 +744,7 @@ export async function subscribeToRealtimeSync() {
         isSyncingFromCloud = prev;
       }
     })
-    .subscribe((status, err) => {
-      console.log(`Realtime sync channel status: ${status}`, err ? `Error: ${err.message}` : '');
-    });
+    .subscribe();
 
   return () => {
     supabase.removeChannel(channel);

@@ -32,7 +32,7 @@ export default function WelcomeUpdateModal({ isMobile }) {
   const welcomeSlides = [
     {
       title: "welcome to hollow.",
-      subtitle: "Your stoic trading companion.",
+      subtitle: "The cognitive trading ledger.",
       icon: (
         <div style={{
           width: 64,
@@ -50,9 +50,9 @@ export default function WelcomeUpdateModal({ isMobile }) {
         </div>
       ),
       bullets: [
-        { title: "Cloud-Synced Journaling", desc: "Log trades with custom confluences, entry execution fills, and cognitive tags.", icon: BookOpen },
-        { title: "Stoic Analytics & Edge", desc: "Calculate playbook win rates, session performance, and mistake tracking.", icon: Sparkles },
-        { title: "Training & Routine Logs", desc: "Stay disciplined by reviewing daily habits, mental scores, and workout logs.", icon: Layers }
+        { title: "Cloud-Synced Journaling", desc: "Log executions with custom confluences, multi-images, and cognitive tags.", icon: BookOpen },
+        { title: "Cognitive Analytics & Edge", desc: "Calculate playbook win rates, session performance, and mistake tracking.", icon: Sparkles },
+        { title: "Routine & Review Logs", desc: "Stay disciplined by reviewing daily habits, mental scores, and weekly reviews.", icon: Layers }
       ]
     },
     {

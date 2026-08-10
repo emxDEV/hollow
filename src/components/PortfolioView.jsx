@@ -188,9 +188,10 @@ export default function PortfolioView({ activeTab = 'stocks' }) {
                     innerRadius={40}
                     outerRadius={55}
                     dataKey="value"
+                    stroke="none"
                   >
                     {allocationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                     ))}
                   </Pie>
                 </PieChart>

@@ -287,12 +287,12 @@ export async function checkAndRunWeeklyBackup(addToast) {
     
     // Fetch all local Dexie database data
     const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
-      db.accounts.toArray(),
-      db.trades.toArray(),
-      db.executions.toArray(),
-      db.dailyJournals.toArray(),
-      db.weeklyPlanners.toArray(),
-      db.groups.toArray(),
+      db.accounts ? db.accounts.toArray() : [],
+      db.trades ? db.trades.toArray() : [],
+      db.executions ? db.executions.toArray() : [],
+      db.dailyJournals ? db.dailyJournals.toArray() : [],
+      db.weeklyPlanners ? db.weeklyPlanners.toArray() : [],
+      db.groups ? db.groups.toArray() : [],
       db.workouts ? db.workouts.toArray() : []
     ]);
 

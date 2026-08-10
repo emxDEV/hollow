@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../db/supabaseClient';
 import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import HollowLogo from './HollowLogo';
 
 export default function AuthView({ initialMode = 'login', onResetComplete }) {
   const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
@@ -130,32 +131,8 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
       >
         {/* Brand Header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px', gap: '8px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
-            border: '2.5px solid #fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '4px',
-            boxShadow: '0 0 20px rgba(255,255,255,0.1)'
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#fff' }}>
-              <path d="M12 2C12 7.52285 7.52285 12 2 12C7.52285 12 12 16.4771 12 22C12 16.4771 16.4771 12 22 12C16.4771 12 12 7.52285 12 2Z" />
-            </svg>
-          </div>
-          <span style={{
-            fontFamily: 'var(--font-logo)',
-            fontSize: '28px',
-            fontWeight: '900',
-            letterSpacing: '1px',
-            color: '#fff',
-            textTransform: 'lowercase'
-          }}>
-            hollow.
-          </span>
-          <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>
+          <HollowLogo size={48} showText={true} textSize={28} />
+          <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700', marginTop: '4px' }}>
             {mode === 'login' && 'Sign In to Journal'}
             {mode === 'signup' && 'Create New Account'}
             {mode === 'forgot' && 'Passwort zurücksetzen'}

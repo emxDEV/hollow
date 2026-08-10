@@ -8,7 +8,7 @@ import HollowSelect from './HollowSelect';
 import HollowGroupedSelect from './HollowGroupedSelect';
 import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import useUIStore from '../store/useUIStore';
 
 const PROP_FIRM_PRESETS = [
@@ -133,6 +133,7 @@ import {
   Save, 
   CreditCard,
   Target,
+  Tag,
   Sparkles,
   EyeOff,
   X,
@@ -140,7 +141,9 @@ import {
   ArrowUpDown,
   CheckCircle2,
   Edit2,
+  ChevronLeft,
   ChevronRight,
+  GripVertical,
   TrendingUp,
   ClipboardCheck,
   Dumbbell,
@@ -318,20 +321,529 @@ function ModelCard({ tag, meta, stats, onDelete, onInspect }) {
   );
 }
 
-const CATEGORIES = ['Reversal', 'Continuation', 'Breakout', 'Range', 'Scalp', 'Custom'];
-const COLOR_SWATCHES = [
-  '#ffffff', '#f2f2f7', '#e5e5ea', '#d1d1d6', '#c7c7cc', '#aeaeb2',
-  '#8e8e93', '#636366', '#48484a', '#3a3a3c', '#2c2c2e', '#1c1c1e'
+const SWATCH_PALETTE = [
+  '#30d158', // Emerald Green
+  '#ff453a', // Crimson Red
+  '#ffd60a', // Gold Yellow
+  '#64d2ff', // Cyan Blue
+  '#b86eff', // Purple
+  '#ff9f0a', // Orange
+  '#ff375f'  // Pink
 ];
 
-export default function SettingsView({ selectedAccountId, setSelectedAccountId }) {
+function CustomPillManager() {
+  const [models, setModels] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hollowCustomModels');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newModel, setNewModel] = useState('');
+
+  const [dols, setDols] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hollowCustomDOLs');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newDolLabel, setNewDolLabel] = useState('');
+  const [newDolColor, setNewDolColor] = useState('#30d158');
+
+  const [po3Times, setPo3Times] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hollowCustomPO3Times');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newPo3Time, setNewPo3Time] = useState('');
+
+  const [entryTfs, setEntryTfs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hollowCustomEntryTFs');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newEntryTf, setNewEntryTf] = useState('');
+
+  const [psychTags, setPsychTags] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hollowCustomPsychTags');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newPsychTag, setNewPsychTag] = useState('');
+
+  useEffect(() => { localStorage.setItem('hollowCustomModels', JSON.stringify(models)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [models]);
+  useEffect(() => { localStorage.setItem('hollowCustomDOLs', JSON.stringify(dols)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [dols]);
+  useEffect(() => { localStorage.setItem('hollowCustomPO3Times', JSON.stringify(po3Times)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [po3Times]);
+  useEffect(() => { localStorage.setItem('hollowCustomEntryTFs', JSON.stringify(entryTfs)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [entryTfs]);
+  useEffect(() => { localStorage.setItem('hollowCustomPsychTags', JSON.stringify(psychTags)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [psychTags]);
+
+  const addModel = () => {
+    const clean = newModel.trim();
+    if (!clean) return;
+    if (!models.includes(clean)) {
+      setModels([...models, clean]);
+      showToast('Added custom model', 'success');
+    }
+    setNewModel('');
+  };
+
+  const removeModel = (item) => {
+    setModels(models.filter(m => m !== item));
+    showToast('Removed model pill', 'info');
+  };
+
+  const addDol = () => {
+    const clean = newDolLabel.trim();
+    if (!clean) return;
+    if (!dols.some(d => d.label === clean)) {
+      setDols([...dols, { label: clean, color: newDolColor }]);
+      showToast('Added custom DOL target', 'success');
+    }
+    setNewDolLabel('');
+  };
+
+  const removeDol = (label) => {
+    setDols(dols.filter(d => d.label !== label));
+    showToast('Removed DOL pill', 'info');
+  };
+
+  const addPo3Time = () => {
+    let clean = newPo3Time.replace(/[^0-9:]/g, '');
+    if (!clean.includes(':') && clean.length >= 3) clean = `${clean.slice(0, 2)}:${clean.slice(2, 4)}`;
+    if (clean.length > 5) clean = clean.slice(0, 5);
+    if (!clean || clean.length < 5) {
+      showToast('Enter valid time in hh:mm format', 'error');
+      return;
+    }
+    if (!po3Times.includes(clean)) {
+      setPo3Times([...po3Times, clean]);
+      showToast('Added PO3 time pill', 'success');
+    }
+    setNewPo3Time('');
+  };
+
+  const removePo3Time = (time) => {
+    setPo3Times(po3Times.filter(t => t !== time));
+    showToast('Removed PO3 time pill', 'info');
+  };
+
+  const addEntryTf = () => {
+    const clean = newEntryTf.trim();
+    if (!clean) return;
+    if (!entryTfs.includes(clean)) {
+      setEntryTfs([...entryTfs, clean]);
+      showToast('Added entry timeframe pill', 'success');
+    }
+    setNewEntryTf('');
+  };
+
+  const removeEntryTf = (tf) => {
+    setEntryTfs(entryTfs.filter(t => t !== tf));
+    showToast('Removed timeframe pill', 'info');
+  };
+
+  const addPsychTag = () => {
+    const clean = newPsychTag.trim();
+    if (!clean) return;
+    if (!psychTags.includes(clean)) {
+      setPsychTags([...psychTags, clean]);
+      showToast('Added psychology tag pill', 'success');
+    }
+    setNewPsychTag('');
+  };
+
+  const removePsychTag = (tag) => {
+    setPsychTags(psychTags.filter(t => t !== tag));
+    showToast('Removed mindset tag pill', 'info');
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div>
+        <h3 style={{ fontSize: '18px', color: '#fff', fontWeight: '800', letterSpacing: '-0.02em' }}>
+          Custom Pills Manager
+        </h3>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px', lineHeight: 1.5 }}>
+          Drag and drop pills to reorder them. Created orders save automatically to your execution tracking options.
+        </p>
+      </div>
+
+      {/* Grid of Pill Category Manager Cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Category 1: Models */}
+        <div style={{ background: '#0f0f11', border: '1px solid rgba(184, 110, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#b86eff' }}>Playbook Models</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Drag to reorder setup models</div>
+            </div>
+            <div style={{ background: 'rgba(184, 110, 255, 0.15)', color: '#b86eff', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '100px' }}>
+              {models.length} Models
+            </div>
+          </div>
+          
+          <Reorder.Group
+            axis="x"
+            values={models}
+            onReorder={setModels}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', listStyle: 'none', padding: 0 }}
+          >
+            {models.map(m => (
+              <Reorder.Item
+                key={m}
+                value={m}
+                style={{
+                  background: 'rgba(184, 110, 255, 0.14)',
+                  border: '1px solid rgba(184, 110, 255, 0.35)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  padding: '6px 12px',
+                  borderRadius: '100px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                whileDrag={{ scale: 1.08, boxShadow: '0 8px 25px rgba(184, 110, 255, 0.45)', cursor: 'grabbing' }}
+              >
+                <GripVertical size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                <span>{m}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeModel(m);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  title="Delete pill"
+                >
+                  <X size={13} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Add new model..."
+              value={newModel}
+              onChange={e => setNewModel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addModel(); }}
+              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+            />
+            <button type="button" onClick={addModel} style={{ background: '#b86eff', border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+              + Add Model
+            </button>
+          </div>
+        </div>
+
+        {/* Category 2: Draw on Liquidity (DOL) with Color Picker */}
+        <div style={{ background: '#0f0f11', border: '1px solid rgba(48, 209, 88, 0.24)', borderRadius: '20px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#30d158' }}>Draw on Liquidity (DOL)</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Drag to reorder DOL targets</div>
+            </div>
+            <div style={{ background: 'rgba(48, 209, 88, 0.15)', color: '#30d158', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '100px' }}>
+              {dols.length} Targets
+            </div>
+          </div>
+          
+          <Reorder.Group
+            axis="x"
+            values={dols}
+            onReorder={setDols}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', listStyle: 'none', padding: 0 }}
+          >
+            {dols.map(d => (
+              <Reorder.Item
+                key={d.label}
+                value={d}
+                style={{
+                  background: `${d.color}20`,
+                  border: `1.5px solid ${d.color}`,
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  padding: '6px 12px',
+                  borderRadius: '100px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                whileDrag={{ scale: 1.08, boxShadow: `0 8px 25px ${d.color}60`, cursor: 'grabbing' }}
+              >
+                <GripVertical size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.color }} />
+                <span>{d.label}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeDol(d.label);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  title="Delete pill"
+                >
+                  <X size={13} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="New DOL target..."
+              value={newDolLabel}
+              onChange={e => setNewDolLabel(e.target.value)}
+              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {SWATCH_PALETTE.map(c => (
+                <div
+                  key={c}
+                  onClick={() => setNewDolColor(c)}
+                  style={{ width: '20px', height: '20px', borderRadius: '50%', background: c, cursor: 'pointer', border: newDolColor === c ? '2px solid #fff' : 'none' }}
+                />
+              ))}
+            </div>
+            <button type="button" onClick={addDol} style={{ background: newDolColor, border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+              + Add DOL
+            </button>
+          </div>
+        </div>
+
+        {/* Category 3: PO3 Execution Times */}
+        <div style={{ background: '#0f0f11', border: '1px solid rgba(255, 159, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#ff9f0a' }}>PO3 Execution Timings</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Drag to reorder execution times</div>
+            </div>
+            <div style={{ background: 'rgba(255, 159, 10, 0.15)', color: '#ff9f0a', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '100px' }}>
+              {po3Times.length} Timings
+            </div>
+          </div>
+
+          <Reorder.Group
+            axis="x"
+            values={po3Times}
+            onReorder={setPo3Times}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', listStyle: 'none', padding: 0 }}
+          >
+            {po3Times.map(t => (
+              <Reorder.Item
+                key={t}
+                value={t}
+                style={{
+                  background: 'rgba(255, 159, 10, 0.14)',
+                  border: '1px solid rgba(255, 159, 10, 0.35)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  padding: '6px 12px',
+                  borderRadius: '100px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                whileDrag={{ scale: 1.08, boxShadow: '0 8px 25px rgba(255, 159, 10, 0.45)', cursor: 'grabbing' }}
+              >
+                <GripVertical size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                <span>{t}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removePo3Time(t);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  title="Delete pill"
+                >
+                  <X size={13} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Add time (hh:mm, e.g. 09:45)..."
+              value={newPo3Time}
+              onChange={e => setNewPo3Time(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addPo3Time(); }}
+              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+            />
+            <button type="button" onClick={addPo3Time} style={{ background: '#ff9f0a', border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+              + Add Time
+            </button>
+          </div>
+        </div>
+
+        {/* Category 4: Entry Timeframes */}
+        <div style={{ background: '#0f0f11', border: '1px solid rgba(100, 210, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#64d2ff' }}>Entry Timeframes</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Drag to reorder entry timeframes</div>
+            </div>
+            <div style={{ background: 'rgba(100, 210, 255, 0.15)', color: '#64d2ff', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '100px' }}>
+              {entryTfs.length} Timeframes
+            </div>
+          </div>
+
+          <Reorder.Group
+            axis="x"
+            values={entryTfs}
+            onReorder={setEntryTfs}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', listStyle: 'none', padding: 0 }}
+          >
+            {entryTfs.map(tf => (
+              <Reorder.Item
+                key={tf}
+                value={tf}
+                style={{
+                  background: 'rgba(100, 210, 255, 0.14)',
+                  border: '1px solid rgba(100, 210, 255, 0.35)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  padding: '6px 12px',
+                  borderRadius: '100px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                whileDrag={{ scale: 1.08, boxShadow: '0 8px 25px rgba(100, 210, 255, 0.45)', cursor: 'grabbing' }}
+              >
+                <GripVertical size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                <span>{tf}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeEntryTf(tf);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  title="Delete pill"
+                >
+                  <X size={13} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Type entry TF (e.g. 2m)..."
+              value={newEntryTf}
+              onChange={e => setNewEntryTf(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addEntryTf(); }}
+              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+            />
+            <button type="button" onClick={addEntryTf} style={{ background: '#64d2ff', border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+              + Add TF
+            </button>
+          </div>
+        </div>
+
+        {/* Category 5: Psychology & Mindset Tags */}
+        <div style={{ background: '#0f0f11', border: '1px solid rgba(255, 214, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffd60a' }}>Psychology & Mindset Tags</div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Drag to reorder psychology tags</div>
+            </div>
+            <div style={{ background: 'rgba(255, 214, 10, 0.15)', color: '#ffd60a', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '100px' }}>
+              {psychTags.length} Tags
+            </div>
+          </div>
+
+          <Reorder.Group
+            axis="x"
+            values={psychTags}
+            onReorder={setPsychTags}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', listStyle: 'none', padding: 0 }}
+          >
+            {psychTags.map(tag => (
+              <Reorder.Item
+                key={tag}
+                value={tag}
+                style={{
+                  background: 'rgba(255, 214, 10, 0.14)',
+                  border: '1px solid rgba(255, 214, 10, 0.35)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  padding: '6px 12px',
+                  borderRadius: '100px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'grab',
+                  userSelect: 'none'
+                }}
+                whileDrag={{ scale: 1.08, boxShadow: '0 8px 25px rgba(255, 214, 10, 0.45)', cursor: 'grabbing' }}
+              >
+                <GripVertical size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                <span>{tag}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removePsychTag(tag);
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.7)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  title="Delete pill"
+                >
+                  <X size={13} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Add psychology tag..."
+              value={newPsychTag}
+              onChange={e => setNewPsychTag(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addPsychTag(); }}
+              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+            />
+            <button type="button" onClick={addPsychTag} style={{ background: '#ffd60a', border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+              + Add Tag
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsView({ selectedAccountId, setSelectedAccountId } = {}) {
   const isMobile = useUIStore(state => state.isMobile);
-  const [activeTab, setActiveTab] = useState('accounts'); // 'accounts', 'playbook', 'profile'
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'playbook'
   
   // 1. Accounts Settings State
-  const accounts = useLiveQuery(() => db.accounts.toArray()) || [];
-  const trades = useLiveQuery(() => db.trades.toArray()) || [];
-  const executions = useLiveQuery(() => db.executions.toArray()) || [];
+  const accounts = useLiveQuery(() => (db.accounts ? db.accounts.toArray() : [])) || [];
+  const trades = useLiveQuery(() => (db.trades ? db.trades.toArray() : [])) || [];
+  const executions = useLiveQuery(() => (db.executions ? db.executions.toArray() : [])) || [];
   const [editingAccountId, setEditingAccountId] = useState('new');
   const [settingsPresetId, setSettingsPresetId] = useState('custom');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -509,12 +1021,12 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     showToast('Generating manual system backup...', 'info');
     try {
       const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
-        db.accounts.toArray(),
-        db.trades.toArray(),
-        db.executions.toArray(),
-        db.dailyJournals.toArray(),
-        db.weeklyPlanners.toArray(),
-        db.groups.toArray(),
+        db.accounts ? db.accounts.toArray() : [],
+        db.trades ? db.trades.toArray() : [],
+        db.executions ? db.executions.toArray() : [],
+        db.dailyJournals ? db.dailyJournals.toArray() : [],
+        db.weeklyPlanners ? db.weeklyPlanners.toArray() : [],
+        db.groups ? db.groups.toArray() : [],
         db.workouts ? db.workouts.toArray() : []
       ]);
       const { exportAllDataBackupPDF, getBackupDirectoryHandle } = await import('../utils/pdfExport');
@@ -717,74 +1229,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
     window.dispatchEvent(new Event('hollowSettingsUpdated'));
   };
 
-  const playbookStats = playbookTags.reduce((acc, tag) => {
-    acc[tag] = getModelStats(tag);
-    return acc;
-  }, {});
-
-  const totalPlaybookPnL = Object.values(playbookStats).reduce((sum, stat) => sum + stat.netPnL, 0);
-  
-  // Find most traded model
-  let mostTradedModel = null;
-  let maxTrades = -1;
-  playbookTags.forEach(tag => {
-    const count = playbookStats[tag]?.tradesCount || 0;
-    if (count > maxTrades && count > 0) {
-      maxTrades = count;
-      mostTradedModel = tag;
-    }
-  });
-
-  // Find best performing model
-  let bestPerformingModel = null;
-  let maxPnL = -Infinity;
-  playbookTags.forEach(tag => {
-    const pnl = playbookStats[tag]?.netPnL || 0;
-    if (pnl > maxPnL && pnl > 0) {
-      maxPnL = pnl;
-      bestPerformingModel = tag;
-    }
-  });
-
-  const groupedModels = CATEGORIES.reduce((acc, cat) => {
-    acc[cat] = playbookTags.filter(tag => (modelData[tag]?.category || 'Custom') === cat);
-    return acc;
-  }, {});
-
-  const nonEmptyCategories = CATEGORIES.filter(cat => groupedModels[cat].length > 0);
-
-  const filteredModels = playbookTags
-    .filter(tag => {
-      // 1. Filter by category
-      if (pbFilterCategory !== 'All') {
-        const cat = modelData[tag]?.category || 'Custom';
-        if (cat !== pbFilterCategory) return false;
-      }
-      // 2. Filter by search query
-      if (pbSearchQuery.trim()) {
-        const query = pbSearchQuery.toLowerCase().trim();
-        const desc = (modelData[tag]?.description || '').toLowerCase();
-        if (!tag.toLowerCase().includes(query) && !desc.includes(query)) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      // Sort
-      if (pbSortBy === 'name') {
-        return a.localeCompare(b);
-      }
-      if (pbSortBy === 'trades') {
-        return (playbookStats[b]?.tradesCount || 0) - (playbookStats[a]?.tradesCount || 0);
-      }
-      if (pbSortBy === 'winrate') {
-        return (playbookStats[b]?.winRate || 0) - (playbookStats[a]?.winRate || 0);
-      }
-      if (pbSortBy === 'pnl') {
-        return (playbookStats[b]?.netPnL || 0) - (playbookStats[a]?.netPnL || 0);
-      }
-      return 0;
-    });
-
   // Action Handlers
   const handleApplyPresetSettings = (e) => {
     const val = e.target.value;
@@ -957,9 +1401,8 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           scrollbarWidth: 'none'
         }} className="hollow-menu-scrollbar">
           {[
-                      { id: 'accounts', label: 'Accounts Manager', icon: <CreditCard size={16} /> },
-            { id: 'playbook', label: 'Playbook Models', icon: <Target size={16} /> },
-            { id: 'profile', label: 'Profile', icon: <User size={16} /> }
+            { id: 'profile', label: 'Profile', icon: <User size={16} /> },
+            { id: 'pills', label: 'Custom Pills Manager', icon: <Tag size={16} /> }
           ].map(tab => {
             const isSelected = activeTab === tab.id;
             return (
@@ -2496,6 +2939,9 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
             </div>
           )}
 
+          {/* TAB 2: Custom Pills Manager */}
+          {activeTab === 'pills' && <CustomPillManager />}
+
           {/* TAB 3: Profile */}
           {activeTab === 'profile' && (() => {
             const SectionHeader = ({ title }) => (
@@ -2834,7 +3280,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                     </svg>
                     <span style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.02em' }}>hollow.</span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>stoic trading journal</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>hollow cognitive ledger</div>
                 </div>
 
                 {/* Edit Profile Modal */}

@@ -41,12 +41,12 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
     addToast('Generating backup...', 'success');
     try {
       const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
-        db.accounts.toArray(),
-        db.trades.toArray(),
-        db.executions.toArray(),
-        db.dailyJournals.toArray(),
-        db.weeklyPlanners.toArray(),
-        db.groups.toArray(),
+        db.accounts ? db.accounts.toArray() : [],
+        db.trades ? db.trades.toArray() : [],
+        db.executions ? db.executions.toArray() : [],
+        db.dailyJournals ? db.dailyJournals.toArray() : [],
+        db.weeklyPlanners ? db.weeklyPlanners.toArray() : [],
+        db.groups ? db.groups.toArray() : [],
         db.workouts ? db.workouts.toArray() : []
       ]);
       const { exportAllDataBackupPDF } = await import('../../utils/pdfExport');
@@ -327,8 +327,7 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
             { label: 'Trading Accounts', desc: 'Manage, select, and edit your trading accounts', icon: CreditCard, view: 'accounts' },
             { label: 'Performance Stats', desc: 'Detailed playbook edge, discipline, and session statistics', icon: TrendingUp, view: 'stats' },
             { label: 'Payout Tracker', desc: 'Track payouts from prop firms and accounts', icon: DollarSign, view: 'payouts' },
-            { label: 'Weekly Review', desc: 'Stoic weekly review audit board', icon: ClipboardCheck, view: 'weeklyReview' },
-            { label: 'Training Journal', desc: 'Workout log, reps, weight, volume curves', icon: Dumbbell, view: 'trainingJournal' },
+            { label: 'Weekly Review', desc: 'Weekly review & audit board', icon: ClipboardCheck, view: 'weeklyReview' },
             { label: 'Copy Groups', desc: 'Mirror leader trades to follower accounts', icon: Users, view: 'groups' },
             { label: 'Trade Gallery', desc: 'Browse execution charts and snap logs', icon: Image, view: 'gallery' }
           ].map((item, idx, arr) => (
@@ -517,7 +516,7 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
             </svg>
             <span style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.02em' }}>hollow.</span>
           </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>stoic trading journal</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>hollow cognitive ledger</div>
         </div>
       </div>
 

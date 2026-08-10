@@ -4,11 +4,9 @@ import { syncWithSupabase, seedDatabaseIfEmpty } from '../db/hollowDb';
 import HollowLogo from './HollowLogo';
 
 export default function LoadingScreen({ session, onComplete }) {
-  const [status, setStatus] = useState('initializing hollow...');
-  const [progress, setProgress] = useState(10);
-
-  // Keep a stable ref of onComplete so that it never re-runs the useEffect hook
+  const [progress, setProgress] = useState(15);
   const onCompleteRef = useRef(onComplete);
+
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
@@ -23,155 +21,110 @@ export default function LoadingScreen({ session, onComplete }) {
           return;
         }
 
-        // Step 1: Authenticating
-        if (active) {
-          setStatus('authorizing session...');
-          setProgress(25);
-        }
-        await new Promise(r => setTimeout(r, 450)); // organic breathing room
+        setProgress(40);
+        await new Promise(r => setTimeout(r, 180));
 
-        // Step 2: Syncing
-        if (active) {
-          setStatus('synchronizing cloud data...');
-          setProgress(65);
-        }
         try {
           await syncWithSupabase();
         } catch (err) {
-          console.error('Initial sync failed:', err);
+          console.error('Sync error:', err);
         }
-        await new Promise(r => setTimeout(r, 350));
 
-        // Step 3: Seeding
-        if (active) {
-          setStatus('preparing workspace...');
-          setProgress(90);
-        }
+        if (active) setProgress(80);
+        await new Promise(r => setTimeout(r, 180));
+
         try {
           await seedDatabaseIfEmpty();
         } catch (err) {
-          console.error('Initial seeding failed:', err);
+          console.error('Seeding error:', err);
         }
-        await new Promise(r => setTimeout(r, 400));
 
-        // Step 4: Ready
-        if (active) {
-          setStatus('ready.');
-          setProgress(100);
-        }
-        await new Promise(r => setTimeout(r, 300));
+        if (active) setProgress(100);
+        await new Promise(r => setTimeout(r, 180));
 
-        if (active) {
-          onCompleteRef.current();
-        }
-      } catch (err) {
-        console.error('Initialization sequence failed:', err);
+        if (active) onCompleteRef.current();
+      } catch (e) {
+        console.error('Loading error:', e);
         if (active) onCompleteRef.current();
       }
     }
 
     runInitialization();
 
-    return () => {
-      active = false;
-    };
-  }, [session]); // Only depend on session
+    return () => { active = false; };
+  }, [session]);
 
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: '#000000',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        fontFamily: 'var(--font, -apple-system, BlinkMacSystemFont, sans-serif)'
-      }}
-    >
-      {/* Subtle cloud backdrop for aesthetic depth */}
-      <div style={{
-        position: 'absolute',
-        width: '320px',
-        height: '320px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(10, 132, 255, 0.15) 0%, rgba(191, 90, 242, 0.05) 50%, rgba(0, 0, 0, 0) 100%)',
-        filter: 'blur(60px)',
-        top: '45%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        pointerEvents: 'none'
-      }} />
-
-      {/* Pulsing Brand Logo */}
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 99999,
+      background: '#000000',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden'
+    }}>
+      {/* Dynamic Purple Ambient Glow Aura */}
       <motion.div
-        animate={{ 
-          scale: [1, 1.03, 1],
-          opacity: [0.7, 1, 0.7]
+        animate={{
+          scale: [0.95, 1.25, 0.95],
+          opacity: [0.45, 0.8, 0.45]
         }}
-        transition={{ 
-          repeat: Infinity, 
-          duration: 2, 
-          ease: "easeInOut" 
+        transition={{
+          repeat: Infinity,
+          duration: 3,
+          ease: 'easeInOut'
         }}
+        style={{
+          position: 'absolute',
+          width: '380px',
+          height: '380px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(184, 110, 255, 0.55) 0%, rgba(138, 48, 246, 0.22) 50%, rgba(0, 0, 0, 0) 80%)',
+          filter: 'blur(60px)',
+          pointerEvents: 'none'
+        }}
+      />
+
+      {/* Centered Large Glowing Logo Hero */}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 16,
-          marginBottom: 32,
+          gap: 20,
           zIndex: 10
         }}
       >
-        <HollowLogo size={44} showText={true} color="#ffffff" />
+        <HollowLogo size={96} showText={true} textSize={52} color="#ffffff" animated={true} />
       </motion.div>
 
-      {/* Progress Bar Container */}
+      {/* Minimalist Glowing Purple Progress Line */}
       <div style={{
-        width: 140,
-        height: 2,
+        position: 'absolute',
+        bottom: '80px',
+        width: 160,
+        height: 3,
         background: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: 1,
+        borderRadius: 2,
         overflow: 'hidden',
-        position: 'relative',
-        marginBottom: 12,
         zIndex: 10
       }}>
         <motion.div
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
           style={{
             height: '100%',
-            background: 'linear-gradient(90deg, #0a84ff, #bf5af2)',
-            boxShadow: '0 0 8px rgba(10, 132, 255, 0.4)'
+            background: 'linear-gradient(90deg, #c27eff, #8a30f6)',
+            boxShadow: '0 0 16px rgba(194, 126, 255, 0.9)'
           }}
         />
       </div>
-
-      {/* Status text */}
-      <motion.div
-        key={status}
-        initial={{ opacity: 0, y: 3 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: 'rgba(255, 255, 255, 0.4)',
-          textTransform: 'lowercase',
-          letterSpacing: '0.04em',
-          zIndex: 10,
-          height: 16
-        }}
-      >
-        {status}
-      </motion.div>
-    </motion.div>
+    </div>
   );
 }

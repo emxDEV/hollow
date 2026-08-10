@@ -30,11 +30,41 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
     return trades.filter(t => t.accountId === selectedAccountId);
   }, [trades, selectedAccountId]);
 
-  const enriched = useMemo(() => acctTrades.map(t => {
-    const execs = executions.filter(e => e.tradeId === t.id);
-    const { netPnL, grossPnL, commissions } = calculateTradePnL(t, execs);
-    return { ...t, netPnL, grossPnL, commissions };
-  }), [acctTrades, executions]);
+  const enriched = useMemo(() => {
+    const standaloneExecTrades = executions
+      .filter(e => e.id && !e.tradeId)
+      .map(e => {
+        let rVal = 0;
+        if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
+          const num = parseFloat(String(e.rr).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) rVal = num;
+        } else if (e.wl === 'Win') {
+          rVal = 2.0;
+        } else if (e.wl === 'Loss') {
+          rVal = -1.0;
+        }
+        const netPnL = e.manualPnL !== undefined ? parseFloat(e.manualPnL) : rVal * 200;
+        return {
+          id: e.id,
+          date: e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0],
+          symbol: e.symbol || 'NQ',
+          bias: e.bias || 'Long',
+          model: e.model || 'Standard Setup',
+          rating: e.rating || 'A+',
+          netPnL,
+          grossPnL: netPnL,
+          commissions: 0
+        };
+      });
+
+    const tradeEnriched = acctTrades.map(t => {
+      const execs = executions.filter(e => e.tradeId === t.id);
+      const { netPnL, grossPnL, commissions } = calculateTradePnL(t, execs);
+      return { ...t, netPnL, grossPnL, commissions };
+    });
+
+    return [...tradeEnriched, ...standaloneExecTrades];
+  }, [acctTrades, executions]);
 
   const stats = useMemo(() => {
     if (!enriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, bigWin: 0, bigLoss: 0 };

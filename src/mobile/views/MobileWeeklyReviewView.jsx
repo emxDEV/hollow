@@ -10,18 +10,16 @@ import {
   CheckCircle2, Circle
 } from 'lucide-react';
 
-const WEEKLY_STOIC_QUOTES = {
+const WEEKLY_MINDSET_QUOTES = {
   win: [
-    { text: "No random actions, none not based on underlying principles.", author: "Marcus Aurelius" },
-    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Stoic Maxim" },
-    { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
-    { text: "Keep constant guard over your perceptions, for they are the source of all your actions.", author: "Epictetus" }
+    { text: "Consistency is not about perfection. It is about relentless alignment with your system.", author: "Hollow Analytics" },
+    { text: "Execution without emotion is the ultimate trading edge.", author: "Hollow Mindset" },
+    { text: "Protect your capital, control your risk, and let probability work.", author: "Hollow Edge" }
   ],
   loss: [
-    { text: "We suffer more often in imagination than in reality.", author: "Seneca" },
-    { text: "You have power over your mind - not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius" },
-    { text: "The impediment to action advances action. What stands in the way becomes the way.", author: "Marcus Aurelius" },
-    { text: "Difficulty is what wakes up the genius.", author: "Seneca" }
+    { text: "Drawdowns are data, not defeat. Refine the process and execute clean.", author: "Hollow Mindset" },
+    { text: "Mastering your risk parameters turns adversity into market intelligence.", author: "Hollow Analytics" },
+    { text: "Stay disciplined under pressure. Every execution is an iteration.", author: "Hollow Ledger" }
   ]
 };
 
@@ -251,7 +249,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
 
   const isWin = weeklyTradeMetrics.totalPnL >= 0;
   const accentColor = isWin ? '#30d158' : '#ff453a';
-  const quotesList = isWin ? WEEKLY_STOIC_QUOTES.win : WEEKLY_STOIC_QUOTES.loss;
+  const quotesList = isWin ? WEEKLY_MINDSET_QUOTES.win : WEEKLY_MINDSET_QUOTES.loss;
   const quote = quotesList[0];
 
   return (
@@ -364,7 +362,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
       {/* Scrollable View Area */}
       <div className="scroll-area" style={{ flex: 1, padding: '0 16px 100px' }}>
         
-        {/* Stoic Quote Banner */}
+        {/* Mindset Quote Banner */}
         <div style={{
           background: 'rgba(255,255,255,0.02)',
           border: '1px solid rgba(255,255,255,0.06)',
@@ -375,7 +373,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
           gap: 6,
           marginBottom: 16
         }}>
-          <span style={{ fontSize: 10, color: accentColor, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>STOIC AUDIT</span>
+          <span style={{ fontSize: 10, color: accentColor, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>MINDSET AUDIT</span>
           <p style={{ fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>"{quote.text}"</p>
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>— {quote.author}</span>
         </div>

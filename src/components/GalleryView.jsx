@@ -12,8 +12,8 @@ export default function GalleryView() {
   const [sortBy, setSortBy] = useState('dateDesc'); // 'dateDesc', 'dateAsc', 'pnlDesc', 'pnlAsc'
 
   // DB queries
-  const trades = useLiveQuery(() => db.trades.toArray()) || [];
-  const executions = useLiveQuery(() => db.executions.toArray()) || [];
+  const trades = useLiveQuery(() => (db.trades ? db.trades.toArray() : [])) || [];
+  const executions = useLiveQuery(() => (db.executions ? db.executions.toArray() : [])) || [];
 
   // Helper to extract LTF image robustly (with fallback for legacy formats)
   const getLTFImage = (trade) => {

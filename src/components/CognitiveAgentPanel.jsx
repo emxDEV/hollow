@@ -3,20 +3,20 @@ import { MessageSquare, X, Send, Sparkles, AlertTriangle, ShieldCheck, TrendingU
 import { calculateTradePnL, calculateAccountStatistics } from '../utils/tradeMath';
 import useUIStore from '../store/useUIStore';
 
-export default function CognitiveAgentPanel({ trades, executions, selectedAccountId, accounts }) {
+export default function CognitiveAgentPanel({ trades = [], executions = [], selectedAccountId = 'all', accounts = [] } = {}) {
   const isMobile = useUIStore(state => state.isMobile);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'agent',
-      text: "Operator, I have loaded your ledger snapshot. Ask me to audit your stats, summarize behavioral leaks, or suggest playbook adjustments."
+      text: "Operator, I am active. Ask me for assistance with habit tracking, daily focus logs, or training routine reviews."
     }
   ]);
   const [inputText, setInputText] = useState('');
   const chatEndRef = useRef(null);
 
-  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+  const selectedAccount = (accounts || []).find(a => a.id === selectedAccountId);
 
   useEffect(() => {
     if (chatEndRef.current) {

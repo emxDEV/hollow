@@ -6,16 +6,17 @@ import {
 import {
   Award, Compass, ShieldAlert, Zap, TrendingUp, TrendingDown,
   Clock, Activity, AlertCircle, Calendar, Sparkles, CheckCircle,
-  Camera, RotateCw, Download
+  Camera, RotateCw, Download, LayoutGrid, Filter, Info, ChevronDown, PieChart, Plus,
+  Hash, Star, SlidersHorizontal, Sun, Search, Maximize2, MoreHorizontal, BookOpen
 } from 'lucide-react';
 import { calculateTradePnL, isTradeBE, isTradeWinRateEligible } from '../utils/tradeMath';
 import useUIStore from '../store/useUIStore';
 
 
-const STOIC_QUOTES = {
+const MINDSET_QUOTES = {
   win: [
     { text: "No random actions, none not based on underlying principles.", author: "Marcus Aurelius" },
-    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Stoic Maxim" },
+    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Hollow Mindset" },
     { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
     { text: "Keep constant guard over your perceptions, for they are the source of all your actions.", author: "Epictetus" }
   ],
@@ -79,6 +80,52 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
       };
     });
   }, [accountTrades, executions]);
+
+
+  // Group trade metrics by Month (January - December) with 100% data tracking accuracy
+  const monthlyPnLRecords = useMemo(() => {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const records = monthNames.map((name, index) => ({
+      index,
+      id: String(index + 1).padStart(2, '0'),
+      name,
+      trades: 0,
+      wins: 0,
+      eligibleTrades: 0,
+      r: 0
+    }));
+
+    tradeMetrics.forEach(t => {
+      if (!t.date) return;
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return;
+      
+      const monthIdx = d.getMonth();
+      if (monthIdx >= 0 && monthIdx < 12) {
+        const record = records[monthIdx];
+        record.trades++;
+        
+        const virtualTrade = { ...t, netPnL: t.netPnL };
+        if (isTradeWinRateEligible(virtualTrade)) {
+          record.eligibleTrades++;
+          if (t.netPnL > 0) record.wins++;
+        }
+
+        const risk = t.riskAmount || 200;
+        record.r += (t.netPnL / risk);
+      }
+    });
+
+    return records.map(r => ({
+      ...r,
+      winRate: r.eligibleTrades > 0 ? (r.wins / r.eligibleTrades) * 100 : 0,
+      r: parseFloat(r.r.toFixed(2))
+    }));
+  }, [tradeMetrics]);
 
   // 2b. Group trade metrics by date to compute daily P&L records for export
   const dailyPnLRecords = useMemo(() => {
@@ -187,8 +234,8 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
   }, [exportMode, dailyPnLRecords, weeklyPnLRecords]);
 
   const currentQuote = useMemo(() => {
-    if (!activeRecord) return { text: "Focus on the process, not the outcome.", author: "Stoic Maxim" };
-    const quotesList = activeRecord.netPnL >= 0 ? STOIC_QUOTES.win : STOIC_QUOTES.loss;
+    if (!activeRecord) return { text: "Focus on the process, not the outcome.", author: "Hollow Mindset" };
+    const quotesList = activeRecord.netPnL >= 0 ? MINDSET_QUOTES.win : MINDSET_QUOTES.loss;
     return quotesList[quoteIndex % quotesList.length] || quotesList[0];
   }, [activeRecord, quoteIndex]);
 
@@ -1429,14 +1476,190 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--colors-on-dark-mute)', fontSize: '12px' }}>Profit to Drawdown Ratio</span>
-                      <span className="mono" style={{ fontWeight: '600', fontSize: '13px', color: overviewStats.totalNetPnL > equityCurveAndDrawdown.maxDrawdown ? 'var(--colors-gain)' : 'var(--colors-loss)' }}>
-                        {equityCurveAndDrawdown.maxDrawdown > 0 ? (overviewStats.totalNetPnL / equityCurveAndDrawdown.maxDrawdown).toFixed(2) : '9.99'}x
-                      </span>
+              </div>
+
+              {/* Notion-Style Months Database Table */}
+              <div style={{
+                background: '#191919',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginTop: '12px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+              }}>
+                {/* Top Summary Stats Header */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '36px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  letterSpacing: '0.5px',
+                  marginBottom: '14px',
+                  paddingRight: '12px'
+                }}>
+                  <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.trades, 0)}</span></div>
+                  <div>AVERAGE <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{
+                    (monthlyPnLRecords.filter(m => m.trades > 0).reduce((acc, m) => acc + m.winRate, 0) / (monthlyPnLRecords.filter(m => m.trades > 0).length || 1)).toFixed(2)
+                  }%</span></div>
+                  <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.r, 0).toFixed(2)}</span></div>
+                </div>
+
+                {/* Database View Header Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  {/* Left View Switcher Pill */}
+                  <div style={{ 
+                    display: 'flex', alignItems: 'center', gap: '6px', 
+                    background: 'rgba(255, 255, 255, 0.08)', padding: '5px 12px', 
+                    borderRadius: '16px', fontSize: '13px', fontWeight: '600', color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    cursor: 'pointer'
+                  }}>
+                    <LayoutGrid size={13} color="rgba(255,255,255,0.7)" />
+                    Months
+                  </div>
+
+                  {/* Toolbar Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                      <Filter size={14} style={{ cursor: 'pointer' }} />
+                      <SlidersHorizontal size={14} style={{ cursor: 'pointer' }} />
+                      <Zap size={14} style={{ cursor: 'pointer' }} />
+                      <Sun size={14} style={{ cursor: 'pointer' }} />
+                      <Search size={14} style={{ cursor: 'pointer' }} />
+                      <Maximize2 size={14} style={{ cursor: 'pointer' }} />
+                      <MoreHorizontal size={14} style={{ cursor: 'pointer' }} />
+                    </div>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      background: '#2383e2', color: '#fff',
+                      padding: '5px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600',
+                      cursor: 'pointer', boxShadow: '0 2px 8px rgba(35, 131, 226, 0.3)'
+                    }}>
+                      New
+                      <ChevronDown size={14} />
                     </div>
                   </div>
                 </div>
 
+                {/* Table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 12px', fontWeight: '500', width: '35%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Info size={13} color="rgba(255,255,255,0.5)" /> Month
+                          </div>
+                        </th>
+                        <th style={{ padding: '8px 12px', fontWeight: '500', width: '20%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Hash size={13} color="rgba(255,255,255,0.5)" /> Trades
+                          </div>
+                        </th>
+                        <th style={{ padding: '8px 12px', fontWeight: '500', width: '25%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Star size={13} color="rgba(255,255,255,0.5)" /> Win Rate
+                          </div>
+                        </th>
+                        <th style={{ padding: '8px 12px', fontWeight: '500', width: '20%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <PieChart size={13} color="rgba(255,255,255,0.5)" /> Total R:R
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.3)' }}>
+                              <Plus size={13} />
+                              <MoreHorizontal size={13} />
+                            </div>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyPnLRecords.map((m, i) => (
+                        <tr 
+                          key={i} 
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', height: '36px' }}
+                          onMouseEnter={e => {
+                            const openBtn = e.currentTarget.querySelector('.notion-open-pill');
+                            if (openBtn) openBtn.style.opacity = '1';
+                          }}
+                          onMouseLeave={e => {
+                            const openBtn = e.currentTarget.querySelector('.notion-open-pill');
+                            if (openBtn) openBtn.style.opacity = '0';
+                          }}
+                        >
+                          <td style={{ padding: '6px 12px', color: '#fff', fontWeight: '500', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Calendar size={14} color="rgba(255,255,255,0.4)" />
+                                <span>{m.name}</span>
+                              </div>
+                              {/* Hover OPEN Pill */}
+                              <div className="notion-open-pill" style={{
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '700',
+                                color: 'rgba(255,255,255,0.8)', cursor: 'pointer', textTransform: 'uppercase',
+                                letterSpacing: '0.5px', opacity: 0, transition: 'opacity 0.15s ease'
+                              }}>
+                                <BookOpen size={10} /> OPEN
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '6px 12px', color: 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-mono)', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                            {m.trades}
+                          </td>
+                          <td style={{ padding: '6px 12px', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                            {m.trades > 0 ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>{m.winRate.toFixed(2)}%</span>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                  <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
+                                  <circle cx="12" cy="12" r="9" stroke="#30d158" strokeWidth="3" strokeDasharray={`${(m.winRate * 56.5) / 100} 56.5`} strokeLinecap="round" transform="rotate(-90 12 12)" />
+                                </svg>
+                              </div>
+                            ) : null}
+                          </td>
+                          <td style={{ padding: '6px 12px', color: m.r > 0 ? '#30d158' : m.r < 0 ? '#ff453a' : 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
+                            {m.r.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* New Page Row */}
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td colSpan={4} style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                            <Plus size={14} /> New page
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bottom Summary Row */}
+                <div style={{ 
+                  padding: '10px 12px 2px 12px', 
+                  display: 'grid',
+                  gridTemplateColumns: '35% 20% 25% 20%',
+                  borderTop: '1px solid rgba(255,255,255,0.08)', 
+                  fontSize: '11px', 
+                  color: 'rgba(255,255,255,0.4)', 
+                  fontWeight: '700', 
+                  letterSpacing: '0.5px' 
+                }}>
+                  <div></div>
+                  <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.trades, 0)}</span></div>
+                  <div>AVERAGE <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{
+                    (monthlyPnLRecords.filter(m => m.trades > 0).reduce((acc, m) => acc + m.winRate, 0) / (monthlyPnLRecords.filter(m => m.trades > 0).length || 1)).toFixed(2)
+                  }%</span></div>
+                  <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.r, 0).toFixed(2)}</span></div>
+                </div>
               </div>
+
             </>
           )}
 
@@ -2050,11 +2273,191 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                 </div>
               </div>
 
+              {/* Notion-Style Months Database Table */}
+            <div style={{
+              background: '#191919',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '8px',
+              padding: '16px',
+              marginTop: '24px',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}>
+              {/* Top Summary Stats Header */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '36px',
+                fontSize: '11px',
+                fontWeight: '700',
+                color: 'rgba(255, 255, 255, 0.45)',
+                letterSpacing: '0.5px',
+                marginBottom: '14px',
+                paddingRight: '12px'
+              }}>
+                <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.trades, 0)}</span></div>
+                <div>AVERAGE <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{
+                  (monthlyPnLRecords.filter(m => m.trades > 0).reduce((acc, m) => acc + m.winRate, 0) / (monthlyPnLRecords.filter(m => m.trades > 0).length || 1)).toFixed(2)
+                }%</span></div>
+                <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontWeight: '800' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.r, 0).toFixed(2)}</span></div>
+              </div>
+
+              {/* Database View Header Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                {/* Left View Switcher Pill */}
+                <div style={{ 
+                  display: 'flex', alignItems: 'center', gap: '6px', 
+                  background: 'rgba(255, 255, 255, 0.08)', padding: '5px 12px', 
+                  borderRadius: '16px', fontSize: '13px', fontWeight: '600', color: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  cursor: 'pointer'
+                }}>
+                  <LayoutGrid size={13} color="rgba(255,255,255,0.7)" />
+                  Months
+                </div>
+
+                {/* Toolbar Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                    <Filter size={14} style={{ cursor: 'pointer' }} />
+                    <SlidersHorizontal size={14} style={{ cursor: 'pointer' }} />
+                    <Zap size={14} style={{ cursor: 'pointer' }} />
+                    <Sun size={14} style={{ cursor: 'pointer' }} />
+                    <Search size={14} style={{ cursor: 'pointer' }} />
+                    <Maximize2 size={14} style={{ cursor: 'pointer' }} />
+                    <MoreHorizontal size={14} style={{ cursor: 'pointer' }} />
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    background: '#2383e2', color: '#fff',
+                    padding: '5px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600',
+                    cursor: 'pointer', boxShadow: '0 2px 8px rgba(35, 131, 226, 0.3)'
+                  }}>
+                    New
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', textAlign: 'left' }}>
+                      <th style={{ padding: '8px 12px', fontWeight: '500', width: '35%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Info size={13} color="rgba(255,255,255,0.5)" /> Month
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 12px', fontWeight: '500', width: '20%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Hash size={13} color="rgba(255,255,255,0.5)" /> Trades
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 12px', fontWeight: '500', width: '25%', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Star size={13} color="rgba(255,255,255,0.5)" /> Win Rate
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 12px', fontWeight: '500', width: '20%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <PieChart size={13} color="rgba(255,255,255,0.5)" /> Total R:R
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.3)' }}>
+                            <Plus size={13} />
+                            <MoreHorizontal size={13} />
+                          </div>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyPnLRecords.map((m, i) => (
+                      <tr 
+                        key={i} 
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', height: '36px' }}
+                        onMouseEnter={e => {
+                          const openBtn = e.currentTarget.querySelector('.notion-open-pill');
+                          if (openBtn) openBtn.style.opacity = '1';
+                        }}
+                        onMouseLeave={e => {
+                          const openBtn = e.currentTarget.querySelector('.notion-open-pill');
+                          if (openBtn) openBtn.style.opacity = '0';
+                        }}
+                      >
+                        <td style={{ padding: '6px 12px', color: '#fff', fontWeight: '500', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Calendar size={14} color="rgba(255,255,255,0.4)" />
+                              <span>{m.name}</span>
+                            </div>
+                            {/* Hover OPEN Pill */}
+                            <div className="notion-open-pill" style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                              borderRadius: '4px', padding: '2px 6px', fontSize: '10px', fontWeight: '700',
+                              color: 'rgba(255,255,255,0.8)', cursor: 'pointer', textTransform: 'uppercase',
+                              letterSpacing: '0.5px', opacity: 0, transition: 'opacity 0.15s ease'
+                            }}>
+                              <BookOpen size={10} /> OPEN
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '6px 12px', color: 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-mono)', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          {m.trades}
+                        </td>
+                        <td style={{ padding: '6px 12px', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+                          {m.trades > 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ color: '#fff', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>{m.winRate.toFixed(2)}%</span>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
+                                <circle cx="12" cy="12" r="9" stroke="#30d158" strokeWidth="3" strokeDasharray={`${(m.winRate * 56.5) / 100} 56.5`} strokeLinecap="round" transform="rotate(-90 12 12)" />
+                              </svg>
+                            </div>
+                          ) : null}
+                        </td>
+                        <td style={{ padding: '6px 12px', color: m.r > 0 ? '#30d158' : m.r < 0 ? '#ff453a' : 'rgba(255,255,255,0.9)', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
+                          {m.r.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* New Page Row */}
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <td colSpan={4} style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                          <Plus size={14} /> New page
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bottom Summary Row */}
+              <div style={{ 
+                padding: '10px 12px 2px 12px', 
+                display: 'grid',
+                gridTemplateColumns: '35% 20% 25% 20%',
+                borderTop: '1px solid rgba(255,255,255,0.08)', 
+                fontSize: '11px', 
+                color: 'rgba(255,255,255,0.4)', 
+                fontWeight: '700', 
+                letterSpacing: '0.5px' 
+              }}>
+                <div></div>
+                <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.trades, 0)}</span></div>
+                <div>AVERAGE <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{
+                  (monthlyPnLRecords.filter(m => m.trades > 0).reduce((acc, m) => acc + m.winRate, 0) / (monthlyPnLRecords.filter(m => m.trades > 0).length || 1)).toFixed(2)
+                }%</span></div>
+                <div>SUM <span style={{ color: '#fff', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>{monthlyPnLRecords.reduce((acc, m) => acc + m.r, 0).toFixed(2)}</span></div>
+              </div>
             </div>
-          )}
 
         </div>
       )}
+
 
       {/* Off-screen elements for html2canvas exports */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
@@ -2209,7 +2612,7 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   lineHeight: '1.4',
                   fontWeight: '400' 
                 }}>
-                  "{record.netPnL >= 0 ? STOIC_QUOTES.win[quoteIndex % STOIC_QUOTES.win.length].text : STOIC_QUOTES.loss[quoteIndex % STOIC_QUOTES.loss.length].text}"
+                  "{record.netPnL >= 0 ? MINDSET_QUOTES.win[quoteIndex % MINDSET_QUOTES.win.length].text : MINDSET_QUOTES.loss[quoteIndex % MINDSET_QUOTES.loss.length].text}"
                 </div>
                 <div style={{ 
                   fontSize: '7.5px', 
@@ -2219,7 +2622,7 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   letterSpacing: '1px',
                   fontWeight: '600'
                 }}>
-                  — {record.netPnL >= 0 ? STOIC_QUOTES.win[quoteIndex % STOIC_QUOTES.win.length].author : STOIC_QUOTES.loss[quoteIndex % STOIC_QUOTES.loss.length].author}
+                  — {record.netPnL >= 0 ? MINDSET_QUOTES.win[quoteIndex % MINDSET_QUOTES.win.length].author : MINDSET_QUOTES.loss[quoteIndex % MINDSET_QUOTES.loss.length].author}
                 </div>
               </div>
             </div>
@@ -2377,7 +2780,7 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   lineHeight: '1.4',
                   fontWeight: '400' 
                 }}>
-                  "{record.netPnL >= 0 ? STOIC_QUOTES.win[quoteIndex % STOIC_QUOTES.win.length].text : STOIC_QUOTES.loss[quoteIndex % STOIC_QUOTES.loss.length].text}"
+                  "{record.netPnL >= 0 ? MINDSET_QUOTES.win[quoteIndex % MINDSET_QUOTES.win.length].text : MINDSET_QUOTES.loss[quoteIndex % MINDSET_QUOTES.loss.length].text}"
                 </div>
                 <div style={{ 
                   fontSize: '7.5px', 
@@ -2387,7 +2790,7 @@ export default function StatisticsView({ trades, executions, selectedAccountId }
                   letterSpacing: '1px',
                   fontWeight: '600'
                 }}>
-                  — {record.netPnL >= 0 ? STOIC_QUOTES.win[quoteIndex % STOIC_QUOTES.win.length].author : STOIC_QUOTES.loss[quoteIndex % STOIC_QUOTES.loss.length].author}
+                  — {record.netPnL >= 0 ? MINDSET_QUOTES.win[quoteIndex % MINDSET_QUOTES.win.length].author : MINDSET_QUOTES.loss[quoteIndex % MINDSET_QUOTES.loss.length].author}
                 </div>
               </div>
             </div>

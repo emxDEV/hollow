@@ -1,75 +1,93 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 /**
- * HollowLogo — shared brand mark for web + mobile.
- *
- * The mark is a ~330° arc ring (open at the top, like a void/eclipse),
- * which perfectly echoes the word "hollow."
- *
- * Props:
- *   size      – px size of the ring mark (default 24)
- *   showText  – whether to render the "hollow." wordmark beside the ring (default true)
- *   textSize  – font size of the wordmark in px (default derived from size)
- *   color     – stroke / text color (default '#ffffff')
- *   style     – extra style on the wrapper
+ * HollowLogo — Animated Translucent Purple Ghost Brand Symbol & Glowing Wordmark
  */
 export default function HollowLogo({
-  size = 24,
+  size = 40,
   showText = true,
   textSize,
   color = '#ffffff',
+  animated = true,
   style = {}
 }) {
-  const strokeWidth = size * 0.115; // ~2.5 at size=22
-  const r = (size - strokeWidth) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-
-  // Arc: 330° ring open at the top (from ~15° to ~345°, going clockwise)
-  const startAngle = 15;  // degrees, measured from top (12 o'clock)
-  const endAngle   = 345;
-  const toRad = (deg) => ((deg - 90) * Math.PI) / 180; // offset so 0° = top
-
-  const x1 = cx + r * Math.cos(toRad(startAngle));
-  const y1 = cy + r * Math.sin(toRad(startAngle));
-  const x2 = cx + r * Math.cos(toRad(endAngle));
-  const y2 = cy + r * Math.sin(toRad(endAngle));
-
-  const derivedTextSize = textSize || Math.round(size * 0.95);
+  const derivedTextSize = textSize || Math.round(size * 0.7);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.42, ...style }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ flexShrink: 0 }}
-        aria-label="hollow logo mark"
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', overflow: 'visible', ...style }}>
+      {/* Animated Glowing Purple Ghost Icon Container */}
+      <motion.div
+        animate={animated ? {
+          y: [0, -3.5, 0]
+        } : {}}
+        transition={{
+          repeat: Infinity,
+          duration: 3.5,
+          ease: 'easeInOut'
+        }}
+        style={{
+          position: 'relative',
+          width: `${size}px`,
+          height: `${size}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          overflow: 'visible'
+        }}
       >
-        <path
-          d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="none"
+        {/* Pulsing Outer Purple Soft Feathered Glow Halo */}
+        <motion.div
+          animate={animated ? {
+            scale: [0.9, 1.1, 0.9],
+            opacity: [0.45, 0.8, 0.45]
+          } : {}}
+          transition={{
+            repeat: Infinity,
+            duration: 3,
+            ease: 'easeInOut'
+          }}
+          style={{
+            position: 'absolute',
+            inset: '-10%',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(184, 110, 255, 0.55) 0%, rgba(138, 48, 246, 0.18) 45%, rgba(0, 0, 0, 0) 70%)',
+            filter: 'blur(8px)',
+            pointerEvents: 'none'
+          }}
         />
-      </svg>
+
+        {/* High-Resolution Translucent Purple Ghost Image */}
+        <img
+          src="/ghost-logo.png"
+          alt="Hollow Ghost Symbol"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            position: 'relative',
+            zIndex: 1,
+            display: 'block',
+            filter: 'drop-shadow(0 0 8px rgba(184, 110, 255, 0.65))'
+          }}
+        />
+      </motion.div>
 
       {showText && (
         <span
           style={{
-            fontFamily: "'Inter', -apple-system, sans-serif",
+            fontFamily: "var(--font-logo, 'Inter', sans-serif)",
             fontWeight: 800,
             fontSize: `${derivedTextSize}px`,
             letterSpacing: '-0.03em',
             color,
             lineHeight: 1,
             whiteSpace: 'nowrap',
+            textShadow: '0 0 16px rgba(184, 110, 255, 0.35)'
           }}
         >
-          hollow.
+          Hollow.
         </span>
       )}
     </div>

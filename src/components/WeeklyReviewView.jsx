@@ -28,12 +28,14 @@ import {
   Check,
   Camera,
   RotateCw,
+  Newspaper,
+  Radio
   } from 'lucide-react';
 
-const WEEKLY_STOIC_QUOTES = {
+const WEEKLY_MINDSET_QUOTES = {
   win: [
     { text: "No random actions, none not based on underlying principles.", author: "Marcus Aurelius" },
-    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Stoic Maxim" },
+    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Hollow Mindset" },
     { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
     { text: "Keep constant guard over your perceptions, for they are the source of all your actions.", author: "Epictetus" }
   ],
@@ -45,10 +47,17 @@ const WEEKLY_STOIC_QUOTES = {
   ]
 };
 
-export default function WeeklyReviewView({ trades, executions, selectedAccountId, onSelectTrade }) {
+export default function WeeklyReviewView({ trades: propsTrades = [], executions: propsExecutions = [], selectedAccountId = 'all', onSelectTrade } = {}) {
   const isMobile = useUIStore(state => state.isMobile);
   const selectedDate = useUIStore(state => state.selectedDate);
   const setSelectedDate = useUIStore(state => state.setSelectedDate);
+  const openEditExecution = useUIStore(state => state.openEditExecution);
+
+  const dbTrades = useLiveQuery(() => (db && db.trades ? db.trades.toArray() : []), []) || [];
+  const dbExecutions = useLiveQuery(() => (db && db.executions ? db.executions.toArray() : []), []) || [];
+
+  const trades = propsTrades.length > 0 ? propsTrades : dbTrades;
+  const executions = propsExecutions.length > 0 ? propsExecutions : dbExecutions;
 
   // Compute Week ID e.g. "2024-W25" from selectedDate
   const selectedWeekId = useMemo(() => {
@@ -58,20 +67,9 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
   }, [selectedDate]);
 
   const setSelectedWeekId = (weekId) => {
-    // Parse weekId (e.g. "2024-W25") to set the date back into Zustand to the monday of that week
-    const parts = weekId.split('-W');
-    if (parts.length === 2) {
-      const year = parseInt(parts[0]);
-      const week = parseInt(parts[1]);
-      const simple = new Date(year, 0, 1 + (week - 1) * 7);
-      const dow = simple.getDay();
-      const ISOweekStart = simple;
-      if (dow <= 4) {
-        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-      } else {
-        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-      }
-      setSelectedDate(ISOweekStart.toISOString().split('T')[0]);
+    const dates = getWeekDates(weekId);
+    if (dates && dates.start) {
+      setSelectedDate(dates.start);
     }
   };
   const [activeTab, setActiveTab] = useState('playbook'); // 'playbook', 'audit', 'objectives'
@@ -80,6 +78,10 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [exportMode, setExportMode] = useState('weekly'); // 'daily' | 'weekly'
+  // Day Review Modal state
+  const [dayModalOpen, setDayModalOpen] = useState(false);
+  const [dayModalDate, setDayModalDate] = useState(null);
+  const [dayModalForm, setDayModalForm] = useState({ tradeOfDayPhoto: null, tradeTakenPhoto: null, reviewText: '', reviewExtraPhoto: null });
 
   // Reset quote index on export mode change
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
   }, [selectedWeekId]);
 
   const account = useLiveQuery(async () => {
-    if (selectedAccountId === 'all') return null;
+    if (selectedAccountId === 'all' || !db.accounts) return null;
     return await db.accounts.get(selectedAccountId);
   }, [selectedAccountId]);
 
@@ -120,6 +122,8 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     priorities: '',
     reviewNotes: '',
     adjustments: '',
+    newsPhoto: null,
+    newsNotes: '',
     screenshotsReviewed: false,
     playbookUpdated: false,
     sleepCorrelationsChecked: false,
@@ -134,6 +138,8 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
         priorities: weeklyLog.priorities || '',
         reviewNotes: weeklyLog.reviewNotes || '',
         adjustments: weeklyLog.adjustments || '',
+        newsPhoto: weeklyLog.newsPhoto || null,
+        newsNotes: weeklyLog.newsNotes || '',
         screenshotsReviewed: !!weeklyLog.screenshotsReviewed,
         playbookUpdated: !!weeklyLog.playbookUpdated,
         sleepCorrelationsChecked: !!weeklyLog.sleepCorrelationsChecked,
@@ -145,6 +151,8 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
         priorities: '',
         reviewNotes: '',
         adjustments: '',
+        newsPhoto: null,
+        newsNotes: '',
         screenshotsReviewed: false,
         playbookUpdated: false,
         sleepCorrelationsChecked: false,
@@ -153,16 +161,42 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     }
   }, [weeklyLog, selectedWeekId]);
 
-  // Compile a dropdown list of all available weeks in the DB
+  // Auto-save weekly form changes to IndexedDB whenever fields update
+  const isInitialMount = React.useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        await db.weeklyPlanners.put({
+          weekId: selectedWeekId,
+          startDate: weekDates.start,
+          endDate: weekDates.end,
+          status: 'COMPLETED',
+          ...weeklyForm
+        });
+      } catch (err) {
+        console.error("Auto-save weekly planner failed:", err);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [weeklyForm, selectedWeekId, weekDates]);
+
+  // Compile a dropdown list of all available weeks in the DB, always including current week
   const weekOptions = useLiveQuery(async () => {
     const weeksSet = new Set();
     
+    // Always include current week
+    weeksSet.add(getISOWeekId(new Date()));
+
     // Scan weeklyPlanners
     const planners = await db.weeklyPlanners.toArray();
     planners.forEach(p => { if (p.weekId) weeksSet.add(p.weekId); });
 
-    // Scan trades (use date to compute week)
-    const allTrades = await db.trades.toArray();
+    // Scan trades if present
+    const allTrades = db.trades ? await db.trades.toArray() : [];
     allTrades.forEach(t => {
       if (t.date) {
         const d = new Date(t.date);
@@ -188,9 +222,13 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     
     return sorted.map(w => {
       const dates = getWeekDates(w);
+      const startD = new Date(dates.start);
+      const friD = new Date(startD);
+      friD.setDate(startD.getDate() + 4);
+      const friStr = friD.toISOString().split('T')[0];
       return {
         value: w,
-        label: `Week ${w} (${dates.start} to ${dates.end})`
+        label: `Week ${w} (${dates.start} to ${friStr})`
       };
     });
   }, []);
@@ -199,7 +237,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     return weekOptions || [];
   }, [weekOptions]);
 
-  // Generate the 7 days of the selected week (Mon to Sun)
+  // Generate Mon-Fri days of the selected week only
   const weekDaysList = useMemo(() => {
     const list = [];
     const start = new Date(weekDates.start);
@@ -209,19 +247,21 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
+      const dayOfWeek = d.getDay();
+      // Skip Saturday (6) and Sunday (0)
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
       const dateStr = d.toISOString().split('T')[0];
-      
       list.push({
         date: dateStr,
-        dayName: dayNames[d.getDay()],
-        shortDayName: shortDayNames[d.getDay()],
-        displayLabel: `${shortDayNames[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`
+        dayName: dayNames[dayOfWeek],
+        shortDayName: shortDayNames[dayOfWeek],
+        displayLabel: `${shortDayNames[dayOfWeek]} ${d.getMonth() + 1}/${d.getDate()}`
       });
     }
     return list;
   }, [weekDates]);
 
-  // Aggregate daily metrics (trades, PnL, journal status) for each of the 7 days
+  // Aggregate daily metrics (trades, RR, journal status) for each Mon-Fri day
   const daysData = useMemo(() => {
     return weekDaysList.map(day => {
       const journal = weekJournals.find(j => j.date === day.date);
@@ -230,44 +270,125 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
         return isAccountMatch && t.date === day.date;
       });
 
+      const processedExecIds = new Set();
       let wins = 0;
       let eligibleTrades = 0;
+      let totalR = 0;
+      let netPnL = 0;
+
       dayTrades.forEach(t => {
         const tExecs = executions.filter(e => e.tradeId === t.id);
+        tExecs.forEach(e => processedExecIds.add(e.id));
         const pnlDetails = calculateTradePnL(t, tExecs);
-        
+        netPnL += pnlDetails.netPnL;
+        const risk = t.riskAmount || 200;
+        totalR += pnlDetails.netPnL / risk;
         const virtualTrade = { ...t, netPnL: pnlDetails.netPnL };
         if (isTradeWinRateEligible(virtualTrade)) {
           eligibleTrades++;
           if (pnlDetails.netPnL > 0) wins++;
         }
       });
+
+      const dayExecutions = executions.filter(e => e.date === day.date || e.id?.includes(day.date));
+      dayExecutions.forEach(exec => {
+        if (processedExecIds.has(exec.id)) return;
+        let rVal = 0;
+        if (exec.rr !== undefined && exec.rr !== null && exec.rr !== '') {
+          const num = parseFloat(String(exec.rr).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) rVal = num;
+        } else if ((exec.wl || '').toUpperCase().includes('WIN')) {
+          rVal = 2.0;
+        } else if ((exec.wl || '').toUpperCase().includes('LOSS')) {
+          rVal = -1.0;
+        }
+        const pnl = rVal * 200;
+        netPnL += pnl;
+        totalR += rVal;
+        const wlUpper = (exec.wl || '').toUpperCase();
+        if (wlUpper.includes('WIN') || rVal > 0) {
+          wins++;
+          eligibleTrades++;
+        } else if (wlUpper.includes('LOSS') || rVal < 0) {
+          eligibleTrades++;
+        }
+      });
       
       const winRate = eligibleTrades > 0 ? (wins / eligibleTrades) * 100 : 0;
+      const tradesCount = dayTrades.length + dayExecutions.filter(e => !processedExecIds.has(e.id)).length;
 
       return {
         ...day,
         journal,
-        tradesCount: dayTrades.length,
+        tradesCount,
         wins,
         winRate,
-        hasJournal: !!journal
+        hasJournal: !!journal,
+        netPnL,
+        totalR: parseFloat(totalR.toFixed(2))
       };
     });
   }, [weekDaysList, weekJournals, trades, executions, selectedAccountId]);
 
+  // Compile detailed list of trades & executions closed this week
+  const weeklyTradesList = useMemo(() => {
+    const processedExecIds = new Set();
+    const tradeItems = trades
+      .filter(t => {
+        const isAccountMatch = selectedAccountId === 'all' || t.accountId === selectedAccountId;
+        return isAccountMatch && t.date >= weekDates.start && t.date <= weekDates.end;
+      })
+      .map(trade => {
+        const tradeExecs = executions.filter(e => e.tradeId === trade.id);
+        tradeExecs.forEach(e => processedExecIds.add(e.id));
+        const pnlDetails = calculateTradePnL(trade, tradeExecs);
+        return {
+          ...trade,
+          ...pnlDetails,
+          rawExec: tradeExecs[0] || trade
+        };
+      });
+
+    const standaloneExecs = executions
+      .filter(e => {
+        if (processedExecIds.has(e.id)) return false;
+        const dateStr = e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0];
+        return dateStr >= weekDates.start && dateStr <= weekDates.end;
+      })
+      .map(e => {
+        let rVal = 0;
+        if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
+          const num = parseFloat(String(e.rr).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) rVal = num;
+        } else if ((e.wl || '').toUpperCase().includes('WIN')) {
+          rVal = 2.0;
+        } else if ((e.wl || '').toUpperCase().includes('LOSS')) {
+          rVal = -1.0;
+        }
+        const netPnL = e.manualPnL !== undefined ? parseFloat(e.manualPnL) : rVal * 200;
+        return {
+          id: e.id,
+          date: e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0],
+          symbol: e.symbol || 'NQ',
+          bias: e.bias || 'Long',
+          model: e.model || 'Standard Setup',
+          rating: e.rating || 'A+',
+          po3: e.po3 || 'N/A',
+          dol: e.dol || 'N/A',
+          wl: e.wl || (rVal > 0 ? 'Win' : (rVal < 0 ? 'Loss' : 'BE')),
+          rr: e.rr || `${rVal >= 0 ? '+' : ''}${rVal}R`,
+          netPnL,
+          grossPnL: netPnL,
+          commissions: 0,
+          rawExec: e
+        };
+      });
+
+    return [...tradeItems, ...standaloneExecs].sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [trades, executions, selectedAccountId, weekDates]);
+
   // Calculate actual trade metrics for this week reactively
   const weeklyTradeMetrics = useMemo(() => {
-    const weekTrades = trades.filter(t => {
-      const isAccountMatch = selectedAccountId === 'all' || t.accountId === selectedAccountId;
-      return isAccountMatch && t.date >= weekDates.start && t.date <= weekDates.end;
-    });
-
-    const tradesWithCalculations = weekTrades.map(trade => {
-      const tradeExecs = executions.filter(e => e.tradeId === trade.id);
-      return { ...trade, ...calculateTradePnL(trade, tradeExecs) };
-    });
-
     let totalPnL = 0;
     let totalContracts = 0;
     let totalMistakes = 0;
@@ -279,21 +400,21 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     let losses = 0;
     let bestTrade = 0;
     
-    tradesWithCalculations.forEach(t => {
+    weeklyTradesList.forEach(t => {
       totalNetPnL += t.netPnL;
-      totalCommissions += t.commissions;
-      totalContracts += t.contracts;
+      totalCommissions += (t.commissions || 0);
+      totalContracts += (t.contracts || 0);
       totalMistakes += (t.mistakes || []).length;
       
-      const virtualTrade = { ...t, netPnL: t.netPnL };
-      if (isTradeWinRateEligible(virtualTrade)) {
-        if (t.netPnL > 0) {
-          wins++;
-          grossWins += t.netPnL;
-        } else if (t.netPnL < 0) {
-          losses++;
-          grossLosses += Math.abs(t.netPnL);
-        }
+      const isWin = t.netPnL > 0;
+      const isLoss = t.netPnL < 0;
+
+      if (isWin) {
+        wins++;
+        grossWins += t.netPnL;
+      } else if (isLoss) {
+        losses++;
+        grossLosses += Math.abs(t.netPnL);
       }
       
       if (t.netPnL > bestTrade) bestTrade = t.netPnL;
@@ -303,36 +424,35 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     const winRate = eligibleTrades > 0 ? (wins / eligibleTrades) * 100 : 0;
     const activeWinRate = winRate;
     const profitFactor = grossLosses > 0 ? (grossWins / grossLosses) : grossWins > 0 ? 9.99 : 0;
-    const expectancy = weekTrades.length > 0 ? (totalNetPnL / weekTrades.length) : 0;
+    const expectancy = weeklyTradesList.length > 0 ? (totalNetPnL / weeklyTradesList.length) : 0;
+
+    // R-based metrics
+    let totalR = 0;
+    weeklyTradesList.forEach(t => {
+      if (t.rReturn !== undefined) {
+        totalR += t.rReturn;
+      } else if (t.rr !== undefined) {
+        const num = parseFloat(String(t.rr).replace(/[^0-9.-]/g, ''));
+        if (!isNaN(num)) totalR += num;
+      }
+    });
+    const expectancyR = weeklyTradesList.length > 0 ? totalR / weeklyTradesList.length : 0;
 
     return {
-      totalTrades: weekTrades.length,
+      totalTrades: weeklyTradesList.length,
       wins,
       losses,
       winRate,
       activeWinRate,
       profitFactor,
       expectancy,
+      expectancyR: parseFloat(expectancyR.toFixed(2)),
+      totalR: parseFloat(totalR.toFixed(2)),
       totalPnL: totalNetPnL,
       totalMistakes,
       totalContracts
     };
-  }, [trades, executions, selectedAccountId, weekDates]);
-
-  // Compile detailed list of trades closed this week
-  const weeklyTradesList = useMemo(() => {
-    return trades.filter(t => {
-      const isAccountMatch = selectedAccountId === 'all' || t.accountId === selectedAccountId;
-      return isAccountMatch && t.date >= weekDates.start && t.date <= weekDates.end;
-    }).map(trade => {
-      const tradeExecs = executions.filter(e => e.tradeId === trade.id);
-      const pnlDetails = calculateTradePnL(trade, tradeExecs);
-      return {
-        ...trade,
-        ...pnlDetails
-      };
-    }).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [trades, executions, selectedAccountId, weekDates]);
+  }, [weeklyTradesList]);
 
   const weeklyBestReturn = useMemo(() => {
     let best = -Infinity;
@@ -566,14 +686,36 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     exportWeeklyReportPDF(selectedWeekId, account, trades, executions);
   };
 
+  const currentISOWeekId = useMemo(() => getISOWeekId(new Date()), []);
+  const isCurrentOrFutureWeek = useMemo(() => selectedWeekId >= currentISOWeekId, [selectedWeekId, currentISOWeekId]);
+
   const handleWeekShift = (direction) => {
-    const currentIndex = selectOptions.findIndex(o => o.value === selectedWeekId);
-    if (currentIndex === -1) return;
-    const nextIndex = currentIndex - direction; // because we sorted descending, shifting +1 moves to newer, which is smaller index
-    if (nextIndex >= 0 && nextIndex < selectOptions.length) {
-      setSelectedWeekId(selectOptions[nextIndex].value);
-    }
+    // Prevent going forward into future weeks past current week
+    if (direction === 1 && isCurrentOrFutureWeek) return;
+
+    const parts = (weekDates.start || '').split('-').map(Number);
+    if (parts.length !== 3) return;
+    const currentMonday = new Date(parts[0], parts[1] - 1, parts[2]);
+    currentMonday.setDate(currentMonday.getDate() + (direction * 7));
+    
+    const targetWeekId = getISOWeekId(currentMonday);
+    if (direction === 1 && targetWeekId > currentISOWeekId) return;
+
+    const y = currentMonday.getFullYear();
+    const m = String(currentMonday.getMonth() + 1).padStart(2, '0');
+    const d = String(currentMonday.getDate()).padStart(2, '0');
+    setSelectedDate(`${y}-${m}-${d}`);
   };
+
+  const selectedWeekFridayStr = useMemo(() => {
+    const parts = (weekDates.start || '').split('-').map(Number);
+    if (parts.length !== 3) return weekDates.end;
+    const friD = new Date(parts[0], parts[1] - 1, parts[2] + 4);
+    const y = friD.getFullYear();
+    const m = String(friD.getMonth() + 1).padStart(2, '0');
+    const d = String(friD.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, [weekDates]);
 
   // Toggle active day filter in the calendar ribbon
   const handleDayClick = (dateStr) => {
@@ -582,6 +724,42 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
     } else {
       setSelectedDayFilter(dateStr);
     }
+  };
+
+  // Open day review modal
+  const handleDayModalOpen = (dateStr, e) => {
+    e.stopPropagation();
+    const journal = weekJournals.find(j => j.date === dateStr);
+    setDayModalDate(dateStr);
+    setDayModalForm({
+      tradeOfDayPhoto: journal?.tradeOfDayPhoto || null,
+      tradeTakenPhoto: journal?.tradeTakenPhoto || null,
+      reviewText: journal?.weeklyReviewText || '',
+      reviewExtraPhoto: journal?.reviewExtraPhoto || null
+    });
+    setDayModalOpen(true);
+  };
+
+  const handleDayModalSave = async () => {
+    if (!dayModalDate) return;
+    try {
+      const existing = await db.dailyJournals.get(dayModalDate) || { date: dayModalDate };
+      await db.dailyJournals.put({
+        ...existing,
+        tradeOfDayPhoto: dayModalForm.tradeOfDayPhoto,
+        tradeTakenPhoto: dayModalForm.tradeTakenPhoto,
+        weeklyReviewText: dayModalForm.reviewText,
+        reviewExtraPhoto: dayModalForm.reviewExtraPhoto
+      });
+      setDayModalOpen(false);
+    } catch (err) { console.error(err); }
+  };
+
+  const handlePhotoUpload = (field, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setDayModalForm(prev => ({ ...prev, [field]: ev.target.result }));
+    reader.readAsDataURL(file);
   };
 
   // Filtered trades list inside the ledger table
@@ -607,86 +785,112 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
       <div style={{ height: isMobile ? '12px' : '16px', flexShrink: 0 }} />
       
       {/* Top Navigator & Control Row */}
-      <div className="hollow-view-header">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '4px' }}>
         <div className="hollow-view-header-title-block">
-          <h1>
-            <Award size={28} color="var(--colors-primary)" /> Weekly Review
+          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+            <Award size={26} color="#b86eff" /> Weekly Review
           </h1>
-          <p>
+          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', margin: '4px 0 0 0' }}>
             Consolidated EOW Trading Station. Auditing playbook setups, sleep metrics, and psychology.
           </p>
         </div>
 
-        {/* Navigator Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', marginTop: isMobile ? '12px' : '0' }}>
+        {/* Rearranged Action Controls Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           
+          {/* Week Shift Navigator Pill */}
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: '4px', 
-            background: 'rgba(0, 0, 0, 0.2)', 
-            border: '1px solid var(--colors-hairline-dark)', 
-            padding: '4px', 
+            background: 'rgba(255, 255, 255, 0.04)', 
+            border: '1px solid rgba(255, 255, 255, 0.08)', 
+            padding: '4px 8px', 
             borderRadius: '12px' 
           }}>
             <button 
               onClick={() => handleWeekShift(-1)}
-              disabled={selectOptions.findIndex(o => o.value === selectedWeekId) === selectOptions.length - 1}
+              title="Previous Week"
               style={{
                 background: 'transparent',
                 border: 'none',
                 color: '#fff',
                 cursor: 'pointer',
-                padding: '8px',
+                padding: '6px 8px',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
-                transition: 'all 0.2s',
-                opacity: selectOptions.findIndex(o => o.value === selectedWeekId) === selectOptions.length - 1 ? 0.3 : 1
+                transition: 'all 0.2s'
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
               <ChevronLeft size={16} />
             </button>
  
-            {/* Premium Selector Dropdown */}
-            <div style={{ width: isMobile ? '180px' : '260px' }}>
-              <HollowSelect
-                value={selectedWeekId}
-                onChange={setSelectedWeekId}
-                options={selectOptions}
-                placeholder="Select Review Week"
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none'
-                }}
-              />
+            {/* Clean Week Range Label Badge */}
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#ffffff',
+              fontFamily: 'var(--font-mono)',
+              padding: '6px 10px',
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap'
+            }}>
+              Week {selectedWeekId} ({weekDates.start} to {selectedWeekFridayStr})
             </div>
 
             <button 
               onClick={() => handleWeekShift(1)}
-              disabled={selectOptions.findIndex(o => o.value === selectedWeekId) === 0}
+              disabled={isCurrentOrFutureWeek}
+              title={isCurrentOrFutureWeek ? "Current week is the most recent week" : "Next Week"}
               style={{
                 background: 'transparent',
                 border: 'none',
                 color: '#fff',
-                cursor: 'pointer',
-                padding: '8px',
+                cursor: isCurrentOrFutureWeek ? 'not-allowed' : 'pointer',
+                padding: '6px 8px',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 transition: 'all 0.2s',
-                opacity: selectOptions.findIndex(o => o.value === selectedWeekId) === 0 ? 0.3 : 1
+                opacity: isCurrentOrFutureWeek ? 0.3 : 1
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseEnter={e => { if (!isCurrentOrFutureWeek) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
               <ChevronRight size={16} />
             </button>
           </div>
 
-          {/* Simple Share Button in Header */}
+          {/* Today Button */}
+          <button
+            onClick={() => {
+              const today = new Date();
+              const todayStr = today.toISOString().split('T')[0];
+              const weekId = getISOWeekId(today);
+              setSelectedWeekId(weekId);
+              setSelectedDayFilter(todayStr);
+            }}
+            style={{
+              background: 'rgba(184, 110, 255, 0.15)',
+              border: '1px solid #b86eff',
+              color: '#ffffff',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(184, 110, 255, 0.25)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(184, 110, 255, 0.15)'}
+          >
+            Today
+          </button>
+
+          {/* Share PnL Button */}
           {weeklyTradeMetrics && (
             <div style={{ position: 'relative' }}>
               <button
@@ -695,27 +899,27 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '7px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--colors-hairline-dark)',
-                  background: 'rgba(255,255,255,0.02)',
-                  color: 'var(--colors-on-dark-mute)',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#ffffff',
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  transition: 'all var(--transition-fast)'
+                  transition: 'all 0.15s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--colors-hairline-dark)';
-                  e.currentTarget.style.color = 'var(--colors-on-dark-mute)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
                 }}
               >
-                <Camera size={13} color="var(--colors-primary)" /> Share PnL
+                <Camera size={14} color="#b86eff" /> Share PnL
               </button>
 
               {showShareDropdown && (
@@ -732,7 +936,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   flexDirection: 'column',
                   gap: '4px',
                   zIndex: 200,
-                  minWidth: '150px',
+                  minWidth: '160px',
                   boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
                   backdropFilter: 'blur(12px)'
                 }}>
@@ -752,15 +956,14 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                       border: 'none',
                       color: '#e4e4e7',
                       fontSize: '11px',
-                      fontFamily: 'monospace',
+                      fontWeight: '600',
                       cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.2s'
+                      textAlign: 'left'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <Download size={11} /> Export Daily PNG
+                    Daily PnL Card
                   </button>
                   <button
                     onClick={() => {
@@ -778,107 +981,37 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                       border: 'none',
                       color: '#e4e4e7',
                       fontSize: '11px',
-                      fontFamily: 'monospace',
+                      fontWeight: '600',
                       cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'background 0.2s'
+                      textAlign: 'left'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <Download size={11} /> Export Weekly PNG
-                  </button>
-                  
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '4px 0' }} />
-                  
-                  <button
-                    onClick={() => {
-                      setQuoteIndex(prev => prev + 1);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 12px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--colors-stone)',
-                      fontSize: '10px',
-                      fontFamily: 'monospace',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--colors-stone)'}
-                  >
-                    <RotateCw size={10} /> Cycle Card Quote
+                    Weekly Summary Card
                   </button>
                 </div>
               )}
             </div>
           )}
 
-
-
-          {saveStatus && (
-            <span style={{ 
-              fontSize: '12px', 
-              color: 'var(--colors-primary)', 
-              fontFamily: 'var(--font-mono)',
-              fontWeight: '600',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              padding: '6px 12px',
-              borderRadius: '8px'
-            }}>
-              {saveStatus}
-            </span>
-          )}
         </div>
       </div>
 
-      {/* 1. Interactive Weekly Calendar Ribbon */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--colors-stone)', textTransform: 'uppercase', letterSpacing: '0.75px' }}>
-            Interactive Calendar Ribbon
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--colors-stone)' }}>
-              Click any day to filter weekly trades list
-            </span>
-            <button
-              onClick={() => {
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                const weekId = getISOWeekId(today);
-                setSelectedWeekId(weekId);
-                setSelectedDayFilter(todayStr);
-              }}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                color: '#fff',
-                padding: '4px 10px',
-                fontSize: '10px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'background 0.15s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-            >
-              Today
-            </button>
-          </div>
-        </div>
+      {/* Interactive Calendar Ribbon Section Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.75px' }}>
+          Interactive Calendar Ribbon
+        </span>
+        <span style={{ fontSize: '11px', color: 'var(--colors-stone)' }}>
+          Click any day to filter weekly trades list
+        </span>
+      </div>
+
         <div style={{
           display: isMobile ? 'flex' : 'grid',
           flexDirection: isMobile ? 'row' : 'none',
-          gridTemplateColumns: isMobile ? 'none' : 'repeat(7, 1fr)',
+          gridTemplateColumns: isMobile ? 'none' : 'repeat(5, 1fr)',
           gap: '12px',
           background: '#0f0f11',
           border: '1px solid var(--colors-hairline-dark)',
@@ -905,47 +1038,63 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   borderRadius: '16px',
                   border: isFiltered 
                     ? '1px solid #ffffff' 
+                    : isWinningDay ? '1px solid rgba(48, 209, 88, 0.35)'
+                    : isLosingDay ? '1px solid rgba(255, 69, 58, 0.35)'
                     : '1px solid #1c1c1e',
                   background: isFiltered 
                     ? 'rgba(255, 255, 255, 0.08)' 
+                    : isWinningDay ? 'rgba(48, 209, 88, 0.04)'
+                    : isLosingDay ? 'rgba(255, 69, 58, 0.04)'
                     : '#0f0f11',
                   boxShadow: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                   transform: 'none',
                   flexShrink: isMobile ? 0 : 1,
-                  minWidth: isMobile ? '120px' : 'auto'
+                  minWidth: isMobile ? '140px' : 'auto'
                 }}
                 onMouseEnter={e => {
                   if (!isFiltered) {
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
                   }
                 }}
                 onMouseLeave={e => {
                   if (!isFiltered) {
-                    e.currentTarget.style.borderColor = '#1c1c1e';
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.borderColor = isWinningDay ? 'rgba(48, 209, 88, 0.35)' : isLosingDay ? 'rgba(255, 69, 58, 0.35)' : '#1c1c1e';
                   }
                 }}
               >
-                {/* Header Date & Journal Badge */}
+                {/* Header Date & Review Button */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '12px', fontWeight: '700', color: isFiltered ? '#fff' : 'rgba(255,255,255,0.9)' }}>
                     {day.displayLabel}
                   </span>
-                  <div style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: day.hasJournal ? 'var(--colors-primary)' : 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: 'none'
-                  }} title={day.hasJournal ? 'Daily Journal Logged' : 'No Daily Journal Logged'} />
+                  <button
+                    onClick={(e) => handleDayModalOpen(day.date, e)}
+                    title="Add Day Review"
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '6px',
+                      color: 'rgba(255,255,255,0.6)',
+                      width: '20px',
+                      height: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      padding: 0,
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(184,110,255,0.2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  >
+                    +
+                  </button>
                 </div>
                 
-                {/* PnL and Trades Count */}
+                {/* RR and Trades Count */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
                   <div style={{ 
                     fontSize: '14px', 
@@ -953,7 +1102,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                     fontFamily: 'var(--font-mono)',
                     color: isWinningDay ? 'var(--colors-gain)' : isLosingDay ? 'var(--colors-loss)' : 'var(--colors-stone)'
                   }}>
-                    {day.netPnL !== 0 ? `${day.netPnL >= 0 ? '+' : ''}${Math.round(day.netPnL)}` : '$0'}
+                    {day.tradesCount > 0 ? `${day.totalR >= 0 ? '+' : ''}${day.totalR.toFixed(2)}R` : '-'}
                   </div>
                   <div style={{ 
                     fontSize: '10px', 
@@ -971,7 +1120,6 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
             );
           })}
         </div>
-      </div>
 
       {/* 2. Main EOW Review Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '4.5fr 7.5fr', gap: '24px', alignItems: 'stretch' }}>
@@ -1000,15 +1148,15 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
             
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
               <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>NET PNL</div>
+                <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>TOTAL R</div>
                 <div className="mono" style={{ 
                   fontSize: '22px', 
                   fontWeight: '700', 
-                  color: weeklyTradeMetrics.totalPnL >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)', 
+                  color: weeklyTradeMetrics.totalR >= 0 ? '#30d158' : '#ff453a', 
                   marginTop: '4px',
-                  textShadow: weeklyTradeMetrics.totalPnL >= 0 ? '0 0 15px rgba(58, 219, 129, 0.15)' : '0 0 15px rgba(255, 107, 107, 0.15)'
+                  textShadow: weeklyTradeMetrics.totalR >= 0 ? '0 0 15px rgba(48, 209, 88, 0.15)' : '0 0 15px rgba(255, 69, 58, 0.15)'
                 }}>
-                  {weeklyTradeMetrics.totalPnL >= 0 ? '+' : ''}${Math.round(weeklyTradeMetrics.totalPnL).toLocaleString()}
+                  {weeklyTradeMetrics.totalR >= 0 ? '+' : ''}{weeklyTradeMetrics.totalR}R
                 </div>
               </div>
 
@@ -1017,7 +1165,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                 <div className="mono" style={{ 
                   fontSize: '22px', 
                   fontWeight: '700', 
-                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.activeWinRate >= 50 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.activeWinRate >= 50 ? '#30d158' : '#ff453a'), 
                   marginTop: '4px' 
                 }}>
                   {weeklyTradeMetrics.activeWinRate.toFixed(0)}%
@@ -1041,10 +1189,10 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                 <div className="mono" style={{ 
                   fontSize: '22px', 
                   fontWeight: '700', 
-                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.expectancy >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
+                  color: weeklyTradeMetrics.totalTrades === 0 ? '#fff' : (weeklyTradeMetrics.expectancyR >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)'), 
                   marginTop: '4px' 
                 }}>
-                  {weeklyTradeMetrics.expectancy >= 0 ? '+' : ''}${Math.round(weeklyTradeMetrics.expectancy).toLocaleString()}
+                  {weeklyTradeMetrics.expectancyR >= 0 ? '+' : ''}{weeklyTradeMetrics.expectancyR}R
                 </div>
               </div>
             </div>
@@ -1104,161 +1252,6 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
             </div>
           </div>
 
-          {/* Sleep & Focus Correlation Card */}
-          <div className="hollow-card" style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '18px', 
-            padding: '24px',
-            background: '#0f0f11',
-            border: '1px solid #1c1c1e'
-          }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={16} color="var(--colors-primary)" /> Sleep & Focus Correlations
-            </h3>
-            
-            {healthCorrelations.journalCount === 0 ? (
-              <div style={{ color: 'var(--colors-stone)', fontSize: '12px', textAlign: 'center', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px' }}>
-                No daily journals logged this week. Fill out Daily Journals in the Journal view to generate correlations.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                
-                {/* Sleep Comparison Bars */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  
-                  {/* Win days sleep */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Moon size={13} color="var(--colors-gain)" /> Avg Sleep (Winning Days)
-                      </span>
-                      <span className="mono" style={{ fontWeight: '700', color: 'var(--colors-gain)' }}>
-                        {healthCorrelations.avgSleepWinDays > 0 ? `${healthCorrelations.avgSleepWinDays.toFixed(1)} hrs` : 'N/A'}
-                      </span>
-                    </div>
-                    {healthCorrelations.avgSleepWinDays > 0 && (
-                      <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${Math.min((healthCorrelations.avgSleepWinDays / 10) * 100, 100)}%`,
-                          background: 'var(--colors-gain)',
-                          borderRadius: '99px',
-                          boxShadow: 'none'
-                        }} />
-                      </div>
-                    )}
-                    {/* Sleep quality win days */}
-                    {healthCorrelations.avgSleepQualityWinDays > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--colors-stone)', marginTop: '-2px' }}>
-                        <Smile size={10} color="var(--colors-gain)" /> Quality: <span style={{ color: '#fff', fontWeight: '600' }}>{healthCorrelations.avgSleepQualityWinDays.toFixed(1)} / 5</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Loss days sleep */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed var(--colors-hairline-dark)', paddingTop: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Moon size={13} color="var(--colors-loss)" /> Avg Sleep (Losing Days)
-                      </span>
-                      <span className="mono" style={{ fontWeight: '700', color: 'var(--colors-loss)' }}>
-                        {healthCorrelations.avgSleepLossDays > 0 ? `${healthCorrelations.avgSleepLossDays.toFixed(1)} hrs` : 'N/A'}
-                      </span>
-                    </div>
-                    {healthCorrelations.avgSleepLossDays > 0 && (
-                      <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${Math.min((healthCorrelations.avgSleepLossDays / 10) * 100, 100)}%`,
-                          background: 'var(--colors-loss)',
-                          borderRadius: '99px',
-                          boxShadow: 'none'
-                        }} />
-                      </div>
-                    )}
-                    {/* Sleep quality loss days */}
-                    {healthCorrelations.avgSleepQualityLossDays > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--colors-stone)', marginTop: '-2px' }}>
-                        <Smile size={10} color="var(--colors-loss)" /> Quality: <span style={{ color: '#fff', fontWeight: '600' }}>{healthCorrelations.avgSleepQualityLossDays.toFixed(1)} / 5</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Focus scores */}
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '10px', 
-                  borderTop: '1px solid var(--colors-hairline-dark)', 
-                  paddingTop: '14px',
-                  background: 'rgba(0,0,0,0.1)',
-                  borderRadius: '8px',
-                  padding: '10px 14px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                    <span style={{ color: 'var(--colors-on-dark-mute)' }}>Avg Mental Focus</span>
-                    <span className="mono" style={{ fontWeight: '700', color: '#fff' }}>{healthCorrelations.avgFocus.toFixed(1)} / 5.0</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                    <span style={{ color: 'var(--colors-on-dark-mute)' }}>Avg Patience Level</span>
-                    <span className="mono" style={{ fontWeight: '700', color: '#fff' }}>{healthCorrelations.avgPatience.toFixed(1)} / 5.0</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                    <span style={{ color: 'var(--colors-on-dark-mute)' }}>Avg Risk Adherence</span>
-                    <span className="mono" style={{ fontWeight: '700', color: '#fff' }}>{healthCorrelations.avgRiskAdherence.toFixed(1)} / 5.0</span>
-                  </div>
-                </div>
-
-              </div>
-            )}
-          </div>
-
-          {/* Habit Completion Card */}
-          <div className="hollow-card" style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '18px', 
-            padding: '24px',
-            background: '#0f0f11',
-            border: '1px solid #1c1c1e'
-          }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle size={16} color="var(--colors-primary)" /> Weekly Habit Consistency
-            </h3>
-            
-            {healthCorrelations.journalCount === 0 ? (
-              <div style={{ color: 'var(--colors-stone)', fontSize: '12px', textAlign: 'center', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px' }}>
-                No daily journals logged this week.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                 {[
-                  { name: 'Workout Completed', rate: healthCorrelations.workoutRate, color: '#e5e5e5' },
-                  { name: 'Clean Diet Maintained', rate: healthCorrelations.dietRate, color: '#a3a3a3' },
-                  { name: 'Meditation Completed', rate: healthCorrelations.meditationRate, color: '#737373' }
-                ].map(h => (
-                  <div key={h.name} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--colors-on-dark-mute)' }}>{h.name}</span>
-                      <span className="mono" style={{ fontWeight: '700', color: '#fff' }}>{h.rate.toFixed(0)}%</span>
-                    </div>
-                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${h.rate}%`,
-                        background: h.color,
-                        borderRadius: '99px',
-                        boxShadow: 'none'
-                      }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
 
         {/* RIGHT COLUMN: Interactive Tabs for Reflections & Trade Ledgers */}
@@ -1276,9 +1269,10 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
             width: isMobile ? '100%' : 'fit-content'
           }}>
             {[
-              { id: 'playbook', name: 'Playbook & Trades', icon: BookOpen },
+              { id: 'playbook', name: 'Execution History', icon: BookOpen },
               { id: 'audit', name: 'Behavioral Audit', icon: ShieldAlert },
-              { id: 'objectives', name: 'Objectives & Adjustments', icon: ClipboardList }
+              { id: 'objectives', name: 'Objectives & Adjustments', icon: ClipboardList },
+              { id: 'news', name: 'News', icon: Newspaper }
             ].map(t => {
               const Icon = t.icon;
               const isActive = activeTab === t.id;
@@ -1488,14 +1482,14 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                           return (
                             <tr 
                               key={t.id} 
-                              onClick={() => onSelectTrade && onSelectTrade(t.id)}
+                              onClick={() => openEditExecution(t.rawExec || t)}
                               style={{ 
                                 borderBottom: '1px solid var(--colors-hairline-dark)',
-                                cursor: onSelectTrade ? 'pointer' : 'default',
+                                cursor: 'pointer',
                                 transition: 'background 0.2s'
                               }}
                               className="ledger-row"
-                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(184, 110, 255, 0.06)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
                               <td style={{ padding: '12px 16px', color: 'var(--colors-stone)' }}>{t.date}</td>
@@ -1571,6 +1565,132 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
               flex: 1 
             }}>
               
+              {/* Live Auto-Calculated Performance Stats */}
+              {(() => {
+                // Calculate from actual week trades
+                const ratingCounts = { 'A+': 0, 'A': 0, 'B': 0, 'F': 0, 'Other': 0 };
+                weeklyTradesList.forEach(t => {
+                  const r = t.setupRating || t.rating || '';
+                  if (r === 'A+') ratingCounts['A+']++;
+                  else if (r === 'A') ratingCounts['A']++;
+                  else if (r === 'B') ratingCounts['B']++;
+                  else if (r === 'F') ratingCounts['F']++;
+                  else ratingCounts['Other']++;
+                });
+                const totalTrades = weeklyTradesList.length;
+                const isWinWeek = weeklyTradeMetrics.wins > weeklyTradeMetrics.losses;
+                const isLosingWeek = weeklyTradeMetrics.losses > weeklyTradeMetrics.wins;
+
+                // A+ only check: all trades are rated A+
+                const aPlusOnly = totalTrades > 0 && weeklyTradesList.every(t => {
+                  const r = t.setupRating || t.rating || '';
+                  return r === 'A+' || r === 'A';
+                });
+
+                // 1-2 trades per day check: group by date, none exceeds 2
+                const tradesByDay = {};
+                weeklyTradesList.forEach(t => {
+                  if (!t.date) return;
+                  tradesByDay[t.date] = (tradesByDay[t.date] || 0) + 1;
+                });
+                const maxTradesInDay = Math.max(0, ...Object.values(tradesByDay));
+                const withinTradeLimit = totalTrades > 0 && maxTradesInDay <= 2;
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--colors-stone)', textTransform: 'uppercase', letterSpacing: '0.75px' }}>
+                      Performance Audit
+                    </h4>
+
+                    {/* Rating Breakdown */}
+                    <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '16px', borderRadius: '14px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '12px' }}>
+                        Setup Quality Breakdown
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {[
+                          { label: 'A+', color: '#b86eff', count: ratingCounts['A+'] },
+                          { label: 'A', color: '#30d158', count: ratingCounts['A'] },
+                          { label: 'B', color: '#ffd60a', count: ratingCounts['B'] },
+                          { label: 'F', color: '#ff453a', count: ratingCounts['F'] }
+                        ].map(r => (
+                          <div key={r.label} style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            background: `${r.color}12`, border: `1px solid ${r.color}40`,
+                            padding: '8px 14px', borderRadius: '10px', flex: 1, minWidth: '70px'
+                          }}>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: r.color }}>{r.label}</span>
+                            <span style={{ fontSize: '18px', fontWeight: '700', color: '#fff', fontFamily: 'var(--font-mono)' }}>{r.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* W/L Week + Auto-checks row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '12px' }}>
+                      {/* W/L Week */}
+                      <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px', marginBottom: '6px' }}>W/L WEEK</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '18px', color: isWinWeek ? 'var(--colors-gain)' : isLosingWeek ? 'var(--colors-loss)' : 'var(--colors-stone)' }}>
+                            {weeklyTradeMetrics.wins}W / {weeklyTradeMetrics.losses}L
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: isWinWeek ? 'var(--colors-gain)' : isLosingWeek ? 'var(--colors-loss)' : 'var(--colors-stone)', marginTop: '4px', fontWeight: '600' }}>
+                          {isWinWeek ? '✓ Winning Week' : isLosingWeek ? '✗ Losing Week' : '— Break Even'}
+                        </div>
+                      </div>
+
+                      {/* A+ Only Auto-check */}
+                      <div style={{
+                        background: aPlusOnly ? 'rgba(48,209,88,0.06)' : 'rgba(0,0,0,0.25)',
+                        border: `1px solid ${aPlusOnly ? 'rgba(48,209,88,0.3)' : 'var(--colors-hairline-dark)'}`,
+                        padding: '14px 16px', borderRadius: '12px',
+                        display: 'flex', alignItems: 'flex-start', gap: '10px'
+                      }}>
+                        <div style={{
+                          width: '18px', height: '18px', borderRadius: '6px', marginTop: '2px', flexShrink: 0,
+                          background: aPlusOnly ? 'var(--colors-gain)' : 'rgba(255,255,255,0.08)',
+                          border: aPlusOnly ? 'none' : '2px solid rgba(255,255,255,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {aPlusOnly && <Check size={11} color="#fff" strokeWidth={3} />}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: aPlusOnly ? 'var(--colors-gain)' : 'rgba(255,255,255,0.7)' }}>A+ Setups Only</div>
+                          <div style={{ fontSize: '10px', color: 'var(--colors-stone)', marginTop: '2px' }}>
+                            {totalTrades === 0 ? 'No trades' : aPlusOnly ? 'All trades A/A+' : 'Lower quality trades present'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 1-2 Trades/Day Auto-check */}
+                      <div style={{
+                        background: withinTradeLimit ? 'rgba(48,209,88,0.06)' : 'rgba(0,0,0,0.25)',
+                        border: `1px solid ${withinTradeLimit ? 'rgba(48,209,88,0.3)' : 'var(--colors-hairline-dark)'}`,
+                        padding: '14px 16px', borderRadius: '12px',
+                        display: 'flex', alignItems: 'flex-start', gap: '10px'
+                      }}>
+                        <div style={{
+                          width: '18px', height: '18px', borderRadius: '6px', marginTop: '2px', flexShrink: 0,
+                          background: withinTradeLimit ? 'var(--colors-gain)' : 'rgba(255,255,255,0.08)',
+                          border: withinTradeLimit ? 'none' : '2px solid rgba(255,255,255,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {withinTradeLimit && <Check size={11} color="#fff" strokeWidth={3} />}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: withinTradeLimit ? 'var(--colors-gain)' : 'rgba(255,255,255,0.7)' }}>≤2 Trades/Day</div>
+                          <div style={{ fontSize: '10px', color: 'var(--colors-stone)', marginTop: '2px' }}>
+                            {totalTrades === 0 ? 'No trades' : withinTradeLimit ? `Max ${maxTradesInDay}/day ✓` : `${maxTradesInDay} trades on peak day`}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <h4 style={{ 
                   fontSize: '11px', 
@@ -1745,14 +1865,142 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   alignItems: 'center',
                   gap: '6px'
                 }}>
-                  <Zap size={12} color="var(--colors-primary)" /> Strategy Adjustments for Next Week
+                  <Zap size={12} color="var(--colors-primary)" /> Key Takeaways
                 </label>
                 <textarea 
                   className="hollow-glass-input"
                   style={{ minHeight: '140px', resize: 'vertical', fontSize: '12px', flex: 1, padding: '12px', lineHeight: '1.5' }}
                   value={weeklyForm.adjustments}
                   onChange={(e) => setWeeklyForm(prev => ({ ...prev, adjustments: e.target.value }))}
-                  placeholder="Define concrete playbook setups, sizing configurations, or mental adjustments you will enforce in the upcoming trading session."
+                  placeholder="What did you learn this week? What patterns emerged in your execution? What will you carry forward into next week's sessions?"
+                />
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB CONTENT: News */}
+          {activeTab === 'news' && (
+            <div className="hollow-card" style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '20px', 
+              padding: '24px', 
+              background: '#0f0f11',
+              border: '1px solid #1c1c1e',
+              flex: 1 
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                    <Radio size={16} color="var(--colors-primary)" /> Weekly Economic News & Macro Calendar
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--colors-stone)', margin: '4px 0 0' }}>
+                    Upload high-impact news calendar screenshots (FOMC, CPI, NFP) and note key catalyst times for this week.
+                  </p>
+                </div>
+              </div>
+
+              {/* Photo Upload Box */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ 
+                  fontSize: '11px', 
+                  color: 'var(--colors-stone)', 
+                  fontWeight: '800', 
+                  textTransform: 'uppercase', 
+                  letterSpacing: '0.75px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Camera size={12} color="var(--colors-primary)" /> News Calendar Photo / Screenshot
+                </label>
+
+                {weeklyForm.newsPhoto ? (
+                  <div style={{ position: 'relative', width: '100%', maxHeight: '420px', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <img src={weeklyForm.newsPhoto} alt="Weekly News Calendar" style={{ width: '100%', height: 'auto', maxHeight: '420px', objectFit: 'contain', background: '#000' }} />
+                    <button
+                      onClick={() => setWeeklyForm(prev => ({ ...prev, newsPhoto: null }))}
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(255, 69, 58, 0.85)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        color: '#fff',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                      }}
+                    >
+                      Remove Photo
+                    </button>
+                  </div>
+                ) : (
+                  <label style={{
+                    border: '2px dashed rgba(255, 255, 255, 0.15)',
+                    borderRadius: '16px',
+                    padding: '40px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--colors-primary)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                  >
+                    <Camera size={32} color="var(--colors-primary)" />
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', display: 'block' }}>
+                        Upload Economic News Screenshot
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--colors-stone)', marginTop: '4px', display: 'block' }}>
+                        Drag & drop or click to upload (PNG, JPG, WebP)
+                      </span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => setWeeklyForm(prev => ({ ...prev, newsPhoto: ev.target.result }));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Key News Events & Notes Area */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                <label style={{ 
+                  fontSize: '11px', 
+                  color: 'var(--colors-stone)', 
+                  fontWeight: '800', 
+                  textTransform: 'uppercase', 
+                  letterSpacing: '0.75px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Newspaper size={12} color="var(--colors-primary)" /> Key Macro Events & Catalyst Notes
+                </label>
+                <textarea 
+                  className="hollow-glass-input"
+                  style={{ minHeight: '120px', resize: 'vertical', fontSize: '12px', flex: 1, padding: '12px', lineHeight: '1.5' }}
+                  value={weeklyForm.newsNotes}
+                  onChange={(e) => setWeeklyForm(prev => ({ ...prev, newsNotes: e.target.value }))}
+                  placeholder="e.g., Wednesday 14:00 EST - FOMC Statement & Powell Presser (high volatility expected). Thursday 08:30 EST - Initial Jobless Claims..."
                 />
               </div>
 
@@ -1986,7 +2234,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   lineHeight: '1.4',
                   fontWeight: '400' 
                 }}>
-                  "{record.netPnL >= 0 ? WEEKLY_STOIC_QUOTES.win[quoteIndex % WEEKLY_STOIC_QUOTES.win.length].text : WEEKLY_STOIC_QUOTES.loss[quoteIndex % WEEKLY_STOIC_QUOTES.loss.length].text}"
+                  "{record.netPnL >= 0 ? WEEKLY_MINDSET_QUOTES.win[quoteIndex % WEEKLY_MINDSET_QUOTES.win.length].text : WEEKLY_MINDSET_QUOTES.loss[quoteIndex % WEEKLY_MINDSET_QUOTES.loss.length].text}"
                 </div>
                 <div style={{ 
                   fontSize: '7.5px', 
@@ -1996,7 +2244,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   letterSpacing: '1px',
                   fontWeight: '800'
                 }}>
-                  — {record.netPnL >= 0 ? WEEKLY_STOIC_QUOTES.win[quoteIndex % WEEKLY_STOIC_QUOTES.win.length].author : WEEKLY_STOIC_QUOTES.loss[quoteIndex % WEEKLY_STOIC_QUOTES.loss.length].author}
+                  — {record.netPnL >= 0 ? WEEKLY_MINDSET_QUOTES.win[quoteIndex % WEEKLY_MINDSET_QUOTES.win.length].author : WEEKLY_MINDSET_QUOTES.loss[quoteIndex % WEEKLY_MINDSET_QUOTES.loss.length].author}
                 </div>
               </div>
             </div>
@@ -2153,7 +2401,7 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   lineHeight: '1.4',
                   fontWeight: '400' 
                 }}>
-                  "{weeklyTradeMetrics.totalPnL >= 0 ? WEEKLY_STOIC_QUOTES.win[quoteIndex % WEEKLY_STOIC_QUOTES.win.length].text : WEEKLY_STOIC_QUOTES.loss[quoteIndex % WEEKLY_STOIC_QUOTES.loss.length].text}"
+                  "{weeklyTradeMetrics.totalPnL >= 0 ? WEEKLY_MINDSET_QUOTES.win[quoteIndex % WEEKLY_MINDSET_QUOTES.win.length].text : WEEKLY_MINDSET_QUOTES.loss[quoteIndex % WEEKLY_MINDSET_QUOTES.loss.length].text}"
                 </div>
                 <div style={{ 
                   fontSize: '7.5px', 
@@ -2163,13 +2411,194 @@ export default function WeeklyReviewView({ trades, executions, selectedAccountId
                   letterSpacing: '1px',
                   fontWeight: '800'
                 }}>
-                  — {weeklyTradeMetrics.totalPnL >= 0 ? WEEKLY_STOIC_QUOTES.win[quoteIndex % WEEKLY_STOIC_QUOTES.win.length].author : WEEKLY_STOIC_QUOTES.loss[quoteIndex % WEEKLY_STOIC_QUOTES.loss.length].author}
+                  — {weeklyTradeMetrics.totalPnL >= 0 ? WEEKLY_MINDSET_QUOTES.win[quoteIndex % WEEKLY_MINDSET_QUOTES.win.length].author : WEEKLY_MINDSET_QUOTES.loss[quoteIndex % WEEKLY_MINDSET_QUOTES.loss.length].author}
                 </div>
               </div>
             </div>
           );
         })()}
       </div>
+
+      {/* DAY REVIEW POPUP MODAL */}
+      {dayModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }} onClick={() => setDayModalOpen(false)}>
+          <div 
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#0f0f11',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '650px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: 0 }}>
+                  Day Review — {dayModalDate}
+                </h3>
+                <span style={{ fontSize: '11px', color: 'var(--colors-stone)' }}>Log daily setup photos & notes</span>
+              </div>
+              <button 
+                onClick={() => setDayModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '18px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Photos Grid: Trade of the Day & Trade Taken */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Trade of the Day Photo */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Trade of the Day Photo
+                </label>
+                <div style={{
+                  border: '1px dashed rgba(255,255,255,0.15)',
+                  borderRadius: '12px',
+                  minHeight: '130px',
+                  background: 'rgba(0,0,0,0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: '8px'
+                }}>
+                  {dayModalForm.tradeOfDayPhoto ? (
+                    <>
+                      <img src={dayModalForm.tradeOfDayPhoto} alt="Trade of the Day" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' }} />
+                      <button
+                        onClick={() => setDayModalForm(prev => ({ ...prev, tradeOfDayPhoto: null }))}
+                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#ff453a', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  ) : (
+                    <label style={{ cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                      <Camera size={22} color="var(--colors-stone)" />
+                      <span style={{ fontSize: '11px', color: 'var(--colors-stone)' }}>Upload Chart Photo</span>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhotoUpload('tradeOfDayPhoto', e.target.files[0])} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Trade Taken Photo */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Trade Taken Photo
+                </label>
+                <div style={{
+                  border: '1px dashed rgba(255,255,255,0.15)',
+                  borderRadius: '12px',
+                  minHeight: '130px',
+                  background: 'rgba(0,0,0,0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: '8px'
+                }}>
+                  {dayModalForm.tradeTakenPhoto ? (
+                    <>
+                      <img src={dayModalForm.tradeTakenPhoto} alt="Trade Taken" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' }} />
+                      <button
+                        onClick={() => setDayModalForm(prev => ({ ...prev, tradeTakenPhoto: null }))}
+                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#ff453a', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  ) : (
+                    <label style={{ cursor: 'pointer', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                      <Camera size={22} color="var(--colors-stone)" />
+                      <span style={{ fontSize: '11px', color: 'var(--colors-stone)' }}>Upload Execution Photo</span>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhotoUpload('tradeTakenPhoto', e.target.files[0])} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Review Section: Text + Optional Extra Photo */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Daily Review
+              </label>
+              <textarea
+                className="hollow-glass-input"
+                style={{ minHeight: '100px', resize: 'vertical', fontSize: '12px', padding: '12px', lineHeight: '1.5' }}
+                value={dayModalForm.reviewText}
+                onChange={e => setDayModalForm(prev => ({ ...prev, reviewText: e.target.value }))}
+                placeholder="What went well today? What mistakes or emotional triggers did you notice?"
+              />
+
+              {/* Extra Review Photo */}
+              <div style={{ marginTop: '6px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--colors-stone)', fontWeight: '600', marginBottom: '6px', display: 'block' }}>
+                  Optional Extra Photo
+                </label>
+                {dayModalForm.reviewExtraPhoto ? (
+                  <div style={{ position: 'relative', width: 'fit-content' }}>
+                    <img src={dayModalForm.reviewExtraPhoto} alt="Extra Review" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                    <button
+                      onClick={() => setDayModalForm(prev => ({ ...prev, reviewExtraPhoto: null }))}
+                      style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#ff453a', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '11px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                    <Camera size={14} color="var(--colors-stone)" /> Add Extra Photo
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhotoUpload('reviewExtraPhoto', e.target.files[0])} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setDayModalOpen(false)}
+                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDayModalSave}
+                style={{ background: 'var(--colors-primary)', border: 'none', color: '#fff', padding: '8px 20px', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}
+              >
+                Save Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

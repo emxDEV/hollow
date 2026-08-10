@@ -4,10 +4,10 @@ import { X, Download, RotateCw } from 'lucide-react';
 import { calculateTradePnL } from '../../utils/tradeMath';
 import { getWeekDates } from '../../utils/dateUtils';
 
-const STOIC_QUOTES = {
+const MINDSET_QUOTES = {
   win: [
     { text: "No random actions, none not based on underlying principles.", author: "Marcus Aurelius" },
-    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Stoic Maxim" },
+    { text: "If you want steady, choose discipline. If you want fleeting, choose motivation.", author: "Hollow Mindset" },
     { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
     { text: "Keep constant guard over your perceptions, for they are the source of all your actions.", author: "Epictetus" }
   ],
@@ -166,7 +166,7 @@ export default function SharePnLSheet({ onClose, trades, executions, selectedAcc
 
   const isWin = activeRecord ? activeRecord.netPnL >= 0 : true;
   const accentColor = isWin ? '#30d158' : '#ff453a';
-  const quotesList = isWin ? STOIC_QUOTES.win : STOIC_QUOTES.loss;
+  const quotesList = isWin ? MINDSET_QUOTES.win : MINDSET_QUOTES.loss;
   const currentQuote = quotesList[quoteIndex % quotesList.length] || quotesList[0];
 
   return (

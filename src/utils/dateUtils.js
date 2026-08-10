@@ -28,8 +28,15 @@ export function getWeekDates(weekId) {
   const targetSunday = new Date(targetMonday);
   targetSunday.setDate(targetMonday.getDate() + 6);
   
+  const formatLocal = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   return {
-    start: targetMonday.toISOString().split('T')[0],
-    end: targetSunday.toISOString().split('T')[0]
+    start: formatLocal(targetMonday),
+    end: formatLocal(targetSunday)
   };
 }

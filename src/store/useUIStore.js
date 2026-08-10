@@ -2,28 +2,25 @@ import { create } from 'zustand';
 
 export const useUIStore = create((set) => ({
   view: 'dashboard',
-  selectedAccountId: 'all',
-  activeTradeId: null,
   sidebarCollapsed: false,
-  isAddTradeOpen: false,
   isMobile: false,
   mobileSidebarOpen: false,
   toasts: [],
   selectedDate: new Date().toISOString().split('T')[0],
   dateSelectedByUser: false,
   journalTab: 'daily',
-  hideTradeDetails: false,
+  isAddExecutionOpen: false,
+  activeExecutionDraft: null,
 
   setView: (view) => set({ view }),
-  setSelectedAccountId: (selectedAccountId) => set({ selectedAccountId }),
-  setActiveTradeId: (activeTradeId) => set({ activeTradeId }),
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-  setIsAddTradeOpen: (isAddTradeOpen) => set({ isAddTradeOpen }),
   setIsMobile: (isMobile) => set({ isMobile }),
   setMobileSidebarOpen: (mobileSidebarOpen) => set({ mobileSidebarOpen }),
   setSelectedDate: (selectedDate, selectedByUser = true) => set({ selectedDate, dateSelectedByUser: selectedByUser }),
   setJournalTab: (journalTab) => set({ journalTab }),
-  setHideTradeDetails: (hideTradeDetails) => set({ hideTradeDetails }),
+  setIsAddExecutionOpen: (isAddExecutionOpen) => set({ isAddExecutionOpen }),
+  setActiveExecutionDraft: (activeExecutionDraft) => set({ activeExecutionDraft }),
+  openEditExecution: (execution) => set({ activeExecutionDraft: execution, isAddExecutionOpen: true }),
   
   addToast: (message, type = 'success') => {
     const id = `toast-${Date.now()}-${Math.random()}`;
