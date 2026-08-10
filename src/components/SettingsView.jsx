@@ -600,26 +600,37 @@ function CustomPillManager() {
             ))}
           </Reorder.Group>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="New DOL target..."
-              value={newDolLabel}
-              onChange={e => setNewDolLabel(e.target.value)}
-              style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
-            />
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {SWATCH_PALETTE.map(c => (
-                <div
-                  key={c}
-                  onClick={() => setNewDolColor(c)}
-                  style={{ width: '20px', height: '20px', borderRadius: '50%', background: c, cursor: 'pointer', border: newDolColor === c ? '2px solid #fff' : 'none' }}
-                />
-              ))}
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px', alignItems: isMobile ? 'stretch' : 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+              <input
+                type="text"
+                placeholder="New DOL target..."
+                value={newDolLabel}
+                onChange={e => setNewDolLabel(e.target.value)}
+                style={{ flex: 1, background: '#14121d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', outline: 'none' }}
+              />
+              {isMobile && (
+                <button type="button" onClick={addDol} style={{ background: newDolColor, border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+                  + Add
+                </button>
+              )}
             </div>
-            <button type="button" onClick={addDol} style={{ background: newDolColor, border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
-              + Add DOL
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {SWATCH_PALETTE.map(c => (
+                  <div
+                    key={c}
+                    onClick={() => setNewDolColor(c)}
+                    style={{ width: '22px', height: '22px', borderRadius: '50%', background: c, cursor: 'pointer', border: newDolColor === c ? '2px solid #fff' : 'none' }}
+                  />
+                ))}
+              </div>
+              {!isMobile && (
+                <button type="button" onClick={addDol} style={{ background: newDolColor, border: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', color: '#000', cursor: 'pointer' }}>
+                  + Add DOL
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -909,6 +920,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
   // 2. Playbook Strategy Quick Tags Settings
   const [playbookTags, setPlaybookTags] = useState([]);
   const [newTagText, setNewTagText] = useState('');
+  const nonEmptyCategories = [];
 
   useEffect(() => {
     const saved = localStorage.getItem('playbookTags');
@@ -1403,8 +1415,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
         }} className="hollow-menu-scrollbar">
           {[
             { id: 'profile', label: 'Profile', icon: <User size={16} /> },
-            { id: 'accounts', label: 'Accounts', icon: <CreditCard size={16} /> },
-            { id: 'playbook', label: 'Playbook', icon: <Target size={16} /> },
             { id: 'pills', label: 'Custom Pills', icon: <Tag size={16} /> },
             { id: 'weeklyReview', label: 'Weekly Review', icon: <ClipboardCheck size={16} /> }
           ].map(tab => {
@@ -1416,26 +1426,27 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  width: isMobile ? 'auto' : '100%',
-                  padding: isMobile ? '8px 16px' : '12px 24px',
-                  background: isSelected ? 'var(--colors-surface-card)' : 'transparent',
-                  border: 'none',
-                  borderRadius: isMobile ? '10px' : '0',
-                  color: isSelected ? '#fff' : 'var(--colors-on-dark-mute)',
+                  gap: '10px',
+                  width: isMobile ? 'auto' : 'calc(100% - 24px)',
+                  margin: isMobile ? '0' : '0 12px',
+                  padding: isMobile ? '8px 16px' : '10px 16px',
+                  background: isSelected 
+                    ? 'linear-gradient(135deg, rgba(184, 110, 255, 0.15) 0%, rgba(138, 48, 246, 0.05) 100%)' 
+                    : 'transparent',
+                  border: isSelected ? '1px solid rgba(184, 110, 255, 0.25)' : '1px solid transparent',
+                  borderRadius: '12px',
+                  color: isSelected ? '#fff' : 'rgba(255,255,255,0.45)',
                   cursor: 'pointer',
                   fontFamily: 'var(--font-body)',
                   fontSize: '13px',
                   fontWeight: isSelected ? '600' : '500',
                   textAlign: 'left',
                   outline: 'none',
-                  borderRight: !isMobile && isSelected ? '3px solid var(--colors-primary)' : 'none',
-                  borderBottom: isMobile && isSelected ? '2px solid var(--colors-primary)' : 'none',
                   transition: 'all 0.2s',
                   whiteSpace: 'nowrap'
                 }}
               >
-                <span style={{ color: isSelected ? 'var(--colors-primary)' : 'inherit' }}>{tab.icon}</span>
+                <span style={{ color: isSelected ? 'var(--colors-primary)' : 'inherit', display: 'flex', alignItems: 'center' }}>{tab.icon}</span>
                 <span>{tab.label}</span>
               </button>
             );
