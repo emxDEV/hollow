@@ -7,6 +7,7 @@ import WelcomeUpdateModal from './components/WelcomeUpdateModal';
 import EOWReminderModal from './components/EOWReminderModal';
 import Sidebar from './components/Sidebar';
 import AppBottomNav from './components/AppBottomNav';
+import HollowLogo from './components/HollowLogo';
 import DashboardView from './components/DashboardView';
 import AnalyticsView from './components/AnalyticsView';
 import CalendarView from './components/CalendarView';
@@ -223,6 +224,44 @@ export default function App() {
       <WelcomeUpdateModal isMobile={isMobile} />
       <EOWReminderModal />
       <AddExecutionModal />
+
+      {/* Mobile Top Bar with Notch Safe Area Support */}
+      {isMobile && (
+        <div style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          background: 'rgba(9, 9, 11, 0.88)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+          zIndex: 100,
+          flexShrink: 0
+        }}>
+          <div style={{
+            height: '48px',
+            padding: '0 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <HollowLogo size={24} showText={true} />
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              color: '#b86eff',
+              letterSpacing: '-0.01em',
+              fontFamily: 'var(--font-heading)'
+            }}>
+              {view === 'dashboard' && 'Dashboard'}
+              {view === 'analytics' && 'Analytics'}
+              {view === 'calendar' && 'Calendar'}
+              {view === 'journal' && 'Journal'}
+              {view === 'weeklyReview' && 'Weekly Review'}
+              {view === 'settings' && 'Settings'}
+            </div>
+            <div style={{ width: 24 }} /> {/* balance spacing */}
+          </div>
+        </div>
+      )}
 
       {/* Sidebar + Content row */}
       <div style={{ display: 'flex', flex: 1, flexDirection: 'row', overflow: 'hidden', position: 'relative', zIndex: 1 }}>

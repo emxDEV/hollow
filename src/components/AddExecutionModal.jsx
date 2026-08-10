@@ -73,6 +73,7 @@ const EMOTIONS = [
 ];
 
 export default function AddExecutionModal() {
+  const isMobile = useUIStore(state => state.isMobile);
   const isAddExecutionOpen = useUIStore(state => state.isAddExecutionOpen);
   const setIsAddExecutionOpen = useUIStore(state => state.setIsAddExecutionOpen);
   const addToast = useUIStore(state => state.addToast);
@@ -420,7 +421,7 @@ export default function AddExecutionModal() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '16px',
+          padding: isMobile ? '8px' : '16px',
           background: 'rgba(5, 4, 10, 0.86)',
           backdropFilter: 'blur(26px) saturate(180%)',
           WebkitBackdropFilter: 'blur(26px) saturate(180%)',
@@ -430,8 +431,8 @@ export default function AddExecutionModal() {
         {/* Ambient Halo */}
         <div style={{
           position: 'absolute',
-          width: '540px',
-          height: '540px',
+          width: isMobile ? '280px' : '540px',
+          height: isMobile ? '280px' : '540px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(160, 80, 255, 0.22) 0%, rgba(120, 30, 240, 0.06) 60%, rgba(0,0,0,0) 80%)',
           filter: 'blur(60px)',
@@ -449,7 +450,7 @@ export default function AddExecutionModal() {
             maxWidth: '680px',
             background: '#0d0b14',
             border: '1px solid rgba(184, 110, 255, 0.24)',
-            borderRadius: '28px',
+            borderRadius: isMobile ? '16px' : '28px',
             boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(138, 48, 246, 0.18)',
             display: 'flex',
             flexDirection: 'column',
@@ -460,7 +461,7 @@ export default function AddExecutionModal() {
         >
           {/* MODAL HEADER WITH STEP COUNTER & BACK/NEXT ARROWS */}
           <div style={{
-            padding: '20px 24px',
+            padding: isMobile ? '12px 14px' : '20px 24px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             background: 'rgba(255, 255, 255, 0.02)',
             display: 'flex',
@@ -490,12 +491,14 @@ export default function AddExecutionModal() {
               </button>
 
               <div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: '#b86eff', fontWeight: '700' }}>
+                <div style={{ fontSize: isMobile ? '10px' : '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: '#b86eff', fontWeight: '700' }}>
                   Step {currentStep} of {totalSteps} — {stepsHeader[currentStep - 1].title}
                 </div>
-                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                  {stepsHeader[currentStep - 1].desc}
-                </div>
+                {!isMobile && (
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                    {stepsHeader[currentStep - 1].desc}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -550,7 +553,7 @@ export default function AddExecutionModal() {
           </div>
 
           {/* STEP PROGRESS INDICATOR */}
-          <div style={{ display: 'flex', gap: '4px', padding: '0 24px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '4px', padding: isMobile ? '0 14px' : '0 24px', marginTop: '12px' }}>
             {stepsHeader.map((s) => (
               <div
                 key={s.num}
@@ -570,7 +573,8 @@ export default function AddExecutionModal() {
           </div>
 
           {/* STEP CONTENT BODY */}
-          <div style={{ padding: '24px', maxHeight: '68vh', overflowY: 'auto' }} className="hollow-menu-scrollbar">
+          <div style={{ padding: isMobile ? '16px' : '24px', maxHeight: isMobile ? '60vh' : '68vh', overflowY: 'auto' }} className="hollow-menu-scrollbar">
+
             <AnimatePresence mode="wait">
               {/* STEP 1: SESSION & CORE SETUP */}
               {currentStep === 1 && (
@@ -581,7 +585,7 @@ export default function AddExecutionModal() {
                   exit={{ opacity: 0, x: -15 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}
                 >
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</label>
                       <input
@@ -640,7 +644,7 @@ export default function AddExecutionModal() {
                   </div>
 
                   {/* Side (Long/Short) & W/L Outcome */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Side (Long / Short)</label>
                       <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
@@ -921,7 +925,8 @@ export default function AddExecutionModal() {
                           fontSize: '12px',
                           fontWeight: '700',
                           color: '#000',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          flexShrink: 0
                         }}
                       >
                         + Add Model
@@ -971,7 +976,13 @@ export default function AddExecutionModal() {
                         );
                       })}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', alignItems: 'center' }}>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: isMobile ? 'column' : 'row',
+                      gap: '10px',
+                      marginTop: '10px',
+                      alignItems: isMobile ? 'stretch' : 'center'
+                    }}>
                       <input
                         type="text"
                         placeholder="New DOL target..."
@@ -988,41 +999,50 @@ export default function AddExecutionModal() {
                           outline: 'none'
                         }}
                       />
-                      {/* Color Palette Swatches */}
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {COLOR_SWATCHES.map(c => (
-                          <div
-                            key={c}
-                            onClick={() => setNewDOLColor(c)}
-                            style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              background: c,
-                              cursor: 'pointer',
-                              border: newDOLColor === c ? '2px solid #fff' : 'none'
-                            }}
-                          />
-                        ))}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px'
+                      }}>
+                        {/* Color Palette Swatches */}
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {COLOR_SWATCHES.map(c => (
+                            <div
+                              key={c}
+                              onClick={() => setNewDOLColor(c)}
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '50%',
+                                background: c,
+                                cursor: 'pointer',
+                                border: newDOLColor === c ? '2px solid #fff' : 'none'
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddCustomDOL}
+                          style={{
+                            background: newDOLColor,
+                            border: 'none',
+                            borderRadius: '10px',
+                            padding: '8px 14px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            color: '#000',
+                            cursor: 'pointer',
+                            flexShrink: 0
+                          }}
+                        >
+                          + Add DOL
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleAddCustomDOL}
-                        style={{
-                          background: newDOLColor,
-                          border: 'none',
-                          borderRadius: '10px',
-                          padding: '8px 14px',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          color: '#000',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        + Add DOL
-                      </button>
                     </div>
                   </div>
+
 
                   {/* 5. PO3 TIMES (hh:mm format, multi-select) */}
                   <div>
@@ -1086,7 +1106,8 @@ export default function AddExecutionModal() {
                           fontSize: '12px',
                           fontWeight: '700',
                           color: '#000',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          flexShrink: 0
                         }}
                       >
                         + Add Time
@@ -1150,7 +1171,8 @@ export default function AddExecutionModal() {
                           fontSize: '12px',
                           fontWeight: '700',
                           color: '#000',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          flexShrink: 0
                         }}
                       >
                         + Add TF
@@ -1159,7 +1181,7 @@ export default function AddExecutionModal() {
                   </div>
 
                   {/* SL / TP / R:R */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '16px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>SL (Stop Loss)</label>
                       <input
@@ -1236,7 +1258,7 @@ export default function AddExecutionModal() {
                   style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}
                 >
                   {/* 7. STRICT HH:MM TIME VALIDATION */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '14px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Execution (hh:mm)</label>
                       <input
@@ -1389,7 +1411,12 @@ export default function AddExecutionModal() {
                   {/* 10. EMOTION SYMBOLS */}
                   <div>
                     <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Emotion / Mood Symbol</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', marginTop: '6px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)',
+                      gap: '8px',
+                      marginTop: '6px'
+                    }}>
                       {EMOTIONS.map(e => {
                         const isSel = form.emotion === e.value;
                         return (
@@ -1481,7 +1508,8 @@ export default function AddExecutionModal() {
                           fontSize: '12px',
                           fontWeight: '700',
                           color: '#000',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          flexShrink: 0
                         }}
                       >
                         + Add Tag
