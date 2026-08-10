@@ -242,7 +242,32 @@ export default function App() {
       if (timer) clearTimeout(timer);
       window.removeEventListener('hollowCustomPillsUpdated', handleGlobalSync);
     };
-  }, []);
+  }, []);  // Background Daily 10 PM Backup Scheduler (runs every 60 seconds)
+  useEffect(() => {
+    let intervalId = null;
+    
+    const runCheck = async () => {
+      try {
+        const enableAutoBackup = localStorage.getItem('hollowEnableAutoBackup') !== 'false';
+        if (!enableAutoBackup) return;
+
+        const { checkAndRunDailyBackup } = await import('./utils/pdfExport');
+        await checkAndRunDailyBackup(addToast);
+      } catch (err) {
+        console.error('Daily backup check failed:', err);
+      }
+    };
+    
+    // Run initial check
+    runCheck();
+    
+    // Check every 60 seconds
+    intervalId = setInterval(runCheck, 60 * 1000);
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [addToast]);
 
   // ── EARLY RETURNS ────────────────────────────────────────────────
   if (!supabase) {

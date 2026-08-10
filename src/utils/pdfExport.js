@@ -354,6 +354,71 @@ export async function checkAndRunWeeklyBackup(addToast) {
 }
 
 // ----------------------------------------------------
+// AUTOMATED DAILY 10PM BACKUP CHECK & RUN
+// ----------------------------------------------------
+export async function checkAndRunDailyBackup(addToast) {
+  try {
+    const today = new Date();
+    const currentHour = today.getHours();
+    
+    // Trigger backup when it is 10 PM (22:00)
+    if (currentHour !== 22) return;
+
+    const todayStr = today.toISOString().split('T')[0];
+    const lastBackupDate = localStorage.getItem('hollowLastDailyBackupDate');
+    
+    if (lastBackupDate === todayStr) {
+      return; // Already backed up today
+    }
+
+    console.log('10:00 PM detected! Running automated daily backup...');
+    
+    // Fetch all local Dexie database data
+    const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
+      db.accounts ? db.accounts.toArray() : [],
+      db.trades ? db.trades.toArray() : [],
+      db.executions ? db.executions.toArray() : [],
+      db.dailyJournals ? db.dailyJournals.toArray() : [],
+      db.weeklyPlanners ? db.weeklyPlanners.toArray() : [],
+      db.groups ? db.groups.toArray() : [],
+      db.workouts ? db.workouts.toArray() : []
+    ]);
+
+    const doc = exportAllDataBackupPDF(accs, trds, execs, jrns, plns, grps, wrkts);
+    const filename = `hollow_daily_backup_${todayStr.replace(/-/g, '_')}.pdf`;
+
+    let savedToCustom = false;
+    if (window.showDirectoryPicker) {
+      const dirHandle = await getBackupDirectoryHandle();
+      if (dirHandle) {
+        try {
+          const options = { mode: 'readwrite' };
+          if ((await dirHandle.queryPermission(options)) === 'granted' || (await dirHandle.requestPermission(options)) === 'granted') {
+            const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(doc.output('blob'));
+            await writable.close();
+            savedToCustom = true;
+            if (addToast) addToast(`Daily backup saved to folder: ${filename}`, 'success');
+          }
+        } catch (err) {
+          console.error('Failed to write daily backup to custom directory, falling back to download:', err);
+        }
+      }
+    }
+
+    if (!savedToCustom) {
+      doc.save(filename);
+      if (addToast) addToast('Daily 10 PM backup PDF automatically generated and downloaded!', 'success');
+    }
+
+    localStorage.setItem('hollowLastDailyBackupDate', todayStr);
+  } catch (err) {
+    console.error('Failed to run daily backup:', err);
+  }
+}
+
+// ----------------------------------------------------
 // FULL DATA BACKUP GENERATOR (PDF)
 // ----------------------------------------------------
 export function exportAllDataBackupPDF(accounts, trades, executions, dailyJournals, weeklyPlanners, groups, workouts) {

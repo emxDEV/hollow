@@ -491,7 +491,8 @@ export async function syncWithSupabase() {
       { name: 'dailyJournals', store: db.dailyJournals, pk: 'date' },
       { name: 'weeklyPlanners', store: db.weeklyPlanners, pk: 'weekId' },
       { name: 'workouts', store: db.workouts, pk: 'id' },
-      { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' }
+      { name: 'workoutPlans', store: db.workoutPlans, pk: 'id' },
+      { name: 'executions', store: db.executions, pk: 'id' }
     ];
 
     // 1. Process pending deletions from localStorage first
@@ -711,6 +712,7 @@ export async function subscribeToRealtimeSync() {
     { name: 'weeklyPlanners',store: db.weeklyPlanners,pk: 'weekId' },
     { name: 'workouts',      store: db.workouts,      pk: 'id' },
     { name: 'workoutPlans',  store: db.workoutPlans,  pk: 'id' },
+    { name: 'executions',    store: db.executions,    pk: 'id' }
   ];
 
   console.log(`Subscribing to realtime sync channel for user: ${userId}`);
