@@ -248,3 +248,62 @@ h1, h2, h3, h4, h5, h6 {
 .hollow-menu-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(184, 110, 255, 0.4);
 }
+
+/* ─── MOBILE RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* Make all scrollable view containers touch-scrollable */
+  .view-transition-wrapper {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Suppress horizontal overflow on all views */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Increase tap targets for inputs */
+  .hollow-input,
+  .hollow-glass-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px !important; /* prevents iOS zoom on focus */
+    min-height: 44px;
+  }
+
+  /* Make buttons easier to tap */
+  button {
+    min-height: 36px;
+  }
+
+  /* Auth pitch panel: hide on small screens */
+  .auth-pitch-panel {
+    display: none !important;
+  }
+
+  /* Auth form logo: show on mobile */
+  .auth-form-logo {
+    display: flex !important;
+  }
+
+  /* Make hollow-toast appear at bottom on mobile */
+  .hollow-toast-container {
+    bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+    top: auto !important;
+    right: 12px !important;
+    left: 12px !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Safe area for iPhone notch / Dynamic Island */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}

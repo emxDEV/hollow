@@ -6,7 +6,7 @@ import LoadingScreen from './components/LoadingScreen';
 import WelcomeUpdateModal from './components/WelcomeUpdateModal';
 import EOWReminderModal from './components/EOWReminderModal';
 import Sidebar from './components/Sidebar';
-import HollowLogo from './components/HollowLogo';
+import AppBottomNav from './components/AppBottomNav';
 import DashboardView from './components/DashboardView';
 import AnalyticsView from './components/AnalyticsView';
 import CalendarView from './components/CalendarView';
@@ -16,7 +16,7 @@ import CognitiveAgentPanel from './components/CognitiveAgentPanel';
 import SettingsView from './components/SettingsView';
 import AddExecutionModal from './components/AddExecutionModal';
 import './App.css';
-import { CheckCircle, AlertCircle, Info, Menu } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useUIStore } from './store/useUIStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -28,8 +28,6 @@ export default function App() {
     setSidebarCollapsed,
     isMobile,
     setIsMobile,
-    mobileSidebarOpen,
-    setMobileSidebarOpen,
     toasts,
     removeToast,
     addToast
@@ -239,7 +237,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       {uiOptions.enableClouds && (
         <div className="cloudy-backdrop">
           <div className="cloud-blur cloud-1" />
@@ -253,43 +251,9 @@ export default function App() {
       <EOWReminderModal />
       <AddExecutionModal />
 
-      {isMobile && (
-        <div style={{
-          height: '56px',
-          width: '100%',
-          background: '#0f0f11',
-          borderBottom: '1px solid #1c1c1e',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 16px',
-          zIndex: 100,
-          flexShrink: 0
-        }}>
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '8px',
-              marginLeft: '-8px'
-            }}
-          >
-            <Menu size={22} />
-          </button>
-          
-          <HollowLogo size={22} showText={true} />
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
+      <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', flexDirection: 'row' }}>
         
-        {/* Global Sidebar Nav */}
+        {/* Global Sidebar Nav — desktop only */}
         {!isMobile && (
           <Sidebar
             activeView={view}
@@ -307,7 +271,10 @@ export default function App() {
           overflow: 'hidden',
           padding: 0,
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
+          // On mobile, leave room for the bottom nav
+          paddingBottom: isMobile ? 'calc(60px + env(safe-area-inset-bottom))' : 0,
+          boxSizing: 'border-box'
         }}>
           <AnimatePresence mode="wait">
             {view === 'dashboard' && (
@@ -366,8 +333,6 @@ export default function App() {
               </motion.div>
             )}
 
-
-
             {view === 'weeklyReview' && (
               <motion.div
                 key="weeklyReview"
@@ -401,55 +366,6 @@ export default function App() {
         {/* Floating AI Panel Overlay */}
         <CognitiveAgentPanel />
 
-        {/* Mobile Slide-over Sidebar Drawer */}
-        <AnimatePresence>
-          {isMobile && mobileSidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.6)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                zIndex: 1000
-              }}
-              onClick={() => setMobileSidebarOpen(false)}
-            >
-              <motion.div
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                style={{
-                  width: '260px',
-                  height: '100%',
-                  background: '#000000',
-                  borderRight: '1px solid #1c1c1e',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Sidebar
-                  activeView={view}
-                  setActiveView={(v) => { setView(v); setMobileSidebarOpen(false); }}
-                  sidebarCollapsed={false}
-                  setSidebarCollapsed={() => {}}
-                  isMobile={true}
-                  onClose={() => setMobileSidebarOpen(false)}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Custom Toast Container */}
         <div className="hollow-toast-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <AnimatePresence>
@@ -481,6 +397,9 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {isMobile && <AppBottomNav />}
     </div>
   );
 }
