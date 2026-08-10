@@ -74,7 +74,7 @@ body {
   line-height: 1.5;
   margin: 0;
   padding: 0;
-  min-height: 100vh;
+  height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image: 
@@ -83,15 +83,19 @@ body {
   background-attachment: fixed;
 }
 
+html {
+  height: 100%;
+}
+
 #root {
+  /* Fill the full dynamic viewport height — works on iOS Safari */
   width: 100vw;
-  /* Use dynamic viewport height to account for mobile browser chrome */
   height: 100vh;
   height: 100dvh;
-  background-color: transparent;
-  position: relative;
-  overflow: hidden;
   display: flex;
+  flex-direction: column;
+  background-color: var(--colors-canvas-dark);
+  position: relative;
 }
 
 /* HOLLOW COMPONENT CLASSES */
@@ -387,15 +391,17 @@ h1, h2, h3, h4, h5, h6 {
 /* ─── MOBILE RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 767px) {
 
-  /* Make all scrollable view containers touch-scrollable */
-  .view-transition-wrapper {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Suppress horizontal overflow on all views */
+  /* Suppress horizontal overflow */
   body {
     overflow-x: hidden;
+  }
+
+  /* All scroll wrappers inside views need bottom padding to clear the fixed bottom nav */
+  .hollow-menu-scrollbar,
+  [style*="overflow-y: auto"],
+  [style*="overflowY"] {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: calc(70px + env(safe-area-inset-bottom));
   }
 
   /* Increase tap targets for inputs */
@@ -409,11 +415,6 @@ h1, h2, h3, h4, h5, h6 {
   textarea {
     font-size: 16px !important; /* prevents iOS zoom on focus */
     min-height: 44px;
-  }
-
-  /* Make buttons easier to tap */
-  button {
-    min-height: 36px;
   }
 
   /* Auth pitch panel: hide on small screens */

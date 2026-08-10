@@ -37,14 +37,11 @@ export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [uiOptions, setUiOptions] = useState({ enableClouds: true });
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
   }, []);
-
-  const [uiOptions, setUiOptions] = useState({
-    enableClouds: true
-  });
 
   // Handle auth session state reactively
   useEffect(() => {
@@ -99,9 +96,7 @@ export default function App() {
           syncProfileFromMetadata(session.user);
           localStorage.setItem('hollow_last_user_id', session.user.id);
         }
-        if (!session) {
-          setAppInitialized(true);
-        }
+        if (!session) setAppInitialized(true);
       } catch (err) {
         console.error('Supabase session retrieval error:', err);
         setSession(null);
@@ -115,23 +110,16 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       try {
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsRecoveryMode(true);
-        }
+        if (event === 'PASSWORD_RECOVERY') setIsRecoveryMode(true);
 
         if (event === 'SIGNED_IN') {
           const lastUserId = localStorage.getItem('hollow_last_user_id');
-          const isSameUser = lastUserId && currentSession && currentSession.user && (lastUserId === currentSession.user.id);
-          
+          const isSameUser = lastUserId && currentSession?.user && (lastUserId === currentSession.user.id);
           if (!isSameUser) {
             await clearDatabase();
-            if (currentSession && currentSession.user) {
-              localStorage.setItem('hollow_last_user_id', currentSession.user.id);
-            }
+            if (currentSession?.user) localStorage.setItem('hollow_last_user_id', currentSession.user.id);
             setSession(currentSession);
-            if (currentSession) {
-              syncProfileFromMetadata(currentSession.user);
-            }
+            if (currentSession) syncProfileFromMetadata(currentSession.user);
             setAppInitialized(false);
           } else {
             setSession(currentSession);
@@ -143,12 +131,8 @@ export default function App() {
           setAppInitialized(true);
         } else {
           setSession(currentSession);
-          if (currentSession) {
-            syncProfileFromMetadata(currentSession.user);
-          }
-          if (!currentSession) {
-            setAppInitialized(true);
-          }
+          if (currentSession) syncProfileFromMetadata(currentSession.user);
+          if (!currentSession) setAppInitialized(true);
         }
       } catch (err) {
         console.error('Auth state change error:', err);
@@ -162,12 +146,10 @@ export default function App() {
     };
   }, []);
 
-  // Real-time cross-device sync: subscribe whenever a session is active
+  // Real-time cross-device sync
   useEffect(() => {
     let unsubscribe = () => {};
-    if (session) {
-      subscribeToRealtimeSync().then(fn => { unsubscribe = fn; });
-    }
+    if (session) subscribeToRealtimeSync().then(fn => { unsubscribe = fn; });
     return () => { unsubscribe(); };
   }, [session]);
 
@@ -176,56 +158,34 @@ export default function App() {
       const enableClouds = localStorage.getItem('hollowEnableClouds') !== 'false';
       setUiOptions({ enableClouds });
     };
-
     loadUIOptions();
     window.addEventListener('hollowSettingsUpdated', loadUIOptions);
     return () => window.removeEventListener('hollowSettingsUpdated', loadUIOptions);
   }, []);
 
-  // Detect mobile screen width on mount/resize
+  // Detect mobile screen width
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [setIsMobile]);
 
+  // ── EARLY RETURNS ────────────────────────────────────────────────
   if (!supabase) {
     return (
-      <div style={{
-        height: '100vh',
-        width: '100vw',
-        background: '#0a0a0c',
-        color: '#ff453a',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'var(--font-body, sans-serif)',
-        padding: 24,
-        textAlign: 'center'
-      }}>
+      <div style={{ minHeight: '100dvh', background: '#0a0a0c', color: '#ff453a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-body)', padding: 24, textAlign: 'center' }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Supabase Configuration Missing</h2>
       </div>
     );
   }
 
   if (!authLoaded) {
-    return <div style={{ height: '100vh', width: '100vw', background: '#000' }} />;
+    return <div style={{ minHeight: '100dvh', background: 'var(--colors-canvas-dark)' }} />;
   }
 
   if (isRecoveryMode) {
-    return (
-      <AuthView
-        initialMode="reset"
-        onResetComplete={() => {
-          setIsRecoveryMode(false);
-          window.location.hash = '';
-        }}
-      />
-    );
+    return <AuthView initialMode="reset" onResetComplete={() => { setIsRecoveryMode(false); window.location.hash = ''; }} />;
   }
 
   if (session && !appInitialized) {
@@ -236,17 +196,21 @@ export default function App() {
     return <AuthView />;
   }
 
+  // ── MAIN AUTHENTICATED APP ────────────────────────────────────────
+  // Layout: column flex from root → row flex for sidebar+content
+  // Each view manages its own scroll internally.
+  // AppBottomNav is position:fixed so it sits above the layout without affecting it.
   return (
     <div style={{
-      height: '100vh',
-      height: '100dvh',
-      width: '100vw',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      height: '100%',
+      width: '100%',
+      background: 'var(--colors-canvas-dark)',
       position: 'relative',
-      background: 'var(--colors-canvas-dark)'
+      overflow: 'hidden'
     }}>
+      {/* Ambient glow background */}
       {uiOptions.enableClouds && (
         <div className="cloudy-backdrop">
           <div className="cloud-blur cloud-1" />
@@ -260,10 +224,10 @@ export default function App() {
       <EOWReminderModal />
       <AddExecutionModal />
 
-      {/* Main row: sidebar + content */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', flexDirection: 'row' }}>
-        
-        {/* Global Sidebar Nav — desktop only */}
+      {/* Sidebar + Content row */}
+      <div style={{ display: 'flex', flex: 1, flexDirection: 'row', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+
+        {/* Desktop sidebar only */}
         {!isMobile && (
           <Sidebar
             activeView={view}
@@ -273,97 +237,59 @@ export default function App() {
           />
         )}
 
-        {/* Main Content Arena */}
-        <div style={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 1,
-        }}>
+        {/* Main content: views manage their OWN scroll */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 }}>
           <AnimatePresence mode="wait">
             {view === 'dashboard' && (
-              <motion.div
-                key="dashboard"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="dashboard"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <DashboardView sidebarCollapsed={sidebarCollapsed} />
               </motion.div>
             )}
-
             {view === 'analytics' && (
-              <motion.div
-                key="analytics"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="analytics"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <AnalyticsView />
               </motion.div>
             )}
-
             {view === 'calendar' && (
-              <motion.div
-                key="calendar"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="calendar"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <CalendarView />
               </motion.div>
             )}
-
             {view === 'journal' && (
-              <motion.div
-                key="journal"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="journal"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <JournalView />
               </motion.div>
             )}
-
             {view === 'weeklyReview' && (
-              <motion.div
-                key="weeklyReview"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="weeklyReview"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <WeeklyReviewView />
               </motion.div>
             )}
-
             {view === 'settings' && (
-              <motion.div
-                key="settings"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="view-transition-wrapper"
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              <motion.div key="settings"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'absolute', inset: 0 }}
               >
                 <SettingsView />
               </motion.div>
@@ -371,41 +297,38 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Floating AI Panel Overlay */}
         <CognitiveAgentPanel />
-
-        {/* Toast Container */}
-        <div className="hollow-toast-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <AnimatePresence>
-            {toasts.map(toast => {
-              let icon = <CheckCircle size={16} color="var(--colors-gain)" />;
-              if (toast.type === 'error') icon = <AlertCircle size={16} color="var(--colors-loss)" />;
-              else if (toast.type === 'info') icon = <Info size={16} color="#ffffff" />;
-              return (
-                <motion.div
-                  key={toast.id}
-                  layout
-                  initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                  className="hollow-toast"
-                  onClick={() => removeToast(toast.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="hollow-toast-icon">{icon}</div>
-                  <div style={{ flex: 1 }}>{toast.message}</div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-
       </div>
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile fixed bottom nav */}
       {isMobile && <AppBottomNav />}
+
+      {/* Toasts */}
+      <div className="hollow-toast-container">
+        <AnimatePresence>
+          {toasts.map(toast => {
+            let icon = <CheckCircle size={16} color="var(--colors-gain)" />;
+            if (toast.type === 'error') icon = <AlertCircle size={16} color="var(--colors-loss)" />;
+            else if (toast.type === 'info') icon = <Info size={16} color="#ffffff" />;
+            return (
+              <motion.div
+                key={toast.id}
+                layout
+                initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="hollow-toast"
+                onClick={() => removeToast(toast.id)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="hollow-toast-icon">{icon}</div>
+                <div style={{ flex: 1 }}>{toast.message}</div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
-
