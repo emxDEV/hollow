@@ -157,86 +157,13 @@ export default function DashboardView() {
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. COMMAND HERO BANNER */}
-      <div 
-        className="hollow-card"
-        style={{
-          background: 'linear-gradient(135deg, rgba(184, 110, 255, 0.14) 0%, rgba(12, 12, 16, 0.95) 55%, rgba(100, 210, 255, 0.06) 100%)',
-          border: '1px solid rgba(184, 110, 255, 0.28)',
-          borderRadius: '24px',
-          padding: isMobile ? '20px' : '28px 36px',
-          marginBottom: '28px',
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          gap: '20px',
-          boxShadow: '0 20px 60px -10px rgba(138, 48, 246, 0.2)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}
-      >
-        {/* Glow Halo Background Effect */}
-        <div style={{
-          position: 'absolute',
-          top: '-40%',
-          right: '-10%',
-          width: '360px',
-          height: '360px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(184, 110, 255, 0.22) 0%, rgba(0, 0, 0, 0) 70%)',
-          pointerEvents: 'none'
-        }} />
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <span style={{
-              background: 'rgba(48, 209, 88, 0.15)',
-              border: '1px solid rgba(48, 209, 88, 0.3)',
-              color: '#30d158',
-              fontSize: '10px',
-              fontWeight: '800',
-              padding: '3px 10px',
-              borderRadius: '99px',
-              letterSpacing: '0.8px',
-              textTransform: 'uppercase',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}>
-              <Radio size={10} className="animate-pulse" /> HOLLOW ENGINE ACTIVE
-            </span>
-            <span style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '12px', fontWeight: '600' }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
-          </div>
-
-          <h1 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '900', letterSpacing: '-0.03em', margin: 0, color: '#ffffff' }}>
-            Welcome back, {displayName}.
-          </h1>
-          <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '13px', margin: '6px 0 0 0', maxWidth: '560px', lineHeight: '1.5' }}>
-            Institutional setup tracking & quantitative edge analytics. Monitor R-multiples, execution discipline, and trade setups in real-time.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 1, width: isMobile ? '100%' : 'auto' }}>
-          <button
-            onClick={() => setIsAddExecutionOpen(true)}
-            className="hollow-btn-primary"
-            style={{ width: isMobile ? '100%' : 'auto', padding: '12px 24px', borderRadius: '14px' }}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Add Execution</span>
-          </button>
-        </div>
-      </div>
-
       {/* 2. COMMAND PERFORMANCE STRIP (4 WIDGET CARDS) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
         gap: '16px',
-        marginBottom: '28px'
+        marginBottom: '28px',
+        marginTop: isMobile ? '0' : '16px'
       }}>
         {/* Card 1: Total R Return */}
         <div className="hollow-card hollow-card-interactive" style={{ padding: '20px' }}>
@@ -264,7 +191,13 @@ export default function DashboardView() {
             <span>Win Rate</span>
             <Activity size={16} color="#b86eff" />
           </div>
-          <div className="mono" style={{ fontSize: '26px', fontWeight: '800', color: '#ffffff', marginTop: '10px' }}>
+          <div className="mono" style={{ 
+            fontSize: '26px', 
+            fontWeight: '800', 
+            color: parseFloat(dashboardStats.winRate) >= 50 ? '#30d158' : '#ff453a', 
+            marginTop: '10px',
+            textShadow: parseFloat(dashboardStats.winRate) >= 50 ? '0 0 20px rgba(48, 209, 88, 0.2)' : '0 0 20px rgba(255, 69, 58, 0.2)'
+          }}>
             {dashboardStats.winRate}%
           </div>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px' }}>
@@ -278,7 +211,13 @@ export default function DashboardView() {
             <span>Profit Factor</span>
             <Zap size={16} color="#64d2ff" />
           </div>
-          <div className="mono" style={{ fontSize: '26px', fontWeight: '800', color: '#ffffff', marginTop: '10px' }}>
+          <div className="mono" style={{ 
+            fontSize: '26px', 
+            fontWeight: '800', 
+            color: parseFloat(dashboardStats.profitFactor) >= 1.0 ? '#30d158' : '#ff453a', 
+            marginTop: '10px',
+            textShadow: parseFloat(dashboardStats.profitFactor) >= 1.0 ? '0 0 20px rgba(48, 209, 88, 0.2)' : '0 0 20px rgba(255, 69, 58, 0.2)'
+          }}>
             {dashboardStats.profitFactor}
           </div>
           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px' }}>
