@@ -381,6 +381,82 @@ function CustomPillManager() {
   useEffect(() => { localStorage.setItem('hollowCustomEntryTFs', JSON.stringify(entryTfs)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [entryTfs]);
   useEffect(() => { localStorage.setItem('hollowCustomPsychTags', JSON.stringify(psychTags)); window.dispatchEvent(new Event('hollowCustomPillsUpdated')); }, [psychTags]);
 
+  // Debounced cloud sync to avoid rate limits
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        // Verify if actually different to prevent infinite loops or redundant API requests
+        const currentMeta = user.user_metadata || {};
+        const modelsEqual = JSON.stringify(currentMeta.customModels) === JSON.stringify(models);
+        const dolsEqual = JSON.stringify(currentMeta.customDOLs) === JSON.stringify(dols);
+        const po3Equal = JSON.stringify(currentMeta.customPO3Times) === JSON.stringify(po3Times);
+        const tfsEqual = JSON.stringify(currentMeta.customEntryTFs) === JSON.stringify(entryTfs);
+        const psychEqual = JSON.stringify(currentMeta.customPsychTags) === JSON.stringify(psychTags);
+        
+        if (modelsEqual && dolsEqual && po3Equal && tfsEqual && psychEqual) return;
+
+        await supabase.auth.updateUser({
+          data: {
+            customModels: models,
+            customDOLs: dols,
+            customPO3Times: po3Times,
+            customEntryTFs: entryTfs,
+            customPsychTags: psychTags
+          }
+        });
+      } catch (err) {
+        console.error('Failed to sync custom pills to cloud:', err);
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [models, dols, po3Times, entryTfs, psychTags]);
+
+  // Reactive listener for updates from other devices/actions
+  useEffect(() => {
+    const handleSync = () => {
+      try {
+        const m = localStorage.getItem('hollowCustomModels');
+        if (m) {
+          const parsed = JSON.parse(m);
+          if (JSON.stringify(parsed) !== JSON.stringify(models)) setModels(parsed);
+        }
+        
+        const d = localStorage.getItem('hollowCustomDOLs');
+        if (d) {
+          const parsed = JSON.parse(d);
+          if (JSON.stringify(parsed) !== JSON.stringify(dols)) setDols(parsed);
+        }
+        
+        const p = localStorage.getItem('hollowCustomPO3Times');
+        if (p) {
+          const parsed = JSON.parse(p);
+          if (JSON.stringify(parsed) !== JSON.stringify(po3Times)) setPo3Times(parsed);
+        }
+        
+        const e = localStorage.getItem('hollowCustomEntryTFs');
+        if (e) {
+          const parsed = JSON.parse(e);
+          if (JSON.stringify(parsed) !== JSON.stringify(entryTfs)) setEntryTfs(parsed);
+        }
+        
+        const psych = localStorage.getItem('hollowCustomPsychTags');
+        if (psych) {
+          const parsed = JSON.parse(psych);
+          if (JSON.stringify(parsed) !== JSON.stringify(psychTags)) setPsychTags(parsed);
+        }
+      } catch (err) {
+        console.error('Failed to sync settings pills:', err);
+      }
+    };
+    
+    window.addEventListener('hollowCustomPillsUpdated', handleSync);
+    return () => window.removeEventListener('hollowCustomPillsUpdated', handleSync);
+  }, [models, dols, po3Times, entryTfs, psychTags]);
+
   const addModel = () => {
     const clean = newModel.trim();
     if (!clean) return;

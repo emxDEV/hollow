@@ -52,6 +52,7 @@ export default function App() {
       if (!user || !user.user_metadata) return;
       const meta = user.user_metadata;
       let updated = false;
+      let pillsUpdated = false;
 
       const keys = [
         { metaKey: 'displayName', localKey: 'hollowDisplayName' },
@@ -62,21 +63,30 @@ export default function App() {
         { metaKey: 'bio', localKey: 'hollowBio' },
         { metaKey: 'primaryMarket', localKey: 'hollowPrimaryMarket' },
         { metaKey: 'enableClouds', localKey: 'hollowEnableClouds', stringify: true },
-        { metaKey: 'enableAutoBackup', localKey: 'hollowEnableAutoBackup', stringify: true }
+        { metaKey: 'enableAutoBackup', localKey: 'hollowEnableAutoBackup', stringify: true },
+        { metaKey: 'customModels', localKey: 'hollowCustomModels', isJSON: true },
+        { metaKey: 'customDOLs', localKey: 'hollowCustomDOLs', isJSON: true },
+        { metaKey: 'customPO3Times', localKey: 'hollowCustomPO3Times', isJSON: true },
+        { metaKey: 'customEntryTFs', localKey: 'hollowCustomEntryTFs', isJSON: true },
+        { metaKey: 'customPsychTags', localKey: 'hollowCustomPsychTags', isJSON: true }
       ];
 
-      keys.forEach(({ metaKey, localKey, stringify }) => {
+      keys.forEach(({ metaKey, localKey, stringify, isJSON }) => {
         if (meta[metaKey] !== undefined) {
-          const val = stringify ? String(meta[metaKey]) : meta[metaKey];
+          const val = isJSON ? JSON.stringify(meta[metaKey]) : (stringify ? String(meta[metaKey]) : meta[metaKey]);
           if (localStorage.getItem(localKey) !== val) {
             localStorage.setItem(localKey, val);
             updated = true;
+            if (isJSON) pillsUpdated = true;
           }
         }
       });
 
       if (updated) {
         window.dispatchEvent(new Event('hollowSettingsUpdated'));
+      }
+      if (pillsUpdated) {
+        window.dispatchEvent(new Event('hollowCustomPillsUpdated'));
       }
     };
 
