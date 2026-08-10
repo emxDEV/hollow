@@ -47,7 +47,7 @@ const WEEKLY_MINDSET_QUOTES = {
   ]
 };
 
-export default function WeeklyReviewView({ trades: propsTrades = [], executions: propsExecutions = [], selectedAccountId = 'all', onSelectTrade } = {}) {
+export default function WeeklyReviewView({ trades: propsTrades = [], executions: propsExecutions = [], selectedAccountId = 'all', onSelectTrade, isSubpage = false } = {}) {
   const isMobile = useUIStore(state => state.isMobile);
   const selectedDate = useUIStore(state => state.selectedDate);
   const setSelectedDate = useUIStore(state => state.setSelectedDate);
@@ -777,26 +777,38 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
       gap: '24px',
       overflowY: 'auto',
       overflowX: 'hidden',
-      padding: isMobile ? '0px 16px 80px 16px' : '0px 40px 36px 40px',
+      padding: isSubpage
+        ? (isMobile ? '12px 12px 80px 12px' : '24px')
+        : (isMobile ? '0px 16px 80px 16px' : '0px 40px 36px 40px'),
       boxSizing: 'border-box'
     }}>
       
       {/* Top spacer to ensure flush sticky header on scroll */}
-      <div style={{ height: isMobile ? '12px' : '16px', flexShrink: 0 }} />
+      {!isSubpage && <div style={{ height: isMobile ? '12px' : '16px', flexShrink: 0 }} />}
       
       {/* Top Navigator & Control Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '4px' }}>
-        <div className="hollow-view-header-title-block">
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
-            <Award size={26} color="#b86eff" /> Weekly Review
-          </h1>
-          <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', margin: '4px 0 0 0' }}>
-            Consolidated EOW Trading Station. Auditing playbook setups, sleep metrics, and psychology.
-          </p>
-        </div>
+      <div style={{
+        display: 'flex',
+        justifyContent: isSubpage ? 'flex-end' : 'space-between',
+        alignItems: 'center',
+        gap: '16px',
+        flexWrap: 'wrap',
+        marginBottom: '4px',
+        width: '100%'
+      }}>
+        {!isSubpage && (
+          <div className="hollow-view-header-title-block">
+            <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+              <Award size={26} color="#b86eff" /> Weekly Review
+            </h1>
+            <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', margin: '4px 0 0 0' }}>
+              Consolidated EOW Trading Station. Auditing playbook setups, sleep metrics, and psychology.
+            </p>
+          </div>
+        )}
 
         {/* Rearranged Action Controls Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
           
           {/* Week Shift Navigator Pill */}
           <div style={{ 
@@ -1146,7 +1158,7 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
               </span>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: '14px' }}>
               <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid var(--colors-hairline-dark)', padding: '14px 16px', borderRadius: '12px' }}>
                 <div style={{ fontSize: '10px', color: 'var(--colors-stone)', fontWeight: '700', letterSpacing: '0.75px' }}>TOTAL R</div>
                 <div className="mono" style={{ 
@@ -1260,14 +1272,16 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
           {/* Tab Button Switcher */}
           <div style={{
             display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
+            flexDirection: 'row',
             gap: '4px',
             background: '#0f0f11',
             padding: '4px',
             borderRadius: '14px',
             border: '1px solid #1c1c1e',
-            width: isMobile ? '100%' : 'fit-content'
-          }}>
+            width: '100%',
+            overflowX: isMobile ? 'auto' : 'visible',
+            scrollbarWidth: 'none'
+          }} className="hollow-menu-scrollbar">
             {[
               { id: 'playbook', name: 'Execution History', icon: BookOpen },
               { id: 'audit', name: 'Behavioral Audit', icon: ShieldAlert },
@@ -1297,7 +1311,9 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
                     transition: 'all var(--transition-fast)',
                     border: isActive ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid transparent',
                     boxShadow: 'none',
-                    width: isMobile ? '100%' : 'auto'
+                    width: 'auto',
+                    flexShrink: isMobile ? 0 : 1,
+                    whiteSpace: 'nowrap'
                   }}
                   onMouseEnter={e => {
                     if (!isActive) e.currentTarget.style.color = '#fff';

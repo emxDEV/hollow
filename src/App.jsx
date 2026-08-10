@@ -225,31 +225,55 @@ export default function App() {
       <EOWReminderModal />
       <AddExecutionModal />
 
-      {/* Mobile Top Bar with Notch Safe Area Support */}
+      {/* Redesigned Premium Mobile Top Bar with Notch Support */}
       {isMobile && (
         <div style={{
           paddingTop: 'env(safe-area-inset-top)',
-          background: 'rgba(9, 9, 11, 0.88)',
-          backdropFilter: 'blur(24px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+          background: 'rgba(10, 8, 16, 0.82)',
+          backdropFilter: 'blur(24px) saturate(190%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+          borderBottom: '1px solid rgba(184, 110, 255, 0.12)',
           zIndex: 100,
-          flexShrink: 0
+          flexShrink: 0,
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.4)'
         }}>
           <div style={{
-            height: '48px',
+            height: '56px',
             padding: '0 16px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            position: 'relative'
           }}>
-            <HollowLogo size={24} showText={true} />
+            {/* Left brand signature */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <HollowLogo size={22} showText={false} />
+              <span style={{
+                fontSize: '15px',
+                fontWeight: '900',
+                letterSpacing: '-0.03em',
+                color: '#ffffff',
+                fontFamily: "var(--font-logo, 'Inter', sans-serif)",
+                textShadow: '0 0 12px rgba(184, 110, 255, 0.3)'
+              }}>
+                hollow.
+              </span>
+            </div>
+
+            {/* Absolute Centered View Name */}
             <div style={{
-              fontSize: '14px',
-              fontWeight: 700,
-              color: '#b86eff',
-              letterSpacing: '-0.01em',
-              fontFamily: 'var(--font-heading)'
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '12px',
+              fontWeight: 800,
+              color: '#d8b4ff',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              textShadow: '0 0 16px rgba(184, 110, 255, 0.4)',
+              fontFamily: 'var(--font-heading)',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
             }}>
               {view === 'dashboard' && 'Dashboard'}
               {view === 'analytics' && 'Analytics'}
@@ -258,7 +282,32 @@ export default function App() {
               {view === 'weeklyReview' && 'Weekly Review'}
               {view === 'settings' && 'Settings'}
             </div>
-            <div style={{ width: 24 }} /> {/* balance spacing */}
+
+            {/* Right Status Badge */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(48, 209, 88, 0.08)',
+              border: '1px solid rgba(48, 209, 88, 0.2)',
+              padding: '4px 8px',
+              borderRadius: '20px',
+              fontSize: '9px',
+              fontWeight: '800',
+              color: '#30d158',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              <span style={{
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                background: '#30d158',
+                boxShadow: '0 0 6px #30d158',
+                display: 'inline-block'
+              }} />
+              Live
+            </div>
           </div>
         </div>
       )}

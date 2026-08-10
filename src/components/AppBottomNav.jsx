@@ -6,7 +6,6 @@ const TABS = [
   { id: 'dashboard',    label: 'Home',     icon: LayoutDashboard },
   { id: 'analytics',   label: 'Analytics',icon: BarChart2 },
   { id: 'journal',     label: 'Journal',  icon: BookOpen },
-  { id: 'weeklyReview',label: 'Review',   icon: ClipboardCheck },
   { id: 'settings',    label: 'Settings', icon: Settings },
 ];
 

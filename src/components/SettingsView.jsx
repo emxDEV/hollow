@@ -10,6 +10,7 @@ import { calculateTradePnL, isTradeWinRateEligible } from '../utils/tradeMath';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import useUIStore from '../store/useUIStore';
+import WeeklyReviewView from './WeeklyReviewView';
 
 const PROP_FIRM_PRESETS = [
   { id: 'apex-50', name: 'Apex 50K Plan', propFirm: 'Apex Trader Funding', balance: 50000, target: 3000, drawdownType: 'Trailing', drawdownLimit: 2500, maxDailyLoss: 0, minDays: 7, type: 'Evaluation' },
@@ -1402,7 +1403,10 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
         }} className="hollow-menu-scrollbar">
           {[
             { id: 'profile', label: 'Profile', icon: <User size={16} /> },
-            { id: 'pills', label: 'Custom Pills Manager', icon: <Tag size={16} /> }
+            { id: 'accounts', label: 'Accounts', icon: <CreditCard size={16} /> },
+            { id: 'playbook', label: 'Playbook', icon: <Target size={16} /> },
+            { id: 'pills', label: 'Custom Pills', icon: <Tag size={16} /> },
+            { id: 'weeklyReview', label: 'Weekly Review', icon: <ClipboardCheck size={16} /> }
           ].map(tab => {
             const isSelected = activeTab === tab.id;
             return (
@@ -1438,8 +1442,15 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           })}
         </div>
 
-        {/* Right Settings Form Container */}
-        <div style={{ padding: isMobile ? '20px 16px' : '36px', overflowY: isMobile ? 'visible' : 'auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        {/* Right Settings Content Area */}
+        {activeTab === 'weeklyReview' ? (
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <WeeklyReviewView isSubpage={true} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, padding: isMobile ? '20px 16px' : '36px', overflowY: isMobile ? 'visible' : 'auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
           
           {/* TAB 1: Accounts Manager */}
           {activeTab === 'accounts' && (() => {
@@ -3541,6 +3552,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           })()}
 
         </div>
+        )}
 
       </div>
 
