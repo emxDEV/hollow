@@ -3,19 +3,33 @@
 :root {
   /* iOS Color Palette */
   --black: #000000;
-  --surface-1: #0f0f11;
-  --surface-2: #1c1c1e;
-  --surface-3: #2c2c2e;
-  --surface-4: #3a3a3c;
+  --surface-1: #09090b;
+  --surface-2: #141416;
+  --surface-3: #1c1c1e;
+  --surface-4: #2c2c2e;
+  --surface-elevated: #16161c;
   
-  /* Brand */
+  /* Brand & Accents */
   --white: #ffffff;
+  --white-80: rgba(255,255,255,0.8);
   --white-60: rgba(255,255,255,0.6);
   --white-40: rgba(255,255,255,0.4);
   --white-20: rgba(255,255,255,0.2);
   --white-10: rgba(255,255,255,0.1);
   --white-06: rgba(255,255,255,0.06);
   --white-04: rgba(255,255,255,0.04);
+  
+  /* Purple Brand Accents */
+  --primary: #b86eff;
+  --primary-bright: #d49eff;
+  --primary-deep: #8a30f6;
+  --primary-dim: rgba(184, 110, 255, 0.15);
+  --primary-glow: rgba(184, 110, 255, 0.35);
+  
+  --purple: #a855f7;
+  --purple-bright: #c084fc;
+  --purple-dim: rgba(168, 85, 247, 0.15);
+  --purple-glow: rgba(168, 85, 247, 0.4);
   
   /* System Colors */
   --gain: #30d158;
@@ -27,7 +41,6 @@
   --blue: #0a84ff;
   --blue-dim: rgba(10, 132, 255, 0.15);
   --orange: #ff9f0a;
-  --purple: #bf5af2;
   
   /* Typography */
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
@@ -419,7 +432,8 @@ body {
 }
 
 .toggle input:checked + .toggle-slider {
-  background: var(--gain);
+  background: var(--purple, #a855f7);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
 }
 
 .toggle input:checked + .toggle-slider::before {

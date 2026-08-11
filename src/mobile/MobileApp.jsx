@@ -6,8 +6,11 @@ import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
 import WelcomeUpdateModal from '../components/WelcomeUpdateModal';
 import HomeView from './views/HomeView';
-import MobileJournalView from './views/MobileJournalView';
+import PayoutsView from './views/PayoutsView';
+import AddPlanView from './views/AddPlanView';
+import SupportView from './views/SupportView';
 import ProfileView from './views/ProfileView';
+import MobileJournalView from './views/MobileJournalView';
 import MobileWeeklyReviewView from './views/MobileWeeklyReviewView';
 import MobileBottomNav from './components/MobileBottomNav';
 import SharePnLSheet from './components/SharePnLSheet';
@@ -27,7 +30,7 @@ export default function MobileApp() {
     }, 3500);
   }, []);
 
-  const [subView, setSubView] = useState(null); // null | 'weeklyReview' | 'trainingJournal'
+  const [subView, setSubView] = useState(null); // null | 'weeklyReview' | 'journal'
   const [showSharePnL, setShowSharePnL] = useState(false);
   const [showBottomNav, setShowBottomNav] = useState(true);
 
@@ -194,15 +197,14 @@ export default function MobileApp() {
             onOpenWeeklyReview={() => setSubView('weeklyReview')}
           />
         );
-      case 'journal':
-        return <MobileJournalView {...viewProps} />;
+      case 'payouts':
+        return <PayoutsView {...viewProps} />;
+      case 'add':
+        return <AddPlanView {...viewProps} />;
+      case 'support':
+        return <SupportView {...viewProps} />;
       case 'profile':
-        return (
-          <ProfileView
-            {...viewProps}
-            onOpenWeeklyReview={() => setSubView('weeklyReview')}
-          />
-        );
+        return <ProfileView {...viewProps} />;
       default:
         return (
           <HomeView
