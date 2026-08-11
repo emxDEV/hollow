@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { LayoutDashboard, BarChart2, Plus, BookOpen, Settings } from 'lucide-react';
 
 const TABS = [
@@ -9,14 +10,18 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: Settings }
 ];
 
-export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, visible = true }) {
-  return (
+export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) {
+  const nav = (
     <div style={{
-      flexShrink: 0,
-      width: '100%',
-      zIndex: 200,
-      paddingBottom: '0px',
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 9999,
+      paddingBottom: 0,
       paddingTop: '10px',
+      paddingLeft: 0,
+      paddingRight: 0,
       background: 'rgba(9, 9, 11, 0.97)',
       backdropFilter: 'blur(24px) saturate(190%)',
       WebkitBackdropFilter: 'blur(24px) saturate(190%)',
@@ -50,11 +55,9 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
                 WebkitTapHighlightColor: 'transparent',
                 outline: 'none',
                 transform: 'translateY(-6px)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
               }}
               onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(0.95)'; }}
               onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
-              title="Add Execution"
             >
               <Plus size={24} strokeWidth={2.5} color="#ffffff" />
             </button>
@@ -74,11 +77,9 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
               gap: 3,
               background: 'transparent',
               border: 'none',
-              padding: '4px 2px 6px',
+              padding: '4px 2px 10px',
               minWidth: '50px',
               cursor: 'pointer',
-              color: isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.45)',
-              transition: 'color 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               WebkitTapHighlightColor: 'transparent',
               outline: 'none',
             }}
@@ -88,7 +89,6 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
               alignItems: 'center',
               justifyContent: 'center',
               filter: isActive ? 'drop-shadow(0 0 8px rgba(184, 110, 255, 0.6))' : 'none',
-              transition: 'filter 0.2s ease',
             }}>
               <IconComponent
                 size={21}
@@ -110,4 +110,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
       })}
     </div>
   );
+
+  // Portal renders directly to document.body — bypasses ALL parent transforms/overflow/containment
+  return createPortal(nav, document.body);
 }
