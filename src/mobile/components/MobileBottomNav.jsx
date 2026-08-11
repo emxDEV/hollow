@@ -12,15 +12,14 @@ const TABS = [
 export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, visible = true }) {
   return (
     <div style={{
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
+      /* Flex child — always at the bottom of the app column, no fixed positioning */
+      flexShrink: 0,
+      width: '100%',
       zIndex: 200,
-      /* Use env() directly — CSS custom props can't hold env() reliably in WebKit */
-      paddingBottom: 'max(env(safe-area-inset-bottom), 6px)',
+      /* Grow the bar down to cover the home indicator area */
+      paddingBottom: 'env(safe-area-inset-bottom)',
       paddingTop: '10px',
-      background: 'rgba(9, 9, 11, 0.94)',
+      background: 'rgba(9, 9, 11, 0.97)',
       backdropFilter: 'blur(24px) saturate(190%)',
       WebkitBackdropFilter: 'blur(24px) saturate(190%)',
       borderTop: '1px solid rgba(255, 255, 255, 0.08)',
@@ -59,8 +58,6 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
                 transform: 'translateY(-6px)',
                 transition: 'transform 0.15s ease, box-shadow 0.15s ease',
               }}
-              onMouseDown={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(0.95)'; }}
-              onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
               onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(0.95)'; }}
               onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
               title="Add Execution"
@@ -83,7 +80,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
               gap: 3,
               background: 'transparent',
               border: 'none',
-              padding: '6px 2px',
+              padding: '4px 2px 6px',
               minWidth: '50px',
               cursor: 'pointer',
               color: isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.45)',
@@ -93,7 +90,6 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
             }}
           >
             <div style={{
-              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

@@ -331,7 +331,6 @@ export default function MobileApp() {
             activeTab={activeTab}
             onTabChange={handleTabChange}
             onAddClick={() => setIsAddExecutionOpen(true)}
-            visible={showBottomNav}
           />
         )}
 
