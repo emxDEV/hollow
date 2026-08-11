@@ -3,10 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
 import { supabase } from '../db/supabaseClient';
+import { useUIStore } from '../store/useUIStore';
 import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
 import WelcomeUpdateModal from '../components/WelcomeUpdateModal';
+import AddExecutionModal from '../components/AddExecutionModal';
 import HomeView from './views/HomeView';
+import MobileStatsView from './views/MobileStatsView';
 import PayoutsView from './views/PayoutsView';
 import AddPlanView from './views/AddPlanView';
 import SupportView from './views/SupportView';
@@ -19,8 +22,8 @@ import IPhoneFrame from './components/IPhoneFrame';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 export default function MobileApp() {
-  const [activeTab, setActiveTab] = useState('home');
-  const [prevTab, setPrevTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [prevTab, setPrevTab] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'success') => {
@@ -197,6 +200,8 @@ export default function MobileApp() {
     onScrollChange: (scrollTop) => setShowBottomNav(scrollTop <= 5)
   };
 
+  const setIsAddExecutionOpen = useUIStore(s => s.setIsAddExecutionOpen);
+
   const renderActiveScreen = () => {
     if (subView === 'weeklyReview') {
       return (
@@ -208,21 +213,42 @@ export default function MobileApp() {
     }
 
     switch (activeTab) {
+      case 'dashboard':
       case 'home':
         return (
           <HomeView
+            {...viewProps}
+            onOpenWeeklyReview={() => setSubView('weeklyReview')}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        );
+      case 'analytics':
+        return (
+          <MobileStatsView
+            {...viewProps}
+            onSharePnL={() => setShowSharePnL(true)}
+          />
+        );
+      case 'journal':
+        return (
+          <MobileJournalView
+            {...viewProps}
+          />
+        );
+      case 'settings':
+      case 'profile':
+        return (
+          <ProfileView
             {...viewProps}
             onOpenWeeklyReview={() => setSubView('weeklyReview')}
           />
         );
       case 'payouts':
         return <PayoutsView {...viewProps} />;
-      case 'add':
+      case 'plans':
         return <AddPlanView {...viewProps} />;
       case 'support':
         return <SupportView {...viewProps} />;
-      case 'profile':
-        return <ProfileView {...viewProps} />;
       default:
         return (
           <HomeView
@@ -304,9 +330,12 @@ export default function MobileApp() {
           <MobileBottomNav
             activeTab={activeTab}
             onTabChange={handleTabChange}
+            onAddClick={() => setIsAddExecutionOpen(true)}
             visible={showBottomNav}
           />
         )}
+
+        <AddExecutionModal />
 
         {showSharePnL && (
           <SharePnLSheet

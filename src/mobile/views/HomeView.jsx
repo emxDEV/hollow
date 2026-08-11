@@ -73,7 +73,7 @@ function TradovateIcon({ size = 20 }) {
   );
 }
 
-export default function HomeView({ addToast, onScrollChange }) {
+export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenWeeklyReview }) {
   const [activeModal, setActiveModal] = useState(null); // 'accounts' | 'vault' | 'giveaway' | 'certs' | 'leaderboard' | 'news' | 'announcements' | 'discord' | 'notifications'
   const [currentTimeStr, setCurrentTimeStr] = useState(() => {
     const d = new Date();
