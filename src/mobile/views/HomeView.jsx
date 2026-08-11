@@ -101,99 +101,103 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
   };
 
   return (
-    <div
-      onScroll={handleScroll}
-      style={{
-        height: '100%',
-        width: '100%',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-        background: '#000000',
-        color: '#ffffff',
-        padding: 'calc(var(--safe-top, 47px) + 16px) 16px calc(var(--safe-bottom, 34px) + 80px) 16px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-        fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
-      }}
-    >
-      {/* ── TOP HEADER: Hi, [Name] + Overview + Discord/Bell ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{
-            fontSize: '26px',
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            margin: '0 0 2px 0',
-            color: '#ffffff',
-          }}>
-            Hi, {displayName}
-          </h1>
-          <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', fontWeight: 400 }}>
-            Here's your trading overview
+    <div style={{
+      height: '100%',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#000000',
+      color: '#ffffff',
+      fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+
+      {/* ── STICKY BLURRY HEADER ── */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        flexShrink: 0,
+        paddingTop: 'var(--safe-top, 47px)',
+        paddingLeft: '20px',
+        paddingRight: '20px',
+        paddingBottom: '14px',
+        background: 'rgba(0, 0, 0, 0.72)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+      }}>
+
+        {/* ── TOP HEADER: Hi, [Name] + Overview + Discord/Bell ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{
+              fontSize: '26px',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              margin: '0 0 2px 0',
+              color: '#ffffff',
+            }}>
+              Hi, {displayName}
+            </h1>
+            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', fontWeight: 400 }}>
+              Here's your trading overview
+            </div>
+            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.35)', marginTop: '2px', fontWeight: 500 }}>
+              Updated {currentTimeStr} · v91
+            </div>
           </div>
-          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.35)', marginTop: '2px', fontWeight: 500 }}>
-            Updated {currentTimeStr} · v91
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+            <button
+              onClick={() => setActiveModal('discord')}
+              style={{
+                width: '38px', height: '38px', borderRadius: '12px',
+                background: 'rgba(88, 101, 242, 0.15)', border: '1px solid rgba(88, 101, 242, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#5865F2', outline: 'none',
+              }}
+            >
+              <DiscordIcon size={19} color="#7983f5" />
+            </button>
+
+            <button
+              onClick={() => setActiveModal('notifications')}
+              style={{
+                width: '38px', height: '38px', borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'rgba(255, 255, 255, 0.8)', position: 'relative', outline: 'none',
+              }}
+            >
+              <Bell size={18} />
+              <span style={{
+                position: 'absolute', top: '8px', right: '8px',
+                width: '7px', height: '7px', borderRadius: '50%',
+                background: '#ff453a', boxShadow: '0 0 6px rgba(255, 69, 58, 0.8)',
+              }} />
+            </button>
           </div>
         </div>
+      </div>{/* end sticky header */}
 
-        {/* Discord & Notification action buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
-          {/* Discord Button */}
-          <button
-            onClick={() => setActiveModal('discord')}
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '12px',
-              background: 'rgba(88, 101, 242, 0.15)',
-              border: '1px solid rgba(88, 101, 242, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#5865F2',
-              outline: 'none',
-              transition: 'transform 0.15s, background 0.15s',
-            }}
-          >
-            <DiscordIcon size={19} color="#7983f5" />
-          </button>
-
-          {/* Notifications Button */}
-          <button
-            onClick={() => setActiveModal('notifications')}
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'rgba(255, 255, 255, 0.8)',
-              position: 'relative',
-              outline: 'none',
-            }}
-          >
-            <Bell size={18} />
-            <span style={{
-              position: 'absolute',
-              top: '8px',
-              right: '8px',
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              background: '#ff453a',
-              boxShadow: '0 0 6px rgba(255, 69, 58, 0.8)',
-            }} />
-          </button>
-        </div>
-      </div>
+      {/* ── SCROLLABLE CONTENT ── */}
+      <div
+        onScroll={handleScroll}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          padding: '20px 16px',
+          paddingBottom: 'calc(var(--safe-bottom, 34px) + 96px)',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+        }}
+      >
 
       {/* ── ACCOUNTS CARD ── */}
       <div style={{
@@ -886,6 +890,7 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
           </motion.div>
         )}
       </AnimatePresence>
+      </div>{/* end scrollable content */}
     </div>
   );
 }

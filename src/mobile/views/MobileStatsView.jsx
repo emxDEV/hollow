@@ -261,23 +261,16 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: '#000' }}>
       {/* Header */}
       <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
+        flexShrink: 0,
         zIndex: 90,
-        paddingTop: 'calc(var(--safe-top) + 12px)',
+        paddingTop: 'calc(var(--safe-top, 47px) + 12px)',
         paddingLeft: '20px',
         paddingRight: '20px',
-        paddingBottom: '20px',
-        background: isScrolled
-          ? 'linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.98) 40%, rgba(0, 0, 0, 0.85) 70%, rgba(0, 0, 0, 0) 100%)'
-          : 'transparent',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
-        borderBottom: 'none',
-        boxShadow: 'none',
-        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        paddingBottom: '14px',
+        background: 'rgba(0, 0, 0, 0.72)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         display: 'flex',
         flexDirection: 'column',
         gap: 12
@@ -301,20 +294,15 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
                 <ChevronLeft size={22} />
               </button>
             )}
-            <div style={{
-              opacity: isScrolled ? 0 : 1,
-              transform: isScrolled ? 'translateY(-4px)' : 'translateY(0)',
-              transition: 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-              pointerEvents: isScrolled ? 'none' : 'auto'
-            }}>
-              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', margin: 0, marginBottom: 2 }}>
+            <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', margin: 0, marginBottom: 2 }}>
                 performance.
               </h1>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
                 {stats.count} trades · {stats.winRate.toFixed(0)}% win rate
               </span>
-            </div>
-          </div>
+            </div>{/* title */}
+          </div>{/* left side */}
           {stats.count > 0 && (
             <button
               onClick={() => onSharePnL && onSharePnL('daily')}
@@ -379,7 +367,7 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
           overflowY: 'auto', 
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',
-          paddingTop: 'calc(var(--safe-top, 47px) + 144px)',
+          paddingTop: '16px',
           paddingBottom: 'calc(64px + var(--safe-bottom, 34px) + 24px)'
         }}
       >
