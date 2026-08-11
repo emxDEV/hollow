@@ -16,6 +16,7 @@ import WeeklyReviewView from './components/WeeklyReviewView';
 import CognitiveAgentPanel from './components/CognitiveAgentPanel';
 import SettingsView from './components/SettingsView';
 import AddExecutionModal from './components/AddExecutionModal';
+import MobileApp from './mobile/MobileApp';
 import './App.css';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useUIStore } from './store/useUIStore';
@@ -293,6 +294,10 @@ export default function App() {
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Supabase Configuration Missing</h2>
       </div>
     );
+  }
+
+  if (isMobile) {
+    return <MobileApp />;
   }
 
   if (!authLoaded) {

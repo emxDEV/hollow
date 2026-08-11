@@ -4,6 +4,7 @@ import { clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
 import { supabase } from '../db/supabaseClient';
 import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
+import './mobile.css';
 import WelcomeUpdateModal from '../components/WelcomeUpdateModal';
 import HomeView from './views/HomeView';
 import MobileJournalView from './views/MobileJournalView';
