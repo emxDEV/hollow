@@ -31,23 +31,27 @@ export default function SharePnLSheet({ onClose, trades, executions, selectedAcc
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [exporting, setExporting] = useState(false);
 
+  const safeTrades = trades || [];
+  const safeExecutions = executions || [];
+  const safeAccountId = selectedAccountId || 'all';
+
   // Filter trades to this account
   const accountTrades = useMemo(() => {
-    if (!selectedAccountId || selectedAccountId === 'all') return trades;
-    return trades.filter(t => t.accountId === selectedAccountId);
-  }, [trades, selectedAccountId]);
+    if (!safeAccountId || safeAccountId === 'all') return safeTrades;
+    return safeTrades.filter(t => t.accountId === safeAccountId);
+  }, [safeTrades, safeAccountId]);
 
   // Compute trade metrics
   const tradeMetrics = useMemo(() => {
     return accountTrades.map(trade => {
-      const execs = executions.filter(e => e.tradeId === trade.id);
+      const execs = safeExecutions.filter(e => e.tradeId === trade.id);
       const { netPnL } = calculateTradePnL(trade, execs);
       return {
         ...trade,
         netPnL
       };
     });
-  }, [accountTrades, executions]);
+  }, [accountTrades, safeExecutions]);
 
   // Group daily P&L records
   const dailyRecords = useMemo(() => {

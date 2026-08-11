@@ -23,15 +23,19 @@ const STAT_TABS = [
 ];
 
 export default function MobileStatsView({ trades, executions, selectedAccountId, onSharePnL, onBack, onScrollChange }) {
+  const safeTrades = trades || [];
+  const safeExecutions = executions || [];
+  const safeAccountId = selectedAccountId || 'all';
+
   const [activeTab, setActiveTab] = useState('overview');
 
   const acctTrades = useMemo(() => {
-    if (!selectedAccountId || selectedAccountId === 'all') return trades;
-    return trades.filter(t => t.accountId === selectedAccountId);
-  }, [trades, selectedAccountId]);
+    if (!safeAccountId || safeAccountId === 'all') return safeTrades;
+    return safeTrades.filter(t => t.accountId === safeAccountId);
+  }, [safeTrades, safeAccountId]);
 
   const enriched = useMemo(() => {
-    const standaloneExecTrades = executions
+    const standaloneExecTrades = safeExecutions
       .filter(e => e.id && !e.tradeId)
       .map(e => {
         let rVal = 0;
@@ -58,13 +62,13 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
       });
 
     const tradeEnriched = acctTrades.map(t => {
-      const execs = executions.filter(e => e.tradeId === t.id);
+      const execs = safeExecutions.filter(e => e.tradeId === t.id);
       const { netPnL, grossPnL, commissions } = calculateTradePnL(t, execs);
       return { ...t, netPnL, grossPnL, commissions };
     });
 
     return [...tradeEnriched, ...standaloneExecTrades];
-  }, [acctTrades, executions]);
+  }, [acctTrades, safeExecutions]);
 
   const stats = useMemo(() => {
     if (!enriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, bigWin: 0, bigLoss: 0 };

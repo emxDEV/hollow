@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, Image as ImageIcon, Search, Calendar } from 'lucide-react';
 import { calculateTradePnL } from '../../utils/tradeMath';
 
-export default function MobileGalleryView({ trades = [], executions = [], selectedAccountId = 'all', onSelectTrade, onBack }) {
+export default function MobileGalleryView({ trades = [], executions = [], selectedAccountId = 'all', onSelectTrade = () => {}, onBack = () => {}, onScrollChange = () => {} }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Helper to extract LTF image robustly

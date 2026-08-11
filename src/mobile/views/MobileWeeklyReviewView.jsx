@@ -24,6 +24,10 @@ const WEEKLY_MINDSET_QUOTES = {
 };
 
 export default function MobileWeeklyReviewView({ trades, executions, selectedAccountId, onSharePnL, addToast, onBack }) {
+  const safeTrades = trades || [];
+  const safeExecutions = executions || [];
+  const safeAccountId = selectedAccountId || 'all';
+
   // Default to the current week ID
   const [selectedWeekId, setSelectedWeekId] = useState(() => getISOWeekId(new Date()));
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'playbook', 'objectives'
@@ -92,7 +96,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
   // Scan and fetch week IDs in database for navigator selector
   const weekOptions = useMemo(() => {
     const weeksSet = new Set([getISOWeekId(new Date())]);
-    trades.forEach(t => {
+    safeTrades.forEach(t => {
       if (t.date) {
         const d = new Date(t.date);
         if (!isNaN(d.getTime())) {
@@ -101,7 +105,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
       }
     });
     return Array.from(weeksSet).sort((a, b) => b.localeCompare(a));
-  }, [trades]);
+  }, [safeTrades]);
 
   // Shift selected week ID
   const handleWeekShift = (dir) => {
@@ -115,9 +119,9 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
 
   // Compile trades and metrics for this week
   const weeklyTradeMetrics = useMemo(() => {
-    const isAll = selectedAccountId === 'all';
-    const weekTrades = trades.filter(t => {
-      const accMatch = isAll || t.accountId === selectedAccountId;
+    const isAll = safeAccountId === 'all';
+    const weekTrades = safeTrades.filter(t => {
+      const accMatch = isAll || t.accountId === safeAccountId;
       return accMatch && t.date >= weekDates.start && t.date <= weekDates.end;
     });
 
@@ -130,7 +134,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
     const tickers = new Set();
 
     const tradeList = weekTrades.map(trade => {
-      const execs = executions.filter(e => e.tradeId === trade.id);
+      const execs = safeExecutions.filter(e => e.tradeId === trade.id);
       const { netPnL } = calculateTradePnL(trade, execs);
       totalPnL += netPnL;
       if (netPnL > bestReturn) bestReturn = netPnL;
@@ -158,7 +162,7 @@ export default function MobileWeeklyReviewView({ trades, executions, selectedAcc
       tradeList,
       tickersList: Array.from(tickers).join(', ')
     };
-  }, [trades, executions, selectedAccountId, weekDates]);
+  }, [safeTrades, safeExecutions, safeAccountId, weekDates]);
 
   // Group trades by day for interactive ribbon
   const daysData = useMemo(() => {

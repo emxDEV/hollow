@@ -14,6 +14,10 @@ const FILTER_BIASES = ['All', 'LONG', 'SHORT'];
 const FILTER_OUTCOMES = ['All', 'Win', 'Loss', 'Breakeven'];
 
 export default function TradesView({ trades, executions, selectedAccountId, onSelectTrade, onScrollChange }) {
+  const safeTrades = trades || [];
+  const safeExecutions = executions || [];
+  const safeAccountId = selectedAccountId || 'all';
+
   const [query, setQuery] = useState('');
   const [biasFil, setBiasFil] = useState('All');
   const [outcomeFil, setOutcomeFil] = useState('All');
@@ -30,15 +34,15 @@ export default function TradesView({ trades, executions, selectedAccountId, onSe
   };
 
   const acctTrades = useMemo(() => {
-    if (!selectedAccountId || selectedAccountId === 'all') return trades;
-    return trades.filter(t => t.accountId === selectedAccountId);
-  }, [trades, selectedAccountId]);
+    if (!safeAccountId || safeAccountId === 'all') return safeTrades;
+    return safeTrades.filter(t => t.accountId === safeAccountId);
+  }, [safeTrades, safeAccountId]);
 
   const enriched = useMemo(() => acctTrades.map(t => {
-    const execs = executions.filter(e => e.tradeId === t.id);
+    const execs = safeExecutions.filter(e => e.tradeId === t.id);
     const { netPnL } = calculateTradePnL(t, execs);
     return { ...t, netPnL };
-  }), [acctTrades, executions]);
+  }), [acctTrades, safeExecutions]);
 
   const filtered = useMemo(() => {
     let r = enriched;
