@@ -125,7 +125,7 @@ export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyRevi
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        paddingTop: 'var(--safe-top, 47px)',
+        paddingTop: 'calc(var(--safe-top) + 16px)',
         paddingLeft: '20px',
         paddingRight: '20px',
         paddingBottom: '14px',

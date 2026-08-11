@@ -263,7 +263,7 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
       <div style={{
         flexShrink: 0,
         zIndex: 90,
-        paddingTop: 'calc(var(--safe-top, 47px) + 12px)',
+        paddingTop: 'calc(var(--safe-top) + 16px)',
         paddingLeft: '20px',
         paddingRight: '20px',
         paddingBottom: '14px',

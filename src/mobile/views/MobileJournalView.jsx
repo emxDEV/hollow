@@ -125,26 +125,36 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
   }, [dayTrades, dayExecutions, allExecutions]);
 
   return (
-    <div
-      onScroll={(e) => onScrollChange && onScrollChange(e.target.scrollTop)}
-      style={{
-        height: '100%',
-        width: '100%',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-        background: '#000000',
-        color: '#ffffff',
-        padding: 'calc(var(--safe-top, 47px) + 16px) 16px calc(var(--safe-bottom, 34px) + 84px) 16px',
-        boxSizing: 'border-box',
+    <div style={{
+      height: '100%',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#000000',
+      color: '#ffffff',
+      fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
+      overflow: 'hidden',
+    }}>
+
+      {/* ── STICKY BLURRY HEADER ── */}
+      <div style={{
+        flexShrink: 0,
+        zIndex: 100,
+        paddingTop: 'calc(var(--safe-top) + 16px)',
+        paddingLeft: '20px',
+        paddingRight: '20px',
+        paddingBottom: '12px',
+        background: 'rgba(0, 0, 0, 0.72)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '18px',
-        fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
-      }}
-    >
-      {/* ── TOP HEADER & DATE PICKER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        gap: '12px',
+      }}>
+
+        {/* ── TOP HEADER & DATE PICKER ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
             Daily Journal
@@ -254,7 +264,26 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         >
           All Executions ({allTrades.length})
         </button>
-      </div>
+      </div>{/* tab strip */}
+
+      </div>{/* end sticky header */}
+
+      {/* ── SCROLLABLE CONTENT ── */}
+      <div
+        onScroll={(e) => onScrollChange && onScrollChange(e.target.scrollTop)}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          padding: '16px',
+          paddingBottom: 'calc(var(--safe-bottom) + 96px)',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
 
       {activeTab === 'daily' ? (
         <>
@@ -658,6 +687,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>{/* end scrollable content */}
     </div>
   );
 }
