@@ -300,14 +300,13 @@ export default function MobileApp() {
   return (
     <IPhoneFrame>
       <div style={{
-        height: '100%',
+        height: '100dvh',
         width: '100%',
         background: '#09090b',
         color: '#ffffff',
-        position: 'relative',
         overflow: 'hidden',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
       }}>
         <WelcomeUpdateModal isMobile={true} />
 

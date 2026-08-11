@@ -12,12 +12,10 @@ const TABS = [
 export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, visible = true }) {
   return (
     <div style={{
-      /* Flex child — always at the bottom of the app column, no fixed positioning */
       flexShrink: 0,
       width: '100%',
       zIndex: 200,
-      /* Grow the bar down to cover the home indicator area */
-      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingBottom: '0px',
       paddingTop: '10px',
       background: 'rgba(9, 9, 11, 0.97)',
       backdropFilter: 'blur(24px) saturate(190%)',
@@ -27,10 +25,6 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
       alignItems: 'center',
       justifyContent: 'space-around',
       boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.7)',
-      transform: visible ? 'translateY(0)' : 'translateY(100%)',
-      opacity: visible ? 1 : 0,
-      pointerEvents: visible ? 'auto' : 'none',
-      transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease',
     }}>
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
