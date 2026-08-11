@@ -1446,7 +1446,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
       width: '100%',
       display: 'flex',
       flexDirection: 'column',
-      gap: '28px',
+      gap: isMobile ? '12px' : '28px',
       overflow: 'hidden',
       padding: isMobile ? '0px 16px 80px 16px' : '0px 40px 36px 40px',
       boxSizing: 'border-box'
@@ -1456,16 +1456,19 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
       <div style={{ height: isMobile ? '12px' : '16px', flexShrink: 0 }} />
       
       {/* Title Header */}
-      <div className="hollow-view-header" style={{ marginBottom: '4px' }}>
-        <div className="hollow-view-header-title-block">
-          <h1>
-            <Settings size={28} color="var(--colors-primary)" /> Control Center Settings
-          </h1>
-          <p>
-            Configure prop firm account parameters, playbook setups, and interface visual overlays.
-          </p>
+      {!isMobile && (
+        <div className="hollow-view-header" style={{ marginBottom: '4px' }}>
+          <div className="hollow-view-header-title-block">
+            <h1>
+              <Settings size={28} color="var(--colors-primary)" /> Control Center Settings
+            </h1>
+            <p>
+              Configure prop firm account parameters, playbook setups, and interface visual overlays.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+
 
       {/* Settings Panel Shell */}
       <div className="hollow-card" style={{ 
@@ -3034,7 +3037,6 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                 </AnimatePresence>,
                 document.body
               )}
-
             </div>
           )}
 
@@ -3044,7 +3046,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           {/* TAB 3: Profile */}
           {activeTab === 'profile' && (() => {
             const SectionHeader = ({ title }) => (
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '20px 0 8px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#4d4d4f', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '24px 0 8px 4px', fontFamily: 'var(--font-body)' }}>
                 {title}
               </div>
             );
@@ -3056,7 +3058,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                   width: 51,
                   height: 31,
                   borderRadius: 100,
-                  background: value ? '#30d158' : '#3a3a3c',
+                  background: value ? '#bf5af2' : '#3a3a3c',
                   cursor: 'pointer',
                   position: 'relative',
                   transition: 'background 0.25s',
@@ -3081,152 +3083,124 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '640px', width: '100%', margin: '0 auto', paddingBottom: '40px' }}>
 
                 {/* User card */}
-                <div style={{
-                  background: '#0f0f11',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: 20,
-                  padding: '20px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 14
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #0a84ff, #bf5af2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 20,
-                      fontWeight: 800,
-                      color: '#fff',
-                      textTransform: 'uppercase',
-                      flexShrink: 0,
-                      fontFamily: 'var(--font-heading)'
-                    }}>
-                      {(profileSettings.displayName ? profileSettings.displayName.trim().charAt(0) : 'H').toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 2 }}>
-                        {profileSettings.displayName || 'Unnamed Trader'}
+                <div style={{ padding: '0 4px', marginTop: 12, marginBottom: 4 }}>
+                  <div style={{
+                    background: 'none',
+                    padding: '12px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 14
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      {/* Initials circle indicator */}
+                      <div style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: '#fff',
+                        textTransform: 'uppercase',
+                        flexShrink: 0
+                      }}>
+                        {(profileSettings.displayName ? profileSettings.displayName.trim().charAt(0) : 'H').toUpperCase()}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>
-                        {profileSettings.traderTitle || 'Trader · Hollow'}
-                      </div>
-                      {userEmail && (
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
-                          {userEmail}
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 1, letterSpacing: '-0.01em' }}>
+                          {profileSettings.displayName || 'Unnamed Trader'}
                         </div>
-                      )}
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'flex', gap: 6 }}>
-                        <span>{profileSettings.tradingStyle}</span>
-                        <span>·</span>
-                        <span>{profileSettings.primaryMarket}</span>
+                        {userEmail && (
+                          <div style={{ fontSize: 12, color: '#4d4d4f', fontWeight: 500 }}>
+                            {userEmail}
+                          </div>
+                        )}
                       </div>
                     </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditName(profileSettings.displayName);
+                        setEditTitle(profileSettings.traderTitle);
+                        setEditMarket(profileSettings.primaryMarket);
+                        setEditStyle(profileSettings.tradingStyle);
+                        setEditTimezone(profileSettings.timezone);
+                        setEditBio(profileSettings.bio);
+                        setShowEditProfile(true);
+                      }}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        outline: 'none',
+                        flexShrink: 0
+                      }}
+                    >
+                      <Edit2 size={13} />
+                    </button>
                   </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditName(profileSettings.displayName);
-                      setEditTitle(profileSettings.traderTitle);
-                      setEditMarket(profileSettings.primaryMarket);
-                      setEditStyle(profileSettings.tradingStyle);
-                      setEditTimezone(profileSettings.timezone);
-                      setEditBio(profileSettings.bio);
-                      setShowEditProfile(true);
-                    }}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      color: '#fff',
-                      outline: 'none',
-                      flexShrink: 0
-                    }}
-                  >
-                    <Edit2 size={16} />
-                  </button>
                 </div>
 
-
                 {/* App Settings */}
-                <SectionHeader title="Appearance" />
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <SectionHeader title="Preferences" />
+                <div style={{ background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
                   {[
                     { label: 'Cloud Backdrop', sub: 'Ambient blur clouds', value: enableClouds, onToggle: toggleClouds },
                   ].map((item, i, arr) => (
                     <div key={item.label} style={{
                       display: 'flex',
                       alignItems: 'center',
-                      padding: '14px 16px',
-                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                      gap: 12
+                      padding: '16px 18px',
+                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                      gap: 14
                     }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{item.label}</div>
-                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{item.sub}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2, letterSpacing: '-0.01em' }}>{item.label}</div>
+                        <div style={{ fontSize: 11, color: '#4d4d4f', fontWeight: 500 }}>{item.sub}</div>
                       </div>
                       <Toggle value={item.value} onToggle={item.onToggle} />
                     </div>
                   ))}
                 </div>
 
-                {/* About */}
-                <SectionHeader title="About" />
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                  {[
-                    { label: 'Version', value: APP_VERSION },
-                    { label: 'Database', value: 'IndexedDB + Supabase' },
-                  ].map((item, i, arr) => (
-                    <div key={item.label} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '14px 16px',
-                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
-                    }}>
-                      <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{item.label}</span>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Sunday Backup */}
-                <SectionHeader title="Automated Sunday Backup" />
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                {/* Backup Settings */}
+                <SectionHeader title="Data Operations" />
+                <div style={{ background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '14px 16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    gap: 12
+                    padding: '16px 18px',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    gap: 14
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>Enable Weekly Auto-Backup</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Triggers automatically when you open the app on Sunday. Saves complete PDF ledger to device.</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2, letterSpacing: '-0.01em' }}>Enable Weekly Auto-Backup</div>
+                      <div style={{ fontSize: 11, color: '#4d4d4f', lineHeight: 1.4, fontWeight: 500 }}>Triggers automatically when you open the app on Sunday. Saves complete PDF ledger to device.</div>
                     </div>
                     <Toggle value={autoBackupEnabled} onToggle={() => handleToggleAutoBackup(!autoBackupEnabled)} />
                   </div>
                   
                   {/* Pick Folder Option */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '14px 16px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>Backup Storage Directory</span>
-                    <p style={{ fontSize: '11px', color: 'var(--colors-stone)', margin: '2px 0 10px 0' }}>
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.03)', padding: '16px 18px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', letterSpacing: '-0.01em' }}>Backup Storage Directory</span>
+                    <p style={{ fontSize: '11px', color: '#4d4d4f', margin: '2px 0 12px 0', lineHeight: 1.4, fontWeight: 500 }}>
                       Select a folder on your local device to save backups automatically. If unsupported or unconfigured, backups fall back to browser downloads.
                     </p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: '11px', color: '#9d76fa', background: 'rgba(157, 118, 250, 0.08)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(157, 118, 250, 0.15)' }}>
+                      <div style={{ fontSize: '11px', color: '#bf5af2', background: 'rgba(191, 90, 242, 0.08)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(191, 90, 242, 0.15)' }}>
                         Destination: <strong>{backupDirName}</strong>
                       </div>
                       {window.showDirectoryPicker && (
@@ -3235,7 +3209,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                             Choose Folder
                           </button>
                           {backupDirName !== 'Downloads Folder (Default)' && (
-                            <button type="button" onClick={handleResetDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--colors-stone)' }}>
+                            <button type="button" onClick={handleResetDirectory} className="btn-dark" style={{ padding: '6px 12px', fontSize: '11px', color: '#4d4d4f' }}>
                               Reset to Default
                             </button>
                           )}
@@ -3244,8 +3218,8 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                  <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ fontSize: 11, color: '#4d4d4f', lineHeight: 1.4, fontWeight: 500 }}>
                       Manually download a complete portable data document (PDF) representing all accounts, journals, trades, and workouts instantly.
                     </div>
                     <div style={{ display: 'flex', gap: '10px', marginTop: 4 }}>
@@ -3254,12 +3228,12 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                         onClick={handleManualBackup}
                         style={{
                           flex: 1,
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 12,
                           padding: '10px',
                           fontSize: 13,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           color: '#fff',
                           cursor: 'pointer'
                         }}
@@ -3292,12 +3266,12 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                         }}
                         style={{
                           flex: 1,
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 12,
                           padding: '10px',
                           fontSize: 13,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           color: '#fff',
                           cursor: localStorage.getItem('hollow_previous_week_backup_pdf') ? 'pointer' : 'not-allowed',
                           opacity: localStorage.getItem('hollow_previous_week_backup_pdf') ? 1 : 0.5
@@ -3309,9 +3283,29 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                   </div>
                 </div>
 
+                {/* About Details */}
+                <SectionHeader title="System Information" />
+                <div style={{ background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+                  {[
+                    { label: 'Version', value: APP_VERSION },
+                    { label: 'Database', value: 'IndexedDB + Supabase' },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '16px 18px',
+                      borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                      gap: 14
+                    }}>
+                      <span style={{ fontSize: 14, color: '#fff', fontWeight: 700, letterSpacing: '-0.01em' }}>{item.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#4d4d4f' }}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+
                 {/* Account Operations */}
-                <SectionHeader title="Account" />
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 0 12px' }}>
                   <button
                     type="button"
                     onClick={async () => {
@@ -3322,25 +3316,30 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                     }}
                     style={{
                       width: '100%',
-                      background: 'none',
+                      background: '#b12525',
                       border: 'none',
-                      padding: '14px 16px',
-                      color: '#ff453a',
-                      fontSize: 14,
-                      fontWeight: 600,
-                      textAlign: 'left',
+                      borderRadius: 14,
+                      padding: '14px',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: '#fff',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      outline: 'none'
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 12px rgba(177, 37, 37, 0.25)',
+                      fontFamily: 'var(--font-body)'
                     }}
                   >
-                    <span>Sign Out</span>
-                    <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+                    <LogOut size={16} />
+                    <span>Log out</span>
                   </button>
-                  <button
-                    type="button"
+                </div>
+
+                {/* Delete Account button */}
+                <div style={{ padding: '0 0 20px', textAlign: 'center' }}>
+                  <span
                     onClick={async () => {
                       if (window.confirm('WARNING: Are you sure you want to delete your profile account and permanently wipe all data? This will erase all local and cloud data. This action cannot be undone.')) {
                         const { clearDatabaseAndCloud } = await import('../db/hollowDb');
@@ -3350,37 +3349,28 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                       }
                     }}
                     style={{
-                      width: '100%',
-                      background: 'none',
-                      border: 'none',
-                      padding: '14px 16px',
-                      color: '#ff453a',
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      outline: 'none',
-                      borderTop: '1px solid rgba(255,255,255,0.06)'
+                      color: '#4d4d4f',
+                      textDecoration: 'underline',
+                      cursor: 'pointer'
                     }}
                   >
-                    <span>Delete Account & Data</span>
-                    <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
-                  </button>
+                    Delete Account & Permanent Data Wipe
+                  </span>
                 </div>
 
                 {/* Brand footer */}
-                <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" />
+                <div style={{ padding: '16px 0 32px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.2)" strokeWidth="2.5" />
                     </svg>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.3)', letterSpacing: '-0.02em' }}>hollow.</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.2)', letterSpacing: '-0.02em' }}>hollow.</span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>hollow cognitive ledger</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.12)', fontWeight: 500 }}>hollow cognitive ledger</div>
                 </div>
+
 
                 {/* Edit Profile Modal */}
                 <AnimatePresence>
