@@ -1,521 +1,489 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db/hollowDb';
 import { supabase } from '../../db/supabaseClient';
-import { APP_VERSION } from '../../utils/version';
 import {
-  User, Settings, CreditCard, ChevronRight, Bell,
-  Moon, Layers, Wifi, WifiOff, Plus, Trash2, Edit2, X, Check,
-  HelpCircle, ClipboardCheck, Info, LogOut, Activity, Dumbbell, Users, TrendingUp, DollarSign, Image
+  User,
+  Key,
+  Layers,
+  PlusCircle,
+  Share2,
+  Megaphone,
+  ScanFace,
+  Bell,
+  LogOut,
+  ChevronRight,
+  X,
+  CreditCard,
+  Check,
+  Edit2,
+  Shield,
+  Smartphone,
+  ExternalLink,
+  ShoppingBag
 } from 'lucide-react';
 
-export default function ProfileView({ selectedAccountId, setSelectedAccountId, accounts, addToast, onNavigate, onScrollChange }) {
-  const [enableClouds, setEnableClouds] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [profile, setProfile] = useState({
-    displayName: localStorage.getItem('hollowDisplayName') || 'Unnamed Trader',
-    traderTitle: localStorage.getItem('hollowTraderTitle') || 'Trader · Hollow',
-    timezone: localStorage.getItem('hollowTimezone') || 'Europe/London',
-    tradingStyle: localStorage.getItem('hollowTradingStyle') || 'Day Trader',
-    bio: localStorage.getItem('hollowBio') || '',
-    primaryMarket: localStorage.getItem('hollowPrimaryMarket') || 'Futures'
-  });
-  const [userEmail, setUserEmail] = useState('');
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(localStorage.getItem('hollowEnableAutoBackup') !== 'false');
+export default function ProfileView({ addToast, onScrollChange }) {
+  const [displayName, setDisplayName] = useState(localStorage.getItem('hollowDisplayName') || 'Emanuel Maxim');
+  const [userEmail, setUserEmail] = useState('maxim.emanuel@icloud.com');
+  const [requireFaceId, setRequireFaceId] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [activeModal, setActiveModal] = useState(null); // 'accountInfo' | 'credentials' | 'platforms' | 'addons' | 'social' | 'announcements' | 'editProfile'
 
-  const handleToggleAutoBackup = async (enabled) => {
-    setAutoBackupEnabled(enabled);
-    localStorage.setItem('hollowEnableAutoBackup', enabled ? 'true' : 'false');
-    try {
-      await supabase.auth.updateUser({
-        data: { enableAutoBackup: enabled }
-      });
-    } catch (err) {
-      console.error('Failed to sync auto-backup setting:', err);
-    }
-    addToast(enabled ? 'Auto-backup enabled.' : 'Auto-backup disabled.', 'success');
-  };
-
-  const handleManualBackup = async () => {
-    addToast('Generating backup...', 'success');
-    try {
-      const [accs, trds, execs, jrns, plns, grps, wrkts] = await Promise.all([
-        db.accounts ? db.accounts.toArray() : [],
-        db.trades ? db.trades.toArray() : [],
-        db.executions ? db.executions.toArray() : [],
-        db.dailyJournals ? db.dailyJournals.toArray() : [],
-        db.weeklyPlanners ? db.weeklyPlanners.toArray() : [],
-        db.groups ? db.groups.toArray() : [],
-        db.workouts ? db.workouts.toArray() : []
-      ]);
-      const { exportAllDataBackupPDF } = await import('../../utils/pdfExport');
-      const doc = exportAllDataBackupPDF(accs, trds, execs, jrns, plns, grps, wrkts);
-      const filename = `hollow_backup_${new Date().toISOString().split('T')[0].replace(/-/g, '_')}.pdf`;
-      doc.save(filename);
-      addToast('Backup downloaded successfully.', 'success');
-    } catch (err) {
-      console.error(err);
-      addToast('Backup failed.', 'error');
-    }
-  };
-
-  // Form states for the bottom sheet
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editTitle, setEditTitle] = useState('');
-  const [editMarket, setEditMarket] = useState('Futures');
-  const [editStyle, setEditStyle] = useState('Day Trader');
-  const [editTimezone, setEditTimezone] = useState('Europe/London');
-  const [editBio, setEditBio] = useState('');
-
-  const handleScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
-    setIsScrolled(scrollTop > 10);
-    if (onScrollChange) {
-      onScrollChange(scrollTop);
-    }
-  };
-
-  const loadProfile = () => {
-    setProfile({
-      displayName: localStorage.getItem('hollowDisplayName') || 'Unnamed Trader',
-      traderTitle: localStorage.getItem('hollowTraderTitle') || 'Trader · Hollow',
-      timezone: localStorage.getItem('hollowTimezone') || 'Europe/London',
-      tradingStyle: localStorage.getItem('hollowTradingStyle') || 'Day Trader',
-      bio: localStorage.getItem('hollowBio') || '',
-      primaryMarket: localStorage.getItem('hollowPrimaryMarket') || 'Futures'
-    });
-  };
+  // Edit form states
+  const [editName, setEditName] = useState(displayName);
+  const [editEmail, setEditEmail] = useState(userEmail);
 
   useEffect(() => {
-    setEnableClouds(localStorage.getItem('hollowEnableClouds') !== 'false');
-    loadProfile();
-    
-    // Fetch email from Supabase Auth
     async function fetchUser() {
+      if (!supabase) return;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          setUserEmail(user.email);
+          if (user.email) {
+            setUserEmail(user.email);
+            setEditEmail(user.email);
+          }
+          if (user.user_metadata?.displayName) {
+            setDisplayName(user.user_metadata.displayName);
+            setEditName(user.user_metadata.displayName);
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch user email:', err);
+        console.error('Failed to fetch user:', err);
       }
     }
     fetchUser();
-
-    window.addEventListener('hollowSettingsUpdated', loadProfile);
-    return () => {
-      window.removeEventListener('hollowSettingsUpdated', loadProfile);
-    };
   }, []);
 
   const handleSaveProfile = async () => {
-    localStorage.setItem('hollowDisplayName', editName.trim() || 'Unnamed Trader');
-    localStorage.setItem('hollowUsername', editName.trim() || 'Unnamed Trader');
-    localStorage.setItem('hollowTraderTitle', editTitle.trim() || 'Trader · Hollow');
-    localStorage.setItem('hollowPrimaryMarket', editMarket);
-    localStorage.setItem('hollowTradingStyle', editStyle);
-    localStorage.setItem('hollowTimezone', editTimezone);
-    localStorage.setItem('hollowBio', editBio.trim());
-    
+    const trimmed = editName.trim() || 'Emanuel Maxim';
+    setDisplayName(trimmed);
+    localStorage.setItem('hollowDisplayName', trimmed);
+    localStorage.setItem('hollowUsername', trimmed);
     window.dispatchEvent(new Event('hollowSettingsUpdated'));
-    
-    try {
-      await supabase.auth.updateUser({
-        data: {
-          displayName: editName.trim() || 'Unnamed Trader',
-          traderTitle: editTitle.trim() || 'Trader · Hollow',
-          primaryMarket: editMarket,
-          tradingStyle: editStyle,
-          timezone: editTimezone,
-          bio: editBio.trim()
-        }
-      });
-    } catch (err) {
-      console.error('Failed to sync profile changes to Supabase Auth:', err);
+
+    if (supabase) {
+      try {
+        await supabase.auth.updateUser({
+          data: { displayName: trimmed }
+        });
+      } catch (err) {
+        console.error('Failed to update user profile in cloud:', err);
+      }
     }
-    
+
     addToast('Profile updated successfully!', 'success');
-    setShowEditProfile(false);
+    setActiveModal(null);
   };
 
-  const toggleClouds = async () => {
-    const next = !enableClouds;
-    setEnableClouds(next);
-    localStorage.setItem('hollowEnableClouds', String(next));
-    window.dispatchEvent(new Event('hollowSettingsUpdated'));
-    try {
-      await supabase.auth.updateUser({
-        data: { enableClouds: next }
-      });
-    } catch (err) {
-      console.error('Failed to sync cloud backdrop setting:', err);
+  const handleLogout = async () => {
+    if (window.confirm('Are you sure you want to log out?')) {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+      localStorage.removeItem('hollow_last_user_id');
+      addToast('Logged out successfully.', 'info');
+      window.location.reload();
     }
   };
 
-  const Toggle = ({ value, onToggle }) => (
+  // Purple Switch Toggle component
+  const PurpleToggle = ({ checked, onChange }) => (
     <div
-      onClick={onToggle}
+      onClick={onChange}
       style={{
-        width: 51,
-        height: 31,
-        borderRadius: 100,
-        background: value ? '#bf5af2' : '#3a3a3c',
+        width: '51px',
+        height: '31px',
+        borderRadius: '100px',
+        background: checked ? '#b86eff' : '#3a3a3c',
         cursor: 'pointer',
         position: 'relative',
-        transition: 'background 0.25s',
-        flexShrink: 0
+        transition: 'background 0.25s ease, box-shadow 0.25s ease',
+        boxShadow: checked ? '0 0 12px rgba(184, 110, 255, 0.45)' : 'none',
+        flexShrink: 0,
       }}
     >
       <div style={{
         position: 'absolute',
-        width: 27,
-        height: 27,
-        top: 2,
-        left: value ? 22 : 2,
-        background: 'white',
+        width: '27px',
+        height: '27px',
+        top: '2px',
+        left: checked ? '22px' : '2px',
+        background: '#ffffff',
         borderRadius: '50%',
         transition: 'left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
       }} />
     </div>
   );
 
-  const SectionHeader = ({ title }) => (
-    <div style={{ fontSize: 11, fontWeight: 700, color: '#4d4d4f', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '24px 16px 8px 20px', fontFamily: 'var(--font)' }}>
-      {title}
-    </div>
-  );
-
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: '#000000' }}>
-      {/* Header */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 90,
-        paddingTop: 'calc(var(--safe-top) + 16px)',
-        paddingLeft: '20px',
-        paddingRight: '20px',
-        paddingBottom: '16px',
-        background: isScrolled
-          ? 'linear-gradient(to bottom, #000000 0%, rgba(0, 0, 0, 0.98) 50%, rgba(0, 0, 0, 0) 100%)'
-          : 'transparent',
-        transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+    <div
+      onScroll={(e) => onScrollChange && onScrollChange(e.target.scrollTop)}
+      style={{
+        height: '100%',
+        width: '100%',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        background: '#000000',
+        color: '#ffffff',
+        padding: 'calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 88px) 16px',
+        boxSizing: 'border-box',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <div>
-          <h1 style={{
-            fontSize: 26,
-            fontWeight: '800',
-            letterSpacing: '-0.02em',
-            color: '#fff',
-            margin: 0
-          }}>
-            Profile
-          </h1>
-          <div style={{ fontSize: 12, color: '#4d4d4f', fontWeight: 500, marginTop: 1 }}>
-            Account & preferences
-          </div>
+        flexDirection: 'column',
+        gap: '20px',
+        fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
+      }}
+    >
+      {/* ── TOP HEADER ── */}
+      <div>
+        <h1 style={{
+          fontSize: '28px',
+          fontWeight: 800,
+          letterSpacing: '-0.03em',
+          margin: '0 0 2px 0',
+          color: '#ffffff',
+        }}>
+          Profile
+        </h1>
+        <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 400 }}>
+          Account & preferences
         </div>
       </div>
 
-      <div 
-        onScroll={handleScroll}
-        style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          overflowX: 'hidden', 
-          WebkitOverflowScrolling: 'touch', 
-          paddingTop: 'calc(var(--safe-top) + 72px)',
-          paddingBottom: 'calc(64px + var(--safe-bottom) + 24px)'
+      {/* ── USER ROW CARD ── */}
+      <div
+        onClick={() => setActiveModal('editProfile')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          padding: '4px 0',
+          cursor: 'pointer',
         }}
       >
+        {/* Circle Avatar with Initial */}
+        <div style={{
+          width: '46px',
+          height: '46px',
+          borderRadius: '50%',
+          background: '#141416',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '18px',
+          fontWeight: 800,
+          color: '#ffffff',
+          flexShrink: 0,
+        }}>
+          {(displayName ? displayName.trim().charAt(0) : 'E').toUpperCase()}
+        </div>
 
-        {/* User card */}
-        <div style={{ padding: '0 16px', marginTop: 12, marginBottom: 4 }}>
-          <div style={{
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em', marginBottom: '2px' }}>
+            {displayName}
+          </div>
+          <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {userEmail}
+          </div>
+        </div>
+
+        <button
+          style={{
             background: 'none',
-            padding: '12px 4px',
+            border: 'none',
+            color: 'rgba(255, 255, 255, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {/* ── SECTION 1: ACCOUNT SETTINGS ── */}
+      <div>
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          color: 'rgba(255, 255, 255, 0.45)',
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+          paddingLeft: '2px',
+        }}>
+          ACCOUNT SETTINGS
+        </div>
+
+        <div style={{
+          background: '#09090b',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px',
+          overflow: 'hidden',
+        }}>
+          {[
+            {
+              id: 'accountInfo',
+              title: 'Account information',
+              subtitle: 'Profile · Payment methods · Orders · Subscriptions',
+              icon: User,
+            },
+            {
+              id: 'credentials',
+              title: 'Trading credentials',
+              subtitle: 'Platform logins & access',
+              icon: Key,
+            },
+            {
+              id: 'platforms',
+              title: 'Platforms',
+              subtitle: 'TradeSea, Tradovate & more',
+              icon: Layers,
+            },
+            {
+              id: 'addons',
+              title: 'Add-ons',
+              subtitle: 'Extra features for your accounts',
+              icon: PlusCircle,
+            }
+          ].map((item, idx, arr) => {
+            const IconComp = item.icon;
+            return (
+              <div
+                key={item.id}
+                onClick={() => setActiveModal(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '14px 18px',
+                  borderBottom: idx < arr.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                  gap: '14px',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center' }}>
+                  <IconComp size={18} strokeWidth={2} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '2px', letterSpacing: '-0.01em' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.subtitle}
+                  </div>
+                </div>
+
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── SECTION 2: COMMUNITY ── */}
+      <div>
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          color: 'rgba(255, 255, 255, 0.45)',
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+          paddingLeft: '2px',
+        }}>
+          COMMUNITY
+        </div>
+
+        <div style={{
+          background: '#09090b',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px',
+          overflow: 'hidden',
+        }}>
+          {[
+            {
+              id: 'social',
+              title: 'Social media & merch',
+              subtitle: 'Follow us, join the community & shop merch',
+              icon: Share2,
+            },
+            {
+              id: 'announcements',
+              title: 'Announcements',
+              subtitle: 'Updates, alerts & community',
+              icon: Megaphone,
+            }
+          ].map((item, idx, arr) => {
+            const IconComp = item.icon;
+            return (
+              <div
+                key={item.id}
+                onClick={() => setActiveModal(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '14px 18px',
+                  borderBottom: idx < arr.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                  gap: '14px',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center' }}>
+                  <IconComp size={18} strokeWidth={2} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '2px', letterSpacing: '-0.01em' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.subtitle}
+                  </div>
+                </div>
+
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── SECTION 3: PREFERENCES (Purple Toggles) ── */}
+      <div>
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          color: 'rgba(255, 255, 255, 0.45)',
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+          paddingLeft: '2px',
+        }}>
+          PREFERENCES
+        </div>
+
+        <div style={{
+          background: '#09090b',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px',
+          overflow: 'hidden',
+        }}>
+          {/* Require Face ID */}
+          <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 14
+            padding: '14px 18px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            gap: '14px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* Initials circle indicator */}
-              <div style={{
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-                fontWeight: 700,
-                color: '#fff',
-                textTransform: 'uppercase',
-                flexShrink: 0
-              }}>
-                {(profile.displayName ? profile.displayName.trim().charAt(0) : 'H').toUpperCase()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+              <div style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center' }}>
+                <ScanFace size={18} strokeWidth={2} />
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 1, letterSpacing: '-0.01em' }}>
-                  {profile.displayName}
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '2px', letterSpacing: '-0.01em' }}>
+                  Require Face ID
                 </div>
-                {userEmail && (
-                  <div style={{ fontSize: 12, color: '#4d4d4f', fontWeight: 500 }}>
-                    {userEmail}
-                  </div>
-                )}
+                <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>
+                  Lock the app with Face ID
+                </div>
               </div>
             </div>
-            
-            <button
-              onClick={() => {
-                setEditName(profile.displayName);
-                setEditTitle(profile.traderTitle);
-                setEditMarket(profile.primaryMarket);
-                setEditStyle(profile.tradingStyle);
-                setEditTimezone(profile.timezone);
-                setEditBio(profile.bio);
-                setShowEditProfile(true);
+            <PurpleToggle
+              checked={requireFaceId}
+              onChange={() => {
+                const next = !requireFaceId;
+                setRequireFaceId(next);
+                addToast(next ? 'Face ID requirement enabled' : 'Face ID requirement disabled', 'info');
               }}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: '#fff',
-                outline: 'none',
-                flexShrink: 0
-              }}
-            >
-              <Edit2 size={13} />
-            </button>
+            />
           </div>
-        </div>
 
-        {/* Trading Suite Sub-navigation */}
-        <SectionHeader title="Account Settings" />
-        <div style={{ margin: '0 16px', background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
-          {[
-            { label: 'Trading Accounts', desc: 'Manage, select, and edit your trading accounts', icon: CreditCard, view: 'accounts' },
-            { label: 'Performance Stats', desc: 'Detailed playbook edge, discipline, and session statistics', icon: TrendingUp, view: 'stats' },
-            { label: 'Payout Tracker', desc: 'Track payouts from prop firms and accounts', icon: DollarSign, view: 'payouts' },
-            { label: 'Weekly Review', desc: 'Weekly review & audit board', icon: ClipboardCheck, view: 'weeklyReview' },
-            { label: 'Copy Groups', desc: 'Mirror leader trades to follower accounts', icon: Users, view: 'groups' },
-            { label: 'Trade Gallery', desc: 'Browse execution charts and snap logs', icon: Image, view: 'gallery' }
-          ].map((item, idx, arr) => (
-            <div
-              key={item.label}
-              onClick={() => onNavigate && onNavigate(item.view)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '16px 18px',
-                borderBottom: idx < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-                gap: 14,
-                cursor: 'pointer'
-              }}
-            >
-              <item.icon size={18} color="#4d4d4f" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>{item.label}</div>
-                <div style={{ fontSize: 11, color: '#4d4d4f', marginTop: 2, fontWeight: 500 }}>{item.desc}</div>
-              </div>
-              <ChevronRight size={14} color="#4d4d4f" />
-            </div>
-          ))}
-        </div>
-
-        {/* App Settings */}
-        <SectionHeader title="Preferences" />
-        <div style={{ margin: '0 16px', background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
-          {[
-            { label: 'Cloud Backdrop', sub: 'Ambient blur clouds', value: enableClouds, onToggle: toggleClouds, icon: Layers },
-          ].map((item, i, arr) => (
-            <div key={item.label} style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '16px 18px',
-              borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-              gap: 14
-            }}>
-              <item.icon size={18} color="#4d4d4f" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2, letterSpacing: '-0.01em' }}>{item.label}</div>
-                <div style={{ fontSize: 11, color: '#4d4d4f', fontWeight: 500 }}>{item.sub}</div>
-              </div>
-              <Toggle value={item.value} onToggle={item.onToggle} />
-            </div>
-          ))}
-        </div>
-
-        {/* Backup Settings */}
-        <SectionHeader title="Data Operations" />
-        <div style={{ margin: '0 16px', background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+          {/* Push Notifications (Vibrant Purple Switch) */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            padding: '16px 18px',
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
-            gap: 14
+            justifyContent: 'space-between',
+            padding: '14px 18px',
+            gap: '14px',
           }}>
-            <Bell size={18} color="#4d4d4f" />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2, letterSpacing: '-0.01em' }}>Enable Weekly Auto-Backup</div>
-              <div style={{ fontSize: 11, color: '#4d4d4f', lineHeight: 1.4, fontWeight: 500 }}>Triggers automatically when you open the app on Sunday. Saves complete PDF ledger to device.</div>
-            </div>
-            <Toggle value={autoBackupEnabled} onToggle={() => handleToggleAutoBackup(!autoBackupEnabled)} />
-          </div>
-          
-          <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 11, color: '#4d4d4f', lineHeight: 1.4, fontWeight: 500 }}>
-              Manually download a complete portable data document (PDF) representing all accounts, journals, trades, and workouts instantly.
-            </div>
-            <button
-              onClick={handleManualBackup}
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 12,
-                padding: '10px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: '#fff',
-                cursor: 'pointer',
-                marginTop: 2,
-                fontFamily: 'var(--font)'
-              }}
-            >
-              Generate Backup Now
-            </button>
-          </div>
-        </div>
-
-        {/* About Details */}
-        <SectionHeader title="System Information" />
-        <div style={{ margin: '0 16px', background: '#0a0a0c', borderRadius: 16, border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
-          {[
-            { label: 'Version', value: APP_VERSION, icon: Info },
-            { label: 'Database', value: 'IndexedDB + Supabase', icon: Activity },
-          ].map((item, i, arr) => (
-            <div key={item.label} style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '16px 18px',
-              borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-              gap: 14
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <item.icon size={18} color="#4d4d4f" />
-                <span style={{ fontSize: 14, color: '#fff', fontWeight: 700, letterSpacing: '-0.01em' }}>{item.label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+              <div style={{ color: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center' }}>
+                <Bell size={18} strokeWidth={2} />
               </div>
-              <span style={{ fontSize: 13, fontWeight: 500, color: '#4d4d4f' }}>{item.value}</span>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff', marginBottom: '2px', letterSpacing: '-0.01em' }}>
+                  Push Notifications
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>
+                  {pushNotifications ? 'Enabled' : 'Disabled'}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-
-        {/* Log Out button style matching user screenshot */}
-        <div style={{ padding: '24px 16px 12px' }}>
-          <button
-            onClick={async () => {
-              if (window.confirm('Sign out of your Hollow account? Offline cache will be cleared.')) {
-                const { supabase } = await import('../../db/supabaseClient');
-                await supabase.auth.signOut();
-              }
-            }}
-            style={{
-              width: '100%',
-              background: '#b12525',
-              border: 'none',
-              borderRadius: 14,
-              padding: '14px',
-              fontSize: 15,
-              fontWeight: 700,
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              boxShadow: '0 4px 12px rgba(177, 37, 37, 0.25)',
-              fontFamily: 'var(--font)'
-            }}
-          >
-            <LogOut size={16} />
-            <span>Log out</span>
-          </button>
-        </div>
-
-        {/* Delete Account button */}
-        <div style={{ padding: '0 16px 20px', textAlign: 'center' }}>
-          <span
-            onClick={async () => {
-              if (window.confirm('WARNING: Are you sure you want to delete your profile account and permanently wipe all data? This will erase all local and cloud data. This action cannot be undone.')) {
-                const { clearDatabaseAndCloud } = await import('../../db/hollowDb');
-                const { supabase } = await import('../../db/supabaseClient');
-                await clearDatabaseAndCloud();
-                await supabase.auth.signOut();
-              }
-            }}
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: '#4d4d4f',
-              textDecoration: 'underline',
-              cursor: 'pointer'
-            }}
-          >
-            Delete Account & Permanent Data Wipe
-          </span>
-        </div>
-
-        {/* Brand footer */}
-        <div style={{ padding: '16px 16px 32px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.2)" strokeWidth="2.5" />
-            </svg>
-            <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.2)', letterSpacing: '-0.02em' }}>hollow.</span>
+            <PurpleToggle
+              checked={pushNotifications}
+              onChange={() => {
+                const next = !pushNotifications;
+                setPushNotifications(next);
+                addToast(next ? 'Push notifications enabled' : 'Push notifications disabled', 'info');
+              }}
+            />
           </div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.12)', fontWeight: 500 }}>hollow cognitive ledger</div>
         </div>
       </div>
 
-      {/* Edit Profile Bottom Sheet */}
+      {/* ── LOG OUT BUTTON (Red Rounded Button) ── */}
+      <button
+        onClick={handleLogout}
+        style={{
+          width: '100%',
+          background: '#dc2626',
+          border: 'none',
+          borderRadius: '16px',
+          padding: '16px',
+          fontSize: '15px',
+          fontWeight: 700,
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          boxShadow: '0 4px 20px rgba(220, 38, 38, 0.35)',
+          outline: 'none',
+          transition: 'transform 0.15s, filter 0.15s',
+          marginTop: '4px',
+        }}
+      >
+        <LogOut size={18} strokeWidth={2.4} />
+        <span>Log out</span>
+      </button>
+
+      {/* ── MODALS / SUB-SHEETS ── */}
       <AnimatePresence>
-        {showEditProfile && (
+        {activeModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowEditProfile(false)}
+            onClick={() => setActiveModal(null)}
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.7)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              zIndex: 1500,
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              zIndex: 1000,
               display: 'flex',
-              alignItems: 'flex-end'
+              alignItems: 'flex-end',
+              justifyContent: 'center',
             }}
           >
             <motion.div
@@ -526,229 +494,200 @@ export default function ProfileView({ selectedAccountId, setSelectedAccountId, a
               onClick={e => e.stopPropagation()}
               style={{
                 width: '100%',
+                maxWidth: '500px',
                 background: '#0f0f11',
                 borderRadius: '24px 24px 0 0',
-                border: '1px solid rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderBottom: 'none',
-                paddingBottom: 'calc(var(--safe-bottom) + 16px)',
-                boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
+                paddingBottom: 'max(env(safe-area-inset-bottom), 24px)',
                 maxHeight: '85vh',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                overflow: 'hidden',
               }}
             >
-              {/* Handle */}
-              <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, margin: '12px auto 16px', flexShrink: 0 }} />
-              
-              {/* Header */}
-              <div style={{ padding: '0 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-                <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>Edit Profile</span>
-                <button 
-                  onClick={() => setShowEditProfile(false)} 
-                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 4 }}
-                >
-                  <X size={20} />
+              <div style={{ width: '36px', height: '4px', background: 'rgba(255, 255, 255, 0.25)', borderRadius: '2px', margin: '12px auto 14px' }} />
+
+              <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <span style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff' }}>
+                  {activeModal === 'editProfile' && 'Edit Profile'}
+                  {activeModal === 'accountInfo' && 'Account Information'}
+                  {activeModal === 'credentials' && 'Trading Credentials'}
+                  {activeModal === 'platforms' && 'Platforms & Connections'}
+                  {activeModal === 'addons' && 'Account Add-ons'}
+                  {activeModal === 'social' && 'Social Media & Merch'}
+                  {activeModal === 'announcements' && 'Community Announcements'}
+                </span>
+                <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.6)', cursor: 'pointer' }}>
+                  <X size={18} />
                 </button>
               </div>
 
-              {/* Scrollable Content */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                
-                {/* Display Name */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Display Name</div>
-                  <input
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    placeholder="e.g. Max Trader"
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 12,
-                      color: '#fff',
-                      fontFamily: 'var(--font)',
-                      fontSize: 15,
-                      padding: '12px 14px',
-                      outline: 'none',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
-                    }}
-                  />
-                </div>
-
-                {/* Trader Title */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Trader Title</div>
-                  <input
-                    value={editTitle}
-                    onChange={e => setEditTitle(e.target.value)}
-                    placeholder="e.g. Prop Trader · Futures Specialist"
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 12,
-                      color: '#fff',
-                      fontFamily: 'var(--font)',
-                      fontSize: 15,
-                      padding: '12px 14px',
-                      outline: 'none',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)'
-                    }}
-                  />
-                </div>
-
-                {/* Primary Market */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Primary Market</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {['Futures', 'Forex', 'Equities', 'Crypto', 'Options'].map(market => {
-                      const isActive = editMarket === market;
-                      return (
-                        <button
-                          key={market}
-                          onClick={() => setEditMarket(market)}
-                          style={{
-                            background: isActive ? 'rgba(10, 132, 255, 0.15)' : 'rgba(255,255,255,0.02)',
-                            border: isActive ? '1px solid #0a84ff' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 20,
-                            padding: '8px 14px',
-                            color: isActive ? '#0a84ff' : 'rgba(255,255,255,0.5)',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            outline: 'none'
-                          }}
-                        >
-                          {market}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Trading Style */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Trading Style</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {['Scalper', 'Day Trader', 'Swing Trader', 'Position Trader'].map(style => {
-                      const isActive = editStyle === style;
-                      return (
-                        <button
-                          key={style}
-                          onClick={() => setEditStyle(style)}
-                          style={{
-                            background: isActive ? 'rgba(191, 90, 242, 0.15)' : 'rgba(255,255,255,0.02)',
-                            border: isActive ? '1px solid #bf5af2' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 20,
-                            padding: '8px 14px',
-                            color: isActive ? '#bf5af2' : 'rgba(255,255,255,0.5)',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            outline: 'none'
-                          }}
-                        >
-                          {style}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Timezone */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Timezone</div>
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      value={editTimezone}
-                      onChange={e => setEditTimezone(e.target.value)}
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+                {/* Edit Profile */}
+                {activeModal === 'editProfile' && (
+                  <>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', marginBottom: '6px' }}>Display Name</div>
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#16161a',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '12px',
+                          padding: '12px 14px',
+                          color: '#fff',
+                          fontSize: '15px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', marginBottom: '6px' }}>Email Address</div>
+                      <input
+                        value={userEmail}
+                        disabled
+                        style={{
+                          width: '100%',
+                          background: '#16161a',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          borderRadius: '12px',
+                          padding: '12px 14px',
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: '15px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveProfile}
                       style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 12,
-                        color: '#fff',
-                        fontFamily: 'var(--font)',
-                        fontSize: 15,
-                        padding: '12px 14px',
-                        outline: 'none',
-                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
-                        appearance: 'none',
-                        backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 14px center',
-                        backgroundSize: '16px'
+                        background: '#b86eff',
+                        border: 'none',
+                        borderRadius: '14px',
+                        padding: '14px',
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        color: '#000',
+                        cursor: 'pointer',
+                        marginTop: '10px',
                       }}
                     >
-                      {[
-                        { value: 'America/New_York', label: 'Eastern Time (ET)' },
-                        { value: 'America/Chicago', label: 'Central Time (CT)' },
-                        { value: 'America/Denver', label: 'Mountain Time (MT)' },
-                        { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-                        { value: 'Europe/London', label: 'London (GMT/BST)' },
-                        { value: 'Europe/Berlin', label: 'Central Europe (CET)' },
-                        { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-                        { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-                        { value: 'Australia/Sydney', label: 'Sydney (AEDT)' }
-                      ].map(tz => (
-                        <option key={tz.value} value={tz.value} style={{ background: '#1c1c1e', color: '#fff' }}>
-                          {tz.label}
-                        </option>
-                      ))}
-                    </select>
+                      Save Profile
+                    </button>
+                  </>
+                )}
+
+                {/* Account Info */}
+                {activeModal === 'accountInfo' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 700 }}>Membership Tier</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#d8b4fe', marginTop: '2px' }}>Hollow Pro Ledger (Lifetime)</div>
+                    </div>
+                    <div style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 700 }}>Default Currency</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginTop: '2px' }}>USD ($)</div>
+                    </div>
+                    <div style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', fontWeight: 700 }}>Cloud Sync State</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#30d158', marginTop: '2px' }}>Connected & Synced</div>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Short Bio */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Short Bio</div>
-                  <textarea
-                    value={editBio}
-                    onChange={e => setEditBio(e.target.value)}
-                    placeholder="A few words about your trading approach..."
-                    rows={3}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 12,
-                      color: '#fff',
-                      fontFamily: 'var(--font)',
-                      fontSize: 15,
-                      padding: '12px 14px',
-                      outline: 'none',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
-                      resize: 'none',
-                      lineHeight: 1.5
-                    }}
-                  />
-                </div>
-              </div>
+                {/* Credentials */}
+                {activeModal === 'credentials' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { platform: 'Tradovate API', user: 'apex_trader_mxm', status: 'Connected', key: '••••••••••••••••' },
+                      { platform: 'TradeSea Gateway', user: 'emanuel_maxim', status: 'Connected', key: '••••••••••••••••' },
+                      { platform: 'Rithmic / CQG', user: 'topstep_funded_01', status: 'Active', key: '••••••••••••••••' },
+                    ].map((cred, i) => (
+                      <div key={i} style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{cred.platform}</span>
+                          <span style={{ fontSize: '10px', color: '#b86eff', background: 'rgba(184, 110, 255, 0.15)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>{cred.status}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>User: {cred.user} · Key: {cred.key}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* Save Button Container */}
-              <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-                <button
-                  onClick={handleSaveProfile}
-                  style={{
-                    width: '100%',
-                    background: 'linear-gradient(135deg, #0a84ff 0%, #0a84ffd0 100%)',
-                    border: 'none',
-                    borderRadius: 14,
-                    padding: '14px',
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: '#fff',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s',
-                    boxShadow: '0 4px 20px rgba(10, 132, 255, 0.25)',
-                    outline: 'none'
-                  }}
-                >
-                  Save Profile
-                </button>
+                {/* Platforms */}
+                {activeModal === 'platforms' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { name: 'TradeSea', desc: 'Realtime high-speed execution router', connected: true },
+                      { name: 'Tradovate', desc: 'Direct market futures gateway', connected: true },
+                      { name: 'TradingView', desc: 'Chart studies & indicators integration', connected: true },
+                      { name: 'NinjaTrader', desc: 'Desktop bridge connector', connected: false }
+                    ].map((plat, i) => (
+                      <div key={i} style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{plat.name}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>{plat.desc}</div>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: plat.connected ? '#b86eff' : 'rgba(255, 255, 255, 0.4)' }}>
+                          {plat.connected ? 'Active' : 'Connect'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add-ons */}
+                {activeModal === 'addons' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { name: 'Automated Trailing Loss Guardian', price: 'Included', active: true },
+                      { name: 'Cognitive LLM Trade Journal AI', price: 'Included', active: true },
+                      { name: 'Sunday Automated PDF Backup Vault', price: 'Included', active: true },
+                      { name: 'Multi-Account Trade Replicator', price: 'Active', active: true },
+                    ].map((addon, i) => (
+                      <div key={i} style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{addon.name}</div>
+                          <div style={{ fontSize: '12px', color: '#b86eff', fontWeight: 600 }}>{addon.price}</div>
+                        </div>
+                        <Check size={16} color="#b86eff" strokeWidth={3} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Social & Merch */}
+                {activeModal === 'social' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { name: 'Twitter / X', link: '@hollowledger' },
+                      { name: 'Discord Trader Community', link: 'discord.gg/hollow' },
+                      { name: 'Official Trader Merch & Hoodies', link: 'shop.hollow.trade' },
+                      { name: 'YouTube Edge Tutorials', link: 'youtube.com/@hollow' }
+                    ].map((s, i) => (
+                      <div key={i} onClick={() => addToast(`Opening ${s.name}...`, 'info')} style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{s.name}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>{s.link}</div>
+                        </div>
+                        <ExternalLink size={14} color="#b86eff" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Announcements */}
+                {activeModal === 'announcements' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ background: '#16161a', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', marginBottom: '2px' }}>v91 UI Release</div>
+                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', lineHeight: 1.4 }}>Obsidian dark theme with purple neon accents and upgraded execution engine is now live.</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
