@@ -111,18 +111,31 @@ export default function App() {
       }
     };
 
+    const getMockSession = () => ({
+      user: {
+        id: 'offline-local-user',
+        email: 'offline@hollow.local',
+        user_metadata: {
+          displayName: localStorage.getItem('hollowDisplayName') || 'Local Trader',
+          traderTitle: 'Local Trader · Hollow'
+        }
+      }
+    });
+
     async function initAuth() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
         if (session) {
+          setSession(session);
           localStorage.setItem('hollow_last_user_id', session.user.id);
           syncFreshUserMetadata(session.user);
+        } else {
+          setSession(getMockSession());
+          setAppInitialized(true);
         }
-        if (!session) setAppInitialized(true);
       } catch (err) {
         console.error('Supabase session retrieval error:', err);
-        setSession(null);
+        setSession(getMockSession());
         setAppInitialized(true);
       } finally {
         setAuthLoaded(true);
@@ -148,14 +161,18 @@ export default function App() {
             setSession(currentSession);
           }
         } else if (event === 'SIGNED_OUT') {
-          await clearDatabase();
+          // Keep data local and auto-sign in to mock session instead of clearing database
           localStorage.removeItem('hollow_last_user_id');
-          setSession(null);
+          setSession(getMockSession());
           setAppInitialized(true);
         } else {
-          setSession(currentSession);
-          if (currentSession) syncFreshUserMetadata(currentSession.user);
-          if (!currentSession) setAppInitialized(true);
+          if (currentSession) {
+            setSession(currentSession);
+            syncFreshUserMetadata(currentSession.user);
+          } else {
+            setSession(getMockSession());
+            setAppInitialized(true);
+          }
         }
       } catch (err) {
         console.error('Auth state change error:', err);

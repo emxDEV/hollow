@@ -85,20 +85,31 @@ export default function MobileApp() {
     checkHashForRecovery();
     window.addEventListener('hashchange', checkHashForRecovery);
 
+    const getMockSession = () => ({
+      user: {
+        id: 'offline-local-user',
+        email: 'offline@hollow.local',
+        user_metadata: {
+          displayName: localStorage.getItem('hollowDisplayName') || 'Local Trader',
+          traderTitle: 'Local Trader · Hollow'
+        }
+      }
+    });
+
     async function initAuth() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
         if (session) {
+          setSession(session);
           syncProfileFromMetadata(session.user);
           localStorage.setItem('hollow_last_user_id', session.user.id);
-        }
-        if (!session) {
+        } else {
+          setSession(getMockSession());
           setAppInitialized(true);
         }
       } catch (err) {
         console.error('Supabase session retrieval error:', err);
-        setSession(null);
+        setSession(getMockSession());
         setAppInitialized(true);
       } finally {
         setAuthLoaded(true);
@@ -131,16 +142,15 @@ export default function MobileApp() {
             setSession(currentSession);
           }
         } else if (event === 'SIGNED_OUT') {
-          await clearDatabase();
           localStorage.removeItem('hollow_last_user_id');
-          setSession(null);
+          setSession(getMockSession());
           setAppInitialized(true);
         } else {
-          setSession(currentSession);
           if (currentSession) {
+            setSession(currentSession);
             syncProfileFromMetadata(currentSession.user);
-          }
-          if (!currentSession) {
+          } else {
+            setSession(getMockSession());
             setAppInitialized(true);
           }
         }
