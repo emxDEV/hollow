@@ -146,7 +146,7 @@ export default function AddPlanView({ addToast, onScrollChange }) {
         WebkitOverflowScrolling: 'touch',
         background: '#000000',
         color: '#ffffff',
-        padding: 'calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 84px) 16px',
+        padding: 'calc(var(--safe-top, 47px) + 16px) 16px calc(var(--safe-bottom, 34px) + 84px) 16px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',

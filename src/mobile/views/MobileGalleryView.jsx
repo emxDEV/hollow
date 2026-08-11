@@ -166,7 +166,7 @@ export default function MobileGalleryView({ trades = [], executions = [], select
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '12px',
-            paddingBottom: 'calc(64px + var(--safe-bottom))'
+            paddingBottom: 'calc(64px + var(--safe-bottom, 34px))'
           }}>
             {galleryItems.map(({ trade, pnl }) => {
               const img = getLTFImage(trade);

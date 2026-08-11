@@ -81,10 +81,12 @@ body {
     radial-gradient(circle at 15% 10%, rgba(184, 110, 255, 0.07) 0%, transparent 40%),
     radial-gradient(circle at 85% 90%, rgba(100, 210, 255, 0.05) 0%, transparent 45%);
   background-attachment: fixed;
+  overflow: hidden; /* Lock scroll bounce on mobile Safari */
 }
 
 html {
   height: 100%;
+  overflow: hidden; /* Lock scroll bounce on mobile Safari */
 }
 
 #root {

@@ -163,8 +163,8 @@ export default function TradesView({ trades, executions, selectedAccountId, onSe
           overflowY: 'auto', 
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',
-          paddingTop: 'calc(var(--safe-top) + 80px)',
-          paddingBottom: 'calc(64px + var(--safe-bottom) + 24px)'
+          paddingTop: 'calc(var(--safe-top, 47px) + 80px)',
+          paddingBottom: 'calc(64px + var(--safe-bottom, 34px) + 24px)'
         }}
       >
         {/* Search & Sort inside Scroll Area */}
@@ -362,7 +362,7 @@ export default function TradesView({ trades, executions, selectedAccountId, onSe
                 borderRadius: '20px 20px 0 0',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderBottom: 'none',
-                paddingBottom: 'calc(var(--safe-bottom) + 16px)'
+                paddingBottom: 'calc(var(--safe-bottom, 34px) + 16px)'
               }}
             >
               <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, margin: '12px auto 20px' }} />

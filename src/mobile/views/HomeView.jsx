@@ -111,7 +111,7 @@ export default function HomeView({ addToast, onScrollChange }) {
         WebkitOverflowScrolling: 'touch',
         background: '#000000',
         color: '#ffffff',
-        padding: 'calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 80px) 16px',
+        padding: 'calc(var(--safe-top, 47px) + 16px) 16px calc(var(--safe-bottom, 34px) + 80px) 16px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',

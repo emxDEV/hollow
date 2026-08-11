@@ -379,8 +379,8 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
           overflowY: 'auto', 
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',
-          paddingTop: 'calc(var(--safe-top) + 144px)',
-          paddingBottom: 'calc(64px + var(--safe-bottom) + 24px)'
+          paddingTop: 'calc(var(--safe-top, 47px) + 144px)',
+          paddingBottom: 'calc(64px + var(--safe-bottom, 34px) + 24px)'
         }}
       >
         <AnimatePresence mode="wait">

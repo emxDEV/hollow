@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, clearDatabase, subscribeToRealtimeSync } from '../db/hollowDb';
 import { supabase } from '../db/supabaseClient';
 import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
@@ -184,8 +185,15 @@ export default function MobileApp() {
     setShowBottomNav(true);
   };
 
+  const trades = useLiveQuery(() => (db && db.trades ? db.trades.toArray() : []), []) || [];
+  const executions = useLiveQuery(() => (db && db.executions ? db.executions.toArray() : []), []) || [];
+  const accounts = useLiveQuery(() => (db && db.accounts ? db.accounts.toArray() : []), []) || [];
+
   const viewProps = {
     addToast,
+    trades,
+    executions,
+    accounts,
     onScrollChange: (scrollTop) => setShowBottomNav(scrollTop <= 5)
   };
 
@@ -300,10 +308,14 @@ export default function MobileApp() {
           />
         )}
 
-        <SharePnLSheet
-          isOpen={showSharePnL}
-          onClose={() => setShowSharePnL(false)}
-        />
+        {showSharePnL && (
+          <SharePnLSheet
+            trades={trades}
+            executions={executions}
+            selectedAccountId="all"
+            onClose={() => setShowSharePnL(false)}
+          />
+        )}
 
         {/* Mobile Toast Overlay */}
         <div style={{
