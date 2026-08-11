@@ -16,19 +16,8 @@ export default function IPhoneFrame({ children }) {
     return <>{children}</>;
   }
 
-  // Live time for status bar
-  const [timeStr, setTimeStr] = useState(() => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const d = new Date();
-      setTimeStr(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
+  // Format time for status bar
+  const timeStr = "9:41";
 
   return (
     <div className="emulator-container">
@@ -47,41 +36,16 @@ export default function IPhoneFrame({ children }) {
         <div className="iphone-screen">
           {/* Dynamic Island */}
           <div className="dynamic-island-container">
-            <div className="dynamic-island" style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0 8px',
-            }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff453a', opacity: 0.8 }} />
-              <div style={{ display: 'flex', gap: '1px', alignItems: 'center' }}>
-                <span style={{ width: '2px', height: '6px', background: '#eab308', borderRadius: '1px' }} />
-                <span style={{ width: '2px', height: '10px', background: '#eab308', borderRadius: '1px' }} />
-                <span style={{ width: '2px', height: '4px', background: '#eab308', borderRadius: '1px' }} />
-              </div>
-            </div>
+            <div className="dynamic-island" />
           </div>
           
           {/* Status Bar */}
           <div className="iphone-status-bar">
-            <span className="iphone-time" style={{ fontWeight: 700, fontSize: '13px' }}>{timeStr || "21:30"}</span>
-            <div className="iphone-status-icons" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Signal size={12} fill="currentColor" stroke="none" />
-              <Wifi size={12} strokeWidth={2.4} />
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.4)',
-                borderRadius: '5px',
-                padding: '1px 3px',
-                fontSize: '9px',
-                fontWeight: 800,
-                color: '#fff',
-                gap: '1px',
-              }}>
-                <span>43</span>
-              </div>
+            <span className="iphone-time">{timeStr}</span>
+            <div className="iphone-status-icons">
+              <Signal size={11} fill="currentColor" stroke="none" />
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: -0.2 }}>5G</span>
+              <Battery size={15} style={{ marginLeft: 2, opacity: 0.9 }} />
             </div>
           </div>
           

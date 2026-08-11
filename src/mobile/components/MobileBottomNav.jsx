@@ -1,11 +1,9 @@
 import React from 'react';
-import { Home, Wallet, PlusCircle, MessageSquare, User } from 'lucide-react';
+import { Home, BookOpen, User } from 'lucide-react';
 
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'payouts', label: 'Payouts', icon: Wallet },
-  { id: 'add', label: 'Add', icon: PlusCircle },
-  { id: 'support', label: 'Support', icon: MessageSquare },
+  { id: 'journal', label: 'Journal', icon: BookOpen },
   { id: 'profile', label: 'Profile', icon: User }
 ];
 
@@ -13,75 +11,68 @@ export default function MobileBottomNav({ activeTab, onTabChange, visible = true
   return (
     <div style={{
       position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      zIndex: 200,
-      paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
-      paddingTop: '8px',
-      background: 'rgba(9, 9, 11, 0.92)',
-      backdropFilter: 'blur(24px) saturate(190%)',
-      WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-      borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+      bottom: 'calc(var(--safe-bottom) + 4px)',
+      left: '16px',
+      right: '16px',
+      zIndex: 100,
+      height: '64px',
+      background: 'rgba(20, 20, 22, 0.85)',
+      backdropFilter: 'blur(20px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+      borderRadius: '32px',
+      border: '1px solid rgba(255,255,255,0.08)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-around',
-      boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.6)',
-      transform: visible ? 'translateY(0)' : 'translateY(100%)',
+      padding: '0 8px',
+      boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+      transform: visible ? 'translateY(0) scale(1)' : 'translateY(80px) scale(0.95)',
       opacity: visible ? 1 : 0,
       pointerEvents: visible ? 'auto' : 'none',
-      transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease',
+      transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
     }}>
       {TABS.map((tab) => {
-        const isActive = activeTab === tab.id;
-        const IconComponent = tab.icon;
-
         return (
-          <button
+          <div
             key={tab.id}
-            onClick={() => onTabChange(tab.id)}
             style={{
               flex: 1,
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
               justifyContent: 'center',
-              gap: 3,
-              background: 'transparent',
-              border: 'none',
-              padding: '6px 4px',
-              minWidth: '54px',
-              cursor: 'pointer',
-              color: isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.4)',
-              transition: 'color 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              WebkitTapHighlightColor: 'transparent',
-              outline: 'none',
+              alignItems: 'center',
             }}
           >
-            <div style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              filter: isActive ? 'drop-shadow(0 0 8px rgba(184, 110, 255, 0.5))' : 'none',
-              transition: 'filter 0.2s ease',
-            }}>
-              <IconComponent
-                size={22}
-                strokeWidth={isActive ? 2.3 : 1.8}
-                color={isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.4)'}
-              />
-            </div>
-            <span style={{
-              fontSize: '10px',
-              fontWeight: isActive ? 700 : 500,
-              letterSpacing: '-0.01em',
-              fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
-              color: isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.4)',
-            }}>
-              {tab.label}
-            </span>
-          </button>
+            <button
+              onClick={() => onTabChange(tab.id)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+                background: activeTab === tab.id ? 'rgba(191, 90, 242, 0.1)' : 'transparent',
+                border: 'none',
+                borderRadius: '20px',
+                padding: '6px 10px',
+                minWidth: '50px',
+                height: '46px',
+                cursor: 'pointer',
+                color: activeTab === tab.id ? '#bf5af2' : 'rgba(255,255,255,0.4)',
+                transition: 'background 0.2s, color 0.2s',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {React.createElement(tab.icon, { size: 20, strokeWidth: activeTab === tab.id ? 2.2 : 1.8 })}
+              <span style={{
+                fontSize: 10,
+                fontWeight: activeTab === tab.id ? 600 : 500,
+                letterSpacing: '-0.01em',
+                fontFamily: 'var(--font)'
+              }}>
+                {tab.label}
+              </span>
+            </button>
+          </div>
         );
       })}
     </div>
