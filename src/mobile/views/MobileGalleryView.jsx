@@ -81,7 +81,7 @@ export default function MobileGalleryView({ trades = [], executions = [], select
     }}>
       {/* Header */}
       <div style={{
-        paddingTop: 'calc(var(--safe-top) + 8px)',
+        paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
         paddingLeft: '16px',
         paddingRight: '16px',
         paddingBottom: '12px',

@@ -17,7 +17,8 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick, vi
       left: 0,
       right: 0,
       zIndex: 200,
-      paddingBottom: 'calc(var(--safe-bottom) + 8px)',
+      /* Use env() directly — CSS custom props can't hold env() reliably in WebKit */
+      paddingBottom: 'max(env(safe-area-inset-bottom), 6px)',
       paddingTop: '10px',
       background: 'rgba(9, 9, 11, 0.94)',
       backdropFilter: 'blur(24px) saturate(190%)',

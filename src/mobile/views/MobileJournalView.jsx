@@ -140,7 +140,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       <div style={{
         flexShrink: 0,
         zIndex: 100,
-        paddingTop: 'calc(var(--safe-top) + 16px)',
+        paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
         paddingLeft: '20px',
         paddingRight: '20px',
         paddingBottom: '12px',
@@ -277,7 +277,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           padding: '16px',
-          paddingBottom: 'calc(var(--safe-bottom) + 96px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 96px)',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',

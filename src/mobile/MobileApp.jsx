@@ -349,7 +349,7 @@ export default function MobileApp() {
         {/* Mobile Toast Overlay */}
         <div style={{
           position: 'fixed',
-          top: 'calc(var(--safe-top) + 12px)',
+          top: 'calc(env(safe-area-inset-top) + 12px)',
           left: '16px',
           right: '16px',
           zIndex: 1000,

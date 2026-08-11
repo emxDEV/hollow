@@ -92,7 +92,7 @@ export default function TradesView({ trades, executions, selectedAccountId, onSe
         left: 0,
         right: 0,
         zIndex: 90,
-        paddingTop: 'calc(var(--safe-top) + 12px)',
+        paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
         paddingLeft: '20px',
         paddingRight: '20px',
         paddingBottom: '20px',
