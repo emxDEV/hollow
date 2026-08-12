@@ -8,6 +8,7 @@ import MobileAuthView from './views/MobileAuthView';
 import LoadingScreen from '../components/LoadingScreen';
 import WelcomeUpdateModal from '../components/WelcomeUpdateModal';
 import AddExecutionModal from '../components/AddExecutionModal';
+import ExecutionDetailModal from './components/ExecutionDetailModal';
 import HomeView from './views/HomeView';
 import MobileStatsView from './views/MobileStatsView';
 import PayoutsView from './views/PayoutsView';
@@ -336,6 +337,7 @@ export default function MobileApp() {
         )}
 
         <AddExecutionModal />
+        <ExecutionDetailModal />
 
         {showSharePnL && (
           <SharePnLSheet

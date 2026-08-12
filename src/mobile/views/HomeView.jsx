@@ -27,6 +27,7 @@ export default function HomeView({
   executions = []
 }) {
   const setSelectedDate = useUIStore(s => s.setSelectedDate);
+  const setSelectedExecutionDetail = useUIStore(s => s.setSelectedExecutionDetail);
   const lastTapRef = React.useRef(0);
 
   const [activeModal, setActiveModal] = useState(null); // null | 'notifications'
@@ -427,6 +428,7 @@ export default function HomeView({
                 return (
                   <div
                     key={exec.id}
+                    onClick={() => setSelectedExecutionDetail(exec)}
                     style={{
                       background: '#09090b',
                       border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -435,6 +437,7 @@ export default function HomeView({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
+                      cursor: 'pointer'
                     }}
                   >
                     {/* Symbol / Direction bubble */}
@@ -836,6 +839,7 @@ export default function HomeView({
                       return (
                         <div
                           key={exec.id}
+                          onClick={() => setSelectedExecutionDetail(exec)}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -844,6 +848,7 @@ export default function HomeView({
                             border: '1px solid rgba(255, 255, 255, 0.04)',
                             borderRadius: '12px',
                             padding: '8px 10px',
+                            cursor: 'pointer'
                           }}
                         >
                           {/* Mini Direction/Symbol bubble */}

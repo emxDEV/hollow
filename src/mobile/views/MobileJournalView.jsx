@@ -13,10 +13,10 @@ import {
 export default function MobileJournalView({ addToast, onScrollChange }) {
   const selectedDate = useUIStore(s => s.selectedDate);
   const setSelectedDate = useUIStore(s => s.setSelectedDate);
-  
-  const [activeTab, setActiveTab] = useState('daily'); // 'daily' | 'trades'
-  const [zoomImage, setZoomImage] = useState(null);
   const setIsAddExecutionOpen = useUIStore(s => s.setIsAddExecutionOpen);
+  const setSelectedExecutionDetail = useUIStore(s => s.setSelectedExecutionDetail);
+  const [activeTab, setActiveTab] = useState('daily');
+  const [zoomImage, setZoomImage] = useState(null);
 
   // Shift Date Helper
   const handleDateShift = (delta) => {
@@ -480,7 +480,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               </button>
             </div>
 
-            {dayTrades.length === 0 ? (
+            {(dayTrades.length === 0 && dayExecutions.filter(e => !e.tradeId).length === 0) ? (
               <div style={{
                 background: '#0e0e12',
                 border: '1px dashed rgba(255, 255, 255, 0.12)',
@@ -516,6 +516,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   return (
                     <div
                       key={trade.id}
+                      onClick={() => setSelectedExecutionDetail(trade)}
                       style={{
                         background: '#0e0e12',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -524,6 +525,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '10px',
+                        cursor: 'pointer'
                       }}
                     >
                       {/* Top Row: Info Pills + Outcome P&L */}
@@ -622,6 +624,79 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                           </div>
                         </div>
                       )}
+                    </div>
+                  );
+                })}
+
+                {/* 2. Standalone Executions */}
+                {dayExecutions.filter(e => !e.tradeId).map(exec => {
+                  const isGain = parseFloat(exec.rr) > 0.05 || (exec.manualPnL && parseFloat(exec.manualPnL) > 0);
+                  const isLoss = parseFloat(exec.rr) < -0.05 || (exec.manualPnL && parseFloat(exec.manualPnL) < 0);
+                  const execImg = Array.isArray(exec.ltfImages) && exec.ltfImages.length > 0 ? exec.ltfImages[0] : (
+                    Array.isArray(exec.images) && exec.images.length > 0 ? exec.images[0] : null
+                  );
+                  
+                  let outcomeColor = '#ffffff';
+                  if (isGain) outcomeColor = '#30d158';
+                  else if (isLoss) outcomeColor = '#ff453a';
+                  else if ((exec.wl || '').toUpperCase().startsWith('BE')) outcomeColor = '#ffd60a';
+
+                  return (
+                    <div
+                      key={exec.id}
+                      onClick={() => setSelectedExecutionDetail(exec)}
+                      style={{
+                        background: '#0e0e12',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '16px',
+                        padding: '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            background: 'rgba(100, 210, 255, 0.15)',
+                            color: '#64d2ff',
+                            fontWeight: 800,
+                            fontSize: '11px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            textTransform: 'uppercase'
+                          }}>{exec.symbol || 'NQ'}</span>
+                          <span style={{
+                            background: exec.bias === 'Short' ? 'rgba(255, 69, 58, 0.15)' : 'rgba(48, 209, 88, 0.15)',
+                            color: exec.bias === 'Short' ? '#ff453a' : '#30d158',
+                            fontWeight: 800,
+                            fontSize: '11px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            textTransform: 'uppercase'
+                          }}>{exec.bias || 'LONG'}</span>
+                          {exec.rating && (
+                            <span style={{
+                              background: 'rgba(184, 110, 255, 0.12)',
+                              color: '#d8b4fe',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '6px'
+                            }}>Grade {exec.rating}</span>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: outcomeColor }}>
+                            {isGain ? '+' : ''}{parseFloat(exec.rr || 0).toFixed(2)}R
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{exec.model || 'Standard Setup'} · {exec.session || 'New York'}</span>
+                        <span>{exec.executionTime ? `${exec.executionTime} EST` : ''}</span>
+                      </div>
                     </div>
                   );
                 })}
