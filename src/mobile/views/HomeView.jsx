@@ -1,103 +1,162 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/hollowDb';
-import { APP_VERSION } from '../../utils/version';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  ExternalLink,
-  ChevronRight,
-  Box,
-  Gift,
-  Award,
-  Trophy,
-  Newspaper,
-  Megaphone,
   Bell,
   X,
-  CheckCircle2,
-  Calendar,
-  Layers,
-  ArrowUpRight,
   TrendingUp,
-  Shield,
-  Zap,
-  Clock,
-  Sparkles
+  TrendingDown,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  Eye,
+  Activity,
+  Plus
 } from 'lucide-react';
 
-// Custom Discord Icon
-function DiscordIcon({ size = 20, color = 'currentColor' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-    </svg>
-  );
-}
-
-// Custom TradeSea & Tradovate Logos
-function TradeSeaIcon({ size = 20 }) {
-  return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: '6px',
-      background: 'linear-gradient(135deg, #0a84ff 0%, #0055d4 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: '#fff',
-      fontWeight: 900,
-      fontSize: size * 0.55
-    }}>
-      TS
-    </div>
-  );
-}
-
-function TradovateIcon({ size = 20 }) {
-  return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: '6px',
-      background: 'linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: '#fff',
-      fontWeight: 900,
-      fontSize: size * 0.55
-    }}>
-      <TrendingUp size={size * 0.75} strokeWidth={3} color="#ffffff" />
-    </div>
-  );
-}
-
-export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenWeeklyReview }) {
-  const [activeModal, setActiveModal] = useState(null); // 'accounts' | 'vault' | 'giveaway' | 'certs' | 'leaderboard' | 'news' | 'announcements' | 'discord' | 'notifications'
-  const [currentTimeStr, setCurrentTimeStr] = useState(() => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  });
+export default function HomeView({
+  addToast,
+  onScrollChange,
+  onNavigate,
+  onOpenWeeklyReview,
+  trades = [],
+  executions = []
+}) {
+  const [activeModal, setActiveModal] = useState(null); // null | 'notifications'
+  const [selectedDayInfo, setSelectedDayInfo] = useState(null); // { dateStr, pnlR, status, count }
+  const [zoomImage, setZoomImage] = useState(null);
 
   const displayName = localStorage.getItem('hollowDisplayName') || 'mXm';
 
-  // Accounts from DB or realistic defaults
-  const dbAccounts = useLiveQuery(() => (db && db.accounts ? db.accounts.toArray() : []), []) || [];
+  // 1. Calculate overall Winrate metrics from executions
+  const winRateMetrics = useMemo(() => {
+    const finished = executions.filter(e => e.wl === 'Win' || e.wl === 'Loss');
+    const total = finished.length;
+    if (total === 0) return { pct: 0, wins: 0, losses: 0 };
+    const wins = finished.filter(e => e.wl === 'Win').length;
+    const losses = total - wins;
+    return {
+      pct: Math.round((wins / total) * 100),
+      wins,
+      losses
+    };
+  }, [executions]);
+
+  // 2. Calculate today's P&L in R
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const dailyPnLinR = useMemo(() => {
+    const todayExecs = executions.filter(e => {
+      const dateStr = e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0];
+      return dateStr === todayStr;
+    });
+
+    let totalR = 0;
+    todayExecs.forEach(e => {
+      if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
+        const num = parseFloat(String(e.rr).replace(/[^0-9.-]/g, ''));
+        if (!isNaN(num)) totalR += num;
+      } else if (e.wl === 'Win') {
+        totalR += 2.0;
+      } else if (e.wl === 'Loss') {
+        totalR -= 1.0;
+      }
+    });
+    return totalR;
+  }, [executions, todayStr]);
+
+  // 3. Get 5 most recent executions
+  const recentExecutions = useMemo(() => {
+    const sorted = [...executions].sort((a, b) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return timeB - timeA;
+    });
+    return sorted.slice(0, 5);
+  }, [executions]);
+
+  // 4. Generate Mobile P&L Calendar optimized grid
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   
-  const accountMetrics = useMemo(() => {
-    if (dbAccounts.length > 0) {
-      const active = dbAccounts.filter(a => !a.isArchived).length;
-      const evals = dbAccounts.filter(a => a.type?.toLowerCase().includes('eval') || a.name?.toLowerCase().includes('eval')).length || Math.max(1, Math.floor(active * 0.6));
-      const funded = dbAccounts.filter(a => a.type?.toLowerCase().includes('funded') || a.name?.toLowerCase().includes('funded') || a.isFunded).length || Math.max(1, active - evals);
-      return { active: active || 3, evals: evals || 2, funded: funded || 1 };
+  const calendarData = useMemo(() => {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth(); // 0-indexed
+    
+    // First day of current month
+    const firstDay = new Date(year, month, 1);
+    // Day of the week for 1st day (0 = Sunday, 1 = Monday, etc.)
+    let startDayOfWeek = firstDay.getDay();
+    // Adjust to Monday-first grid (0 = Monday, 6 = Sunday)
+    startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+    
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    
+    // Fill padding cells
+    for (let i = 0; i < startDayOfWeek; i++) {
+      cells.push({ padding: true, id: `pad-${i}` });
     }
-    return { active: 3, evals: 2, funded: 1 };
-  }, [dbAccounts]);
+    
+    // Fill day cells with PNL lookup
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      const dayExecs = executions.filter(e => {
+        const dStr = e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0];
+        return dStr === dateStr;
+      });
+      
+      let pnlR = 0;
+      let count = dayExecs.length;
+      let traded = count > 0;
+      
+      dayExecs.forEach(e => {
+        if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
+          const num = parseFloat(String(e.rr).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) pnlR += num;
+        } else if (e.wl === 'Win') {
+          pnlR += 2.0;
+        } else if (e.wl === 'Loss') {
+          pnlR -= 1.0;
+        }
+      });
+      
+      let status = 'none'; // 'win', 'loss', 'breakeven', 'none'
+      if (traded) {
+        if (pnlR > 0.05) status = 'win';
+        else if (pnlR < -0.05) status = 'loss';
+        else status = 'breakeven';
+      }
+      
+      cells.push({
+        padding: false,
+        id: dateStr,
+        day,
+        dateStr,
+        pnlR,
+        status,
+        count
+      });
+    }
+    
+    return cells;
+  }, [executions, currentCalendarDate]);
+
+  const handleMonthShift = (direction) => {
+    const nextDate = new Date(currentCalendarDate);
+    nextDate.setMonth(nextDate.getMonth() + direction);
+    setCurrentCalendarDate(nextDate);
+    setSelectedDayInfo(null);
+  };
 
   const handleScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
-    if (onScrollChange) onScrollChange(scrollTop);
+    if (onScrollChange) onScrollChange(e.target.scrollTop);
   };
 
   return (
@@ -110,7 +169,6 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
       color: '#ffffff',
       fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
       overflow: 'hidden',
-      position: 'relative',
     }}>
 
       {/* ── STICKY BLURRY HEADER ── */}
@@ -127,60 +185,57 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
         backdropFilter: 'blur(28px) saturate(180%)',
         WebkitBackdropFilter: 'blur(28px) saturate(180%)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
-
-        {/* ── TOP HEADER: Hi, [Name] + Overview + Discord/Bell ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{
-              fontSize: '26px',
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
-              margin: '0 0 2px 0',
-              color: '#ffffff',
-            }}>
-              Hi, {displayName}
-            </h1>
-            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.6)', fontWeight: 400 }}>
-              Here's your trading overview
-            </div>
-            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.35)', marginTop: '2px', fontWeight: 500 }}>
-              Updated {currentTimeStr} · v91
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
-            <button
-              onClick={() => setActiveModal('discord')}
-              style={{
-                width: '38px', height: '38px', borderRadius: '12px',
-                background: 'rgba(88, 101, 242, 0.15)', border: '1px solid rgba(88, 101, 242, 0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#5865F2', outline: 'none',
-              }}
-            >
-              <DiscordIcon size={19} color="#7983f5" />
-            </button>
-
-            <button
-              onClick={() => setActiveModal('notifications')}
-              style={{
-                width: '38px', height: '38px', borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'rgba(255, 255, 255, 0.8)', position: 'relative', outline: 'none',
-              }}
-            >
-              <Bell size={18} />
-              <span style={{
-                position: 'absolute', top: '8px', right: '8px',
-                width: '7px', height: '7px', borderRadius: '50%',
-                background: '#ff453a', boxShadow: '0 0 6px rgba(255, 69, 58, 0.8)',
-              }} />
-            </button>
+        <div>
+          <h1 style={{
+            fontSize: '26px',
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+            margin: '0 0 2px 0',
+            color: '#ffffff',
+          }}>
+            Hi, {displayName}
+          </h1>
+          <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 400 }}>
+            Here's your trading overview
           </div>
         </div>
-      </div>{/* end sticky header */}
+
+        {/* Notifications Icon (top right) */}
+        <button
+          onClick={() => setActiveModal('notifications')}
+          style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '14px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'rgba(255, 255, 255, 0.8)',
+            position: 'relative',
+            outline: 'none',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Bell size={19} />
+          <span style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: '#ff453a',
+            boxShadow: '0 0 6px rgba(255, 69, 58, 0.8)',
+          }} />
+        </button>
+      </div>
 
       {/* ── SCROLLABLE CONTENT ── */}
       <div
@@ -190,7 +245,7 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          padding: '20px 16px',
+          padding: '16px',
           paddingBottom: 'calc(env(safe-area-inset-bottom) + 96px)',
           boxSizing: 'border-box',
           display: 'flex',
@@ -198,278 +253,415 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
           gap: '20px',
         }}
       >
-
-      {/* ── ACCOUNTS CARD ── */}
-      <div style={{
-        background: '#09090b',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '20px',
-        padding: '18px 20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-      }}>
-        {/* Top Header inside card */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-        }}>
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            color: 'rgba(255, 255, 255, 0.45)',
-            textTransform: 'uppercase',
+        
+        {/* ── STATS ROW (Winrate + Daily PNL in R) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          
+          {/* Winrate Card */}
+          <div style={{
+            background: '#09090b',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '18px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
           }}>
-            ACCOUNTS
-          </span>
-
-          <button
-            onClick={() => setActiveModal('accounts')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'rgba(184, 110, 255, 0.1)',
-              border: '1px solid rgba(184, 110, 255, 0.35)',
-              borderRadius: '100px',
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: '#d8b4fe',
-              cursor: 'pointer',
-              outline: 'none',
-              transition: 'background 0.2s',
-            }}
-          >
-            <span>Tap to view</span>
-            <ChevronRight size={12} strokeWidth={2.5} color="#d8b4fe" />
-          </button>
-        </div>
-
-        {/* 3 Metric Columns: ACTIVE | EVALS | FUNDED */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '8px',
-          textAlign: 'center',
-        }}>
-          <div>
-            <div style={{
-              fontSize: '24px',
-              fontWeight: 800,
-              color: '#ffffff',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.1,
-            }}>
-              {accountMetrics.active}
-            </div>
-            <div style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              color: 'rgba(255, 255, 255, 0.45)',
-              marginTop: '4px',
-              textTransform: 'uppercase',
-            }}>
-              ACTIVE
-            </div>
-          </div>
-
-          <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.06)', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}>
-            <div style={{
-              fontSize: '24px',
-              fontWeight: 800,
-              color: '#ffffff',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.1,
-            }}>
-              {accountMetrics.evals}
-            </div>
-            <div style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              color: 'rgba(255, 255, 255, 0.45)',
-              marginTop: '4px',
-              textTransform: 'uppercase',
-            }}>
-              EVALS
-            </div>
-          </div>
-
-          <div>
-            <div style={{
-              fontSize: '24px',
-              fontWeight: 800,
-              color: '#ffffff',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.1,
-            }}>
-              {accountMetrics.funded}
-            </div>
-            <div style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              color: 'rgba(255, 255, 255, 0.45)',
-              marginTop: '4px',
-              textTransform: 'uppercase',
-            }}>
-              FUNDED
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── LAUNCH PLATFORMS ↗ ── */}
-      <div>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontSize: '11px',
-          fontWeight: 800,
-          letterSpacing: '0.08em',
-          color: 'rgba(255, 255, 255, 0.45)',
-          textTransform: 'uppercase',
-          marginBottom: '10px',
-        }}>
-          <span>LAUNCH PLATFORMS</span>
-          <ExternalLink size={12} />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          {/* TradeSea Button */}
-          <button
-            onClick={() => {
-              window.open('https://tradesea.com', '_blank');
-              addToast('Opening TradeSea Platform...', 'info');
-            }}
-            style={{
-              background: '#09090b',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '14px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              cursor: 'pointer',
-              color: '#ffffff',
-              textAlign: 'left',
-              outline: 'none',
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-          >
-            <TradeSeaIcon size={26} />
-            <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              TradeSea
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Win Rate
             </span>
-          </button>
-
-          {/* Tradovate Button */}
-          <button
-            onClick={() => {
-              window.open('https://trader.tradovate.com', '_blank');
-              addToast('Opening Tradovate Platform...', 'info');
-            }}
-            style={{
-              background: '#09090b',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '14px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              cursor: 'pointer',
-              color: '#ffffff',
-              textAlign: 'left',
-              outline: 'none',
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-          >
-            <TradovateIcon size={26} />
-            <span style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              Tradovate
+            <div style={{ margin: '12px 0 6px' }}>
+              <span style={{ fontSize: '32px', fontWeight: 800, color: '#b86eff', letterSpacing: '-0.02em' }}>
+                {winRateMetrics.pct}%
+              </span>
+            </div>
+            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)' }}>
+              {winRateMetrics.wins}W — {winRateMetrics.losses}L
             </span>
-          </button>
-        </div>
-      </div>
+          </div>
 
-      {/* ── MENU LIST ── */}
-      <div>
-        <div style={{
-          fontSize: '11px',
-          fontWeight: 800,
-          letterSpacing: '0.08em',
-          color: 'rgba(255, 255, 255, 0.45)',
-          textTransform: 'uppercase',
-          marginBottom: '10px',
-        }}>
-          MENU
-        </div>
-
-        <div style={{
-          background: '#09090b',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '20px',
-          overflow: 'hidden',
-        }}>
-          {[
-            { id: 'vault', label: 'The Vault', icon: Box, color: '#b86eff' },
-            { id: 'giveaway', label: 'Giveaway', icon: Gift, color: '#b86eff' },
-            { id: 'certs', label: 'Certs', icon: Award, color: '#b86eff' },
-            { id: 'leaderboard', label: 'Leaderboard', icon: Trophy, color: '#b86eff' },
-            { id: 'news', label: 'News & Events', icon: Newspaper, color: '#b86eff' },
-            { id: 'announcements', label: 'Announcements', icon: Megaphone, color: '#b86eff' },
-            { id: 'discord', label: 'Connect Discord', icon: DiscordIcon, color: '#b86eff' }
-          ].map((item, idx, arr) => {
-            const IconComponent = item.icon;
-            return (
-              <div
-                key={item.id}
-                onClick={() => setActiveModal(item.id)}
-                style={{
+          {/* Daily PNL in R Card */}
+          <div style={{
+            background: '#09090b',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '18px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Daily P&amp;L (R)
+            </span>
+            <div style={{ margin: '12px 0 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '32px',
+                fontWeight: 800,
+                color: dailyPnLinR > 0.05 ? '#30d158' : (dailyPnLinR < -0.05 ? '#ff453a' : '#ffffff'),
+                letterSpacing: '-0.02em'
+              }}>
+                {dailyPnLinR >= 0 ? `+${dailyPnLinR.toFixed(2)}R` : `${dailyPnLinR.toFixed(2)}R`}
+              </span>
+              {dailyPnLinR !== 0 && (
+                <div style={{
+                  color: dailyPnLinR > 0 ? '#30d158' : '#ff453a',
                   display: 'flex',
-                  alignItems: 'center',
-                  padding: '15px 18px',
-                  borderBottom: idx < arr.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
-                  gap: '14px',
+                  alignItems: 'center'
+                }}>
+                  {dailyPnLinR > 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                </div>
+              )}
+            </div>
+            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)' }}>
+              Today's Net Outcome
+            </span>
+          </div>
+
+        </div>
+
+        {/* ── RECENT TRADING EXECUTIONS ── */}
+        <div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '10px',
+            paddingLeft: '2px'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Recent Executions
+            </span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+              Last 5 logs
+            </span>
+          </div>
+
+          {recentExecutions.length === 0 ? (
+            <div style={{
+              background: '#09090b',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '20px',
+              padding: '24px',
+              textAlign: 'center',
+              color: 'rgba(255, 255, 255, 0.35)',
+              fontSize: '13px'
+            }}>
+              No executions logged yet. Tap "+" below to add your first execution.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {recentExecutions.map((exec) => {
+                const isWin = exec.wl === 'Win';
+                const isLoss = exec.wl === 'Loss';
+                const hasImage = Array.isArray(exec.images) && exec.images.length > 0;
+                const imgData = hasImage ? (Array.isArray(exec.images[0]) ? exec.images[0][0] : exec.images[0]) : null;
+
+                // Format PNL / R for execution
+                let rValueStr = '0.00R';
+                if (exec.rr !== undefined && exec.rr !== null && exec.rr !== '') {
+                  const num = parseFloat(String(exec.rr).replace(/[^0-9.-]/g, ''));
+                  if (!isNaN(num)) {
+                    rValueStr = num >= 0 ? `+${num.toFixed(2)}R` : `${num.toFixed(2)}R`;
+                  }
+                } else if (isWin) {
+                  rValueStr = '+2.00R';
+                } else if (isLoss) {
+                  rValueStr = '-1.00R';
+                }
+
+                return (
+                  <div
+                    key={exec.id}
+                    style={{
+                      background: '#09090b',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '18px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                    }}
+                  >
+                    {/* Symbol / Direction bubble */}
+                    <div style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '12px',
+                      background: exec.bias === 'Long' ? 'rgba(48, 209, 88, 0.1)' : 'rgba(255, 69, 58, 0.1)',
+                      border: exec.bias === 'Long' ? '1px solid rgba(48, 209, 88, 0.2)' : '1px solid rgba(255, 69, 58, 0.2)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>
+                        {exec.symbol || 'NQ'}
+                      </span>
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        color: exec.bias === 'Long' ? '#30d158' : '#ff453a',
+                        textTransform: 'uppercase',
+                        lineHeight: 1
+                      }}>
+                        {exec.bias === 'Long' ? 'Buy' : 'Sell'}
+                      </span>
+                    </div>
+
+                    {/* Meta info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                          {exec.model || 'Standard Setup'}
+                        </span>
+                        {exec.rating && (
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            background: 'rgba(184, 110, 255, 0.15)',
+                            color: '#b86eff',
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                          }}>
+                            {exec.rating}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                        {exec.date || new Date(exec.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* Chart Thumbnail */}
+                    {imgData && (
+                      <div
+                        onClick={() => setZoomImage(imgData)}
+                        style={{
+                          width: '46px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          position: 'relative',
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                      >
+                        <img src={imgData} alt="setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'rgba(0,0,0,0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <Eye size={11} color="#fff" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Result */}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        color: isWin ? '#30d158' : (isLoss ? '#ff453a' : '#ffd60a')
+                      }}>
+                        {rValueStr}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.35)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        {exec.wl || 'Breakeven'}
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── P&L CALENDAR OPTIMIZED FOR MOBILE ── */}
+        <div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '10px',
+            paddingLeft: '2px'
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              P&amp;L Calendar
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => handleMonthShift(-1)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
                   cursor: 'pointer',
-                  transition: 'background 0.15s',
+                  padding: '4px'
                 }}
               >
-                <div style={{
-                  color: item.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  filter: 'drop-shadow(0 0 6px rgba(184, 110, 255, 0.3))',
-                }}>
-                  <IconComponent size={20} strokeWidth={2} color={item.color} />
-                </div>
+                <ChevronLeft size={16} />
+              </button>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff', minWidth: '95px', textAlign: 'center' }}>
+                {currentCalendarDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </span>
+              <button
+                onClick={() => handleMonthShift(1)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
 
-                <div style={{
-                  flex: 1,
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  color: item.id === 'vault' || item.id === 'giveaway' || item.id === 'discord' ? '#b86eff' : '#ffffff',
-                  letterSpacing: '-0.01em',
-                }}>
-                  {item.label}
-                </div>
+          <div style={{
+            background: '#09090b',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '16px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            
+            {/* Weekdays Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center' }}>
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((wd, i) => (
+                <span key={i} style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+                  {wd}
+                </span>
+              ))}
+            </div>
 
-                <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
-              </div>
-            );
-          })}
+            {/* Calendar Days Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: '10px', columnGap: '6px' }}>
+              {calendarData.map((cell) => {
+                if (cell.padding) {
+                  return <div key={cell.id} />;
+                }
+
+                // Determine day colors
+                let dayBg = 'rgba(255, 255, 255, 0.03)';
+                let dayColor = 'rgba(255, 255, 255, 0.8)';
+                let dayBorder = '1px solid rgba(255, 255, 255, 0.06)';
+                let glow = 'none';
+
+                if (cell.status === 'win') {
+                  dayBg = '#30d158'; // green
+                  dayColor = '#000000';
+                  dayBorder = 'none';
+                  glow = '0 0 10px rgba(48, 209, 88, 0.35)';
+                } else if (cell.status === 'loss') {
+                  dayBg = '#ff453a'; // red
+                  dayColor = '#ffffff';
+                  dayBorder = 'none';
+                  glow = '0 0 10px rgba(255, 69, 58, 0.35)';
+                } else if (cell.status === 'breakeven') {
+                  dayBg = '#ffd60a'; // yellow
+                  dayColor = '#000000';
+                  dayBorder = 'none';
+                  glow = '0 0 10px rgba(255, 214, 10, 0.35)';
+                }
+
+                // Highlight today's cell
+                const isCellToday = cell.dateStr === todayStr;
+
+                return (
+                  <div
+                    key={cell.id}
+                    onClick={() => setSelectedDayInfo(cell)}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: '50%',
+                      background: dayBg,
+                      color: dayColor,
+                      border: isCellToday ? '1px solid #b86eff' : dayBorder,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '13px',
+                      fontWeight: cell.traded || isCellToday ? 800 : 500,
+                      cursor: 'pointer',
+                      boxShadow: glow,
+                      position: 'relative',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    {cell.day}
+                    
+                    {/* Small Dot under today's date */}
+                    {isCellToday && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '4px',
+                        width: '3px',
+                        height: '3px',
+                        borderRadius: '50%',
+                        background: '#b86eff'
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Selected day inline detail card */}
+            {selectedDayInfo && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                  marginTop: '4px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Calendar size={14} color="#b86eff" />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                      {new Date(selectedDayInfo.dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    color: selectedDayInfo.status === 'win' ? '#30d158' : (selectedDayInfo.status === 'loss' ? '#ff453a' : (selectedDayInfo.status === 'breakeven' ? '#ffd60a' : 'rgba(255,255,255,0.4)'))
+                  }}>
+                    {selectedDayInfo.traded
+                      ? `${selectedDayInfo.pnlR >= 0 ? '+' : ''}${selectedDayInfo.pnlR.toFixed(2)}R (${selectedDayInfo.count} trades)`
+                      : 'No Trades'
+                    }
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+          </div>
         </div>
+
       </div>
 
       {/* ── MODALS / BOTTOM SHEETS ── */}
       <AnimatePresence>
-        {activeModal && (
+        {activeModal === 'notifications' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -528,369 +720,108 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
                 flexShrink: 0,
               }}>
                 <span style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff' }}>
-                  {activeModal === 'accounts' && 'Trading Accounts'}
-                  {activeModal === 'vault' && 'The Vault'}
-                  {activeModal === 'giveaway' && 'Trader Giveaways & Rewards'}
-                  {activeModal === 'certs' && 'Certificates & Milestones'}
-                  {activeModal === 'leaderboard' && 'Trader Leaderboard'}
-                  {activeModal === 'news' && 'Economic News & High-Impact Events'}
-                  {activeModal === 'announcements' && 'Announcements'}
-                  {activeModal === 'discord' && 'Discord Community'}
-                  {activeModal === 'notifications' && 'Notifications'}
+                  Notifications
                 </span>
                 <button
                   onClick={() => setActiveModal(null)}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.06)',
+                    background: 'none',
                     border: 'none',
-                    borderRadius: '50%',
-                    width: '30px',
-                    height: '30px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     color: 'rgba(255, 255, 255, 0.6)',
                     cursor: 'pointer',
+                    padding: 0
                   }}
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
               {/* Modal Body */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                
-                {/* 1. ACCOUNTS VIEW MODAL */}
-                {activeModal === 'accounts' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {[
-                        { name: 'Apex 50K Pro #1', type: 'EVAL', balance: '$51,420.00', pnl: '+$1,420.00', status: 'In Progress (71% Target)' },
-                        { name: 'Apex 50K Pro #2', type: 'EVAL', balance: '$50,850.00', pnl: '+$850.00', status: 'In Progress (42% Target)' },
-                        { name: 'Topstep 150K Funded', type: 'FUNDED', balance: '$154,200.00', pnl: '+$4,200.00', status: 'Payout Eligible' }
-                      ].map((acc, i) => (
-                        <div key={i} style={{
-                          background: '#16161a',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
-                          borderRadius: '14px',
-                          padding: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{acc.name}</span>
-                              <span style={{
-                                fontSize: '10px',
-                                fontWeight: 800,
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                background: acc.type === 'FUNDED' ? 'rgba(184, 110, 255, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                                color: acc.type === 'FUNDED' ? '#d8b4fe' : '#ffffff',
-                              }}>
-                                {acc.type}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>{acc.status}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#30d158' }}>{acc.pnl}</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>{acc.balance}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* 2. THE VAULT MODAL */}
-                {activeModal === 'vault' && (
-                  <>
-                    <div style={{
-                      background: 'rgba(184, 110, 255, 0.08)',
-                      border: '1px solid rgba(184, 110, 255, 0.2)',
-                      borderRadius: '16px',
-                      padding: '16px',
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { title: 'Risk Buffer Alert', text: 'Apex 50K account is at 82% profit target threshold.', time: '10m ago', unread: true },
+                    { title: 'Weekly Review Ready', text: 'Synthesize your trading performance for the week.', time: '1h ago', unread: true },
+                    { title: 'Backup Saved', text: 'Automated portable PDF database backup generated.', time: '1d ago', unread: false }
+                  ].map((item, i) => (
+                    <div key={i} style={{
+                      background: item.unread ? 'rgba(184, 110, 255, 0.08)' : '#16161a',
+                      border: item.unread ? '1px solid rgba(184, 110, 255, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <Sparkles size={20} color="#b86eff" />
-                        <span style={{ fontSize: '15px', fontWeight: 700, color: '#d8b4fe' }}>Hollow Edge Vault</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{item.title}</span>
+                        <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>{item.time}</span>
                       </div>
-                      <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', margin: 0, lineHeight: 1.4 }}>
-                        Exclusive institutional setups, model backtests, and high-probability algorithmic checklists unlocked for your profile.
-                      </p>
+                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>{item.text}</div>
                     </div>
-
-                    {[
-                      { title: 'PO3 Silver Bullet Blueprint', desc: '10:00 AM NY Session FVG & Liquidity Sweep Execution', rating: '94% Win Factor' },
-                      { title: 'London Judas Swing Reversal', desc: 'Pre-market low hunt with discount orderblock targeting', rating: '3.4 RR Avg' },
-                      { title: 'EOD Trailing Rule Calculator', desc: 'Dynamic contract sizing to preserve funded buffer', rating: 'Essential Rule' },
-                    ].map((item, i) => (
-                      <div key={i} style={{
-                        background: '#16161a',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
-                        borderRadius: '14px',
-                        padding: '14px',
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{item.title}</span>
-                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#b86eff', background: 'rgba(184, 110, 255, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>{item.rating}</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>{item.desc}</div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* 3. GIVEAWAY MODAL */}
-                {activeModal === 'giveaway' && (
-                  <>
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(184, 110, 255, 0.15) 0%, rgba(138, 48, 246, 0.2) 100%)',
-                      border: '1px solid rgba(184, 110, 255, 0.4)',
-                      borderRadius: '16px',
-                      padding: '16px',
-                      textAlign: 'center',
-                    }}>
-                      <Gift size={32} color="#d8b4fe" style={{ margin: '0 auto 8px' }} />
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
-                        Weekly 100K Account Giveaway
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', marginBottom: '14px' }}>
-                        Log your daily journals and reach 5 consecutive disciplined execution days to enter automatically.
-                      </div>
-                      <button
-                        onClick={() => {
-                          addToast('Entered in this week\'s 100K Giveaway! Good luck!', 'success');
-                          setActiveModal(null);
-                        }}
-                        style={{
-                          background: '#b86eff',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '10px 20px',
-                          color: '#000',
-                          fontSize: '13px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Enter Giveaway Now
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {/* 4. CERTS MODAL */}
-                {activeModal === 'certs' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {[
-                        { title: 'Passed 50K Pro Evaluation', date: 'August 2026', firm: 'Apex Trader Funding', verified: true },
-                        { title: '10-Day Discipline Master', date: 'July 2026', firm: 'Hollow Ledger', verified: true },
-                        { title: 'First $5,000 Payout Certificate', date: 'June 2026', firm: 'TopstepTrader', verified: true },
-                      ].map((cert, i) => (
-                        <div key={i} style={{
-                          background: '#16161a',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
-                          borderRadius: '14px',
-                          padding: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <Award size={24} color="#b86eff" />
-                            <div>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{cert.title}</div>
-                              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>{cert.firm} · {cert.date}</div>
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#30d158', background: 'rgba(48, 209, 88, 0.12)', padding: '3px 8px', borderRadius: '6px' }}>
-                            VERIFIED
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* 5. LEADERBOARD MODAL */}
-                {activeModal === 'leaderboard' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {[
-                        { rank: 1, user: 'mXm (You)', pnl: '+$14,820.50', winRate: '78%', badge: '🏆 Diamond' },
-                        { rank: 2, user: 'ApexHunter_NY', pnl: '+$12,450.00', winRate: '71%', badge: '🥈 Gold' },
-                        { rank: 3, user: 'VeloTrader', pnl: '+$10,190.00', winRate: '68%', badge: '🥉 Silver' },
-                        { rank: 4, user: 'NQ_FlowMaster', pnl: '+$8,940.00', winRate: '64%', badge: 'Top 5' },
-                        { rank: 5, user: 'GhostExecutor', pnl: '+$7,650.00', winRate: '62%', badge: 'Top 5' }
-                      ].map((item) => (
-                        <div key={item.rank} style={{
-                          background: item.rank === 1 ? 'rgba(184, 110, 255, 0.12)' : '#16161a',
-                          border: item.rank === 1 ? '1px solid rgba(184, 110, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: '12px',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 900, color: item.rank === 1 ? '#b86eff' : 'rgba(255, 255, 255, 0.4)', width: '20px' }}>
-                              #{item.rank}
-                            </span>
-                            <div>
-                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{item.user}</div>
-                              <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>Winrate: {item.winRate} · {item.badge}</div>
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '13px', fontWeight: 800, color: '#30d158' }}>
-                            {item.pnl}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* 6. NEWS & EVENTS MODAL */}
-                {activeModal === 'news' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {[
-                        { time: '08:30 AM EST', event: 'US Core CPI (MoM / YoY)', impact: 'HIGH', forecast: '0.2%', prev: '0.1%' },
-                        { time: '02:00 PM EST', event: 'FOMC Interest Rate Decision', impact: 'HIGH', forecast: '5.25%', prev: '5.25%' },
-                        { time: '08:30 AM EST', event: 'Non-Farm Employment Change (NFP)', impact: 'HIGH', forecast: '185K', prev: '206K' },
-                        { time: '10:00 AM EST', event: 'ISM Manufacturing PMI', impact: 'MED', forecast: '49.0', prev: '48.5' },
-                      ].map((news, i) => (
-                        <div key={i} style={{
-                          background: '#16161a',
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: '12px',
-                          padding: '12px 14px',
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.5)' }}>{news.time}</span>
-                            <span style={{
-                              fontSize: '9px',
-                              fontWeight: 800,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              background: news.impact === 'HIGH' ? 'rgba(255, 69, 58, 0.2)' : 'rgba(255, 159, 10, 0.2)',
-                              color: news.impact === 'HIGH' ? '#ff453a' : '#ff9f0a',
-                            }}>
-                              {news.impact} IMPACT
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>{news.event}</div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>Forecast: {news.forecast} · Previous: {news.prev}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* 7. ANNOUNCEMENTS MODAL */}
-                {activeModal === 'announcements' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {[
-                        { title: 'v91 Release: Unified Ledger & Obsidian UI', date: 'Today', text: 'New ultra-fast mobile navigation, real-time cloud sync, and enhanced execution charts.' },
-                        { title: 'Tradovate & TradeSea Direct Integration', date: '2 days ago', text: 'Direct platform linking now active with one-tap trade executions.' },
-                        { title: 'Sunday Automated PDF Ledgers', date: '1 week ago', text: 'Weekly automated full ledger exports ready every Sunday.' }
-                      ].map((item, i) => (
-                        <div key={i} style={{
-                          background: '#16161a',
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: '14px',
-                          padding: '14px',
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{item.title}</span>
-                            <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>{item.date}</span>
-                          </div>
-                          <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', margin: 0, lineHeight: 1.4 }}>{item.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* 8. DISCORD MODAL */}
-                {activeModal === 'discord' && (
-                  <>
-                    <div style={{
-                      background: 'rgba(88, 101, 242, 0.12)',
-                      border: '1px solid rgba(88, 101, 242, 0.35)',
-                      borderRadius: '16px',
-                      padding: '20px',
-                      textAlign: 'center',
-                    }}>
-                      <DiscordIcon size={40} color="#7983f5" style={{ margin: '0 auto 10px' }} />
-                      <div style={{ fontSize: '17px', fontWeight: 800, color: '#fff', marginBottom: '6px' }}>
-                        Hollow Trader Community
-                      </div>
-                      <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.7)', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                        Connect your Discord to access live market voice channels, trading edge playbooks, daily prep rooms, and support.
-                      </p>
-                      <button
-                        onClick={() => {
-                          window.open('https://discord.gg', '_blank');
-                          addToast('Discord connected successfully!', 'success');
-                          setActiveModal(null);
-                        }}
-                        style={{
-                          width: '100%',
-                          background: '#5865F2',
-                          border: 'none',
-                          borderRadius: '12px',
-                          padding: '12px',
-                          color: '#fff',
-                          fontSize: '14px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 20px rgba(88, 101, 242, 0.4)',
-                        }}
-                      >
-                        Join Discord Server
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {/* 9. NOTIFICATIONS MODAL */}
-                {activeModal === 'notifications' && (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {[
-                        { title: 'Risk Buffer Alert', text: 'Apex 50K account is at 82% profit target threshold.', time: '10m ago', unread: true },
-                        { title: 'Weekly Review Ready', text: 'Synthesize your trading performance for the week.', time: '1h ago', unread: true },
-                        { title: 'Backup Saved', text: 'Automated portable PDF database backup generated.', time: '1d ago', unread: false }
-                      ].map((item, i) => (
-                        <div key={i} style={{
-                          background: item.unread ? 'rgba(184, 110, 255, 0.08)' : '#16161a',
-                          border: item.unread ? '1px solid rgba(184, 110, 255, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: '12px',
-                          padding: '12px 14px',
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{item.title}</span>
-                            <span style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.4)' }}>{item.time}</span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>{item.text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
+                  ))}
+                </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-      </div>{/* end scrollable content */}
+
+      {/* ── FULL SCREEN ZOOM IMAGE OVERLAY ── */}
+      <AnimatePresence>
+        {zoomImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setZoomImage(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.95)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+          >
+            <button
+              onClick={() => setZoomImage(null)}
+              style={{
+                position: 'absolute',
+                top: 'calc(env(safe-area-inset-top) + 16px)',
+                right: '16px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              src={zoomImage}
+              alt="Zoomed execution chart"
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                borderRadius: '12px',
+                objectFit: 'contain',
+                boxShadow: '0 0 40px rgba(0, 0, 0, 0.9)'
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
