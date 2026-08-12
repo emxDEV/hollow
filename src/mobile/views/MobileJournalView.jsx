@@ -480,83 +480,6 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               </span>
             </div>
 
-            {/* SECTION 1: PRE-MARKET PREP */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pre-Market Prep</span>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                {[
-                  { label: 'News Checked', val: newsChecked, key: 'newsChecked', set: setNewsChecked },
-                  { label: 'HTF Analysis', val: htfAnalysisDone, key: 'htfAnalysisDone', set: setHtfAnalysisDone },
-                  { label: 'Liquidity Levels', val: liquidityDrawn, key: 'liquidityDrawn', set: setLiquidityDrawn },
-                  { label: 'Daily Open Mapped', val: dailyOpenMapped, key: 'dailyOpenMapped', set: setDailyOpenMapped }
-                ].map(item => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => {
-                      const next = !item.val;
-                      item.set(next);
-                      saveJournal({ [item.key]: next });
-                    }}
-                    style={{
-                      background: item.val ? 'rgba(184, 110, 255, 0.15)' : 'rgba(255,255,255,0.02)',
-                      border: item.val ? '1px solid rgba(184, 110, 255, 0.35)' : '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: '10px',
-                      padding: '8px 10px',
-                      color: item.val ? '#d8b4fe' : 'rgba(255,255,255,0.5)',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    <div style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '3px',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      background: item.val ? '#b86eff' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#000',
-                      fontSize: '9px',
-                      fontWeight: 900
-                    }}>
-                      {item.val && '✓'}
-                    </div>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
-              <textarea
-                value={preMarketNotes}
-                onChange={e => setPreMarketNotes(e.target.value)}
-                onBlur={() => saveJournal({ preMarketNotes })}
-                placeholder="Write your pre-market bias, key levels, or strategy plan..."
-                style={{
-                  width: '100%',
-                  height: '52px',
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '10px',
-                  padding: '8px 10px',
-                  color: '#fff',
-                  fontSize: '12px',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
             {/* SECTION 2: SLIDERS & METRICS */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Performance Ratings</span>
@@ -577,6 +500,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                   </div>
                   <input
                     type="range"
+                    className="ios-slider"
                     min="1"
                     max="10"
                     value={slider.val}
@@ -589,10 +513,14 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                     style={{
                       width: '100%',
                       accentColor: slider.color,
-                      height: '4px',
-                      background: 'rgba(255,255,255,0.1)',
-                      borderRadius: '2px',
-                      cursor: 'pointer'
+                      height: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      border: 'none',
+                      boxShadow: 'none',
+                      WebkitTapHighlightColor: 'transparent'
                     }}
                   />
                 </div>

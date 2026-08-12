@@ -977,11 +977,13 @@ export default function MobileStatsView({ trades = [], executions = [], selected
                           innerRadius={30}
                           outerRadius={45}
                           paddingAngle={3}
+                          stroke="none"
+                          strokeWidth={0}
                           dataKey="value"
                         >
                           {sessionData.map((entry, index) => {
                             const colors = ['#b86eff', '#64d2ff', '#30d158', '#ffd60a'];
-                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke="none" strokeWidth={0} />;
                           })}
                         </Pie>
                       </PieChart>
