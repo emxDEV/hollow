@@ -2,9 +2,25 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
-  BarChart, Bar, Cell, PieChart, Pie, CartesianGrid
+  BarChart, Bar, Cell, PieChart, Pie
 } from 'recharts';
-import { TrendingUp, TrendingDown, Award, Target, Zap, Clock, Shield, BookOpen, Camera, ChevronDown, ChevronLeft, Calendar, Sparkles } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Award,
+  Target,
+  Zap,
+  Clock,
+  Shield,
+  BookOpen,
+  Camera,
+  ChevronDown,
+  ChevronLeft,
+  Calendar,
+  Layers,
+  Activity,
+  Plus
+} from 'lucide-react';
 import { calculateTradePnL, isTradeWinRateEligible } from '../../utils/tradeMath';
 
 const fmt = (n) => {
@@ -17,25 +33,22 @@ const fmt = (n) => {
 
 const STAT_TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'playbook', label: 'Playbook' },
-  { id: 'discipline', label: 'Discipline' },
-  { id: 'time', label: 'Time' },
+  { id: 'setupStats', label: 'Setup Stats' },
 ];
 
-export default function MobileStatsView({ trades, executions, selectedAccountId, onSharePnL, onBack, onScrollChange }) {
-  const safeTrades = trades || [];
-  const safeExecutions = executions || [];
-  const safeAccountId = selectedAccountId || 'all';
-
+export default function MobileStatsView({ trades = [], executions = [], selectedAccountId = 'all', onSharePnL, onBack, onScrollChange }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeTableFilter, setActiveTableFilter] = useState('All'); // 'All' | 'Entry Timeframes' | 'DOL Targets' | 'PO3 Timings' | 'Models' | 'Ratings'
 
+  // Filter trades based on active account
   const acctTrades = useMemo(() => {
-    if (!safeAccountId || safeAccountId === 'all') return safeTrades;
-    return safeTrades.filter(t => t.accountId === safeAccountId);
-  }, [safeTrades, safeAccountId]);
+    if (!selectedAccountId || selectedAccountId === 'all') return trades;
+    return trades.filter(t => t.accountId === selectedAccountId);
+  }, [trades, selectedAccountId]);
 
+  // Enrich trades with net outcomes
   const enriched = useMemo(() => {
-    const standaloneExecTrades = safeExecutions
+    const standaloneExecTrades = executions
       .filter(e => e.id && !e.tradeId)
       .map(e => {
         let rVal = 0;
@@ -57,25 +70,39 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
           rating: e.rating || 'A+',
           netPnL,
           grossPnL: netPnL,
-          commissions: 0
+          commissions: 0,
+          rr: rVal
         };
       });
 
     const tradeEnriched = acctTrades.map(t => {
-      const execs = safeExecutions.filter(e => e.tradeId === t.id);
+      const execs = executions.filter(e => e.tradeId === t.id);
       const { netPnL, grossPnL, commissions } = calculateTradePnL(t, execs);
       return { ...t, netPnL, grossPnL, commissions };
     });
 
     return [...tradeEnriched, ...standaloneExecTrades];
-  }, [acctTrades, safeExecutions]);
+  }, [acctTrades, executions]);
 
+  // General KPIs and stats
   const stats = useMemo(() => {
-    if (!enriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, bigWin: 0, bigLoss: 0 };
+    if (!enriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, totalR: 0, expectancy: 0, wins: 0, losses: 0 };
+    
     const wins = enriched.filter(t => t.netPnL > 0);
     const losses = enriched.filter(t => t.netPnL < 0);
     const totalWin = wins.reduce((s, t) => s + t.netPnL, 0);
     const totalLoss = Math.abs(losses.reduce((s, t) => s + t.netPnL, 0));
+
+    // Calculate total R-multiple
+    let totalR = 0;
+    enriched.forEach(t => {
+      if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
+        totalR += parseFloat(t.rr) || 0;
+      } else {
+        totalR += t.netPnL / (t.riskAmount || 200);
+      }
+    });
+
     return {
       total: enriched.reduce((s, t) => s + t.netPnL, 0),
       winRate: (wins.length / enriched.length) * 100,
@@ -83,183 +110,350 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
       avgWin: wins.length ? totalWin / wins.length : 0,
       avgLoss: losses.length ? totalLoss / losses.length : 0,
       count: enriched.length,
-      bigWin: wins.length ? Math.max(...wins.map(t => t.netPnL)) : 0,
-      bigLoss: losses.length ? Math.max(...losses.map(t => Math.abs(t.netPnL))) : 0,
-      winCount: wins.length,
-      lossCount: losses.length
+      totalR,
+      expectancy: totalR / enriched.length,
+      wins: wins.length,
+      losses: losses.length
     };
   }, [enriched]);
 
+  // ── 1. SETUP STATS / EDGE DATA ──
+  const edgeStats = useMemo(() => {
+    const getStoredPills = (key, fallback) => {
+      try {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : fallback;
+      } catch { return fallback; }
+    };
+
+    const activeModels = getStoredPills('hollowCustomModels', ['MXM', 'CONT', 'MECH']);
+    const activeDOLs = getStoredPills('hollowCustomDOLs', [
+      'HTF alignment',
+      'EQH/EQL: 5< candles apart',
+      'Data High/Low',
+      'PDH/PDL',
+      'EQH/EQL: 1-3 candles apart',
+      'Trendline Liquidity',
+      'Unmitigated Imbalances',
+      'LRLR',
+      'Low Hanging Fruits',
+      'High/Low inside FVG\'s',
+      'NWOG/NDOG',
+      'REQL/REQH',
+      'Session Highs/ Lows',
+      'Order Blocks'
+    ]);
+    const activePO3s = getStoredPills('hollowCustomPO3Times', ['09:30', '09:45', '10:00', '10:15', '10:30']);
+    const activeEntryTFs = getStoredPills('hollowCustomEntryTFs', ['15s', '30s', '1m', '2m', '3m', '5m']);
+
+    const timeframesMap = {};
+    const dolsMap = {};
+    const po3Map = {};
+    const modelsMap = {};
+    const ratingsMap = {};
+    const weekdaysMap = {
+      Monday: { name: 'Monday', trades: 0, wins: 0, totalR: 0 },
+      Tuesday: { name: 'Tuesday', trades: 0, wins: 0, totalR: 0 },
+      Wednesday: { name: 'Wednesday', trades: 0, wins: 0, totalR: 0 },
+      Thursday: { name: 'Thursday', trades: 0, wins: 0, totalR: 0 },
+      Friday: { name: 'Friday', trades: 0, wins: 0, totalR: 0 }
+    };
+
+    const processItem = (map, key, pnl, rVal) => {
+      if (!key) return;
+      const cleanKey = key.trim();
+      if (!cleanKey) return;
+      if (!map[cleanKey]) map[cleanKey] = { name: cleanKey, trades: 0, wins: 0, totalR: 0 };
+      map[cleanKey].trades++;
+      if (pnl > 0) map[cleanKey].wins++;
+      map[cleanKey].totalR += rVal;
+    };
+
+    enriched.forEach(trade => {
+      const pnl = trade.netPnL;
+      let rVal = 0;
+      if (trade.rr !== undefined && trade.rr !== null && trade.rr !== '') {
+        rVal = parseFloat(String(trade.rr).replace(/[^0-9.-]/g, '')) || 0;
+      } else {
+        rVal = pnl / (trade.riskAmount || 200);
+      }
+
+      const tf = trade.entryTf || trade.timeframe || trade.entryTimeframe;
+      if (tf) processItem(timeframesMap, tf, pnl, rVal);
+
+      const dolField = trade.dol || trade.dolTarget;
+      if (dolField) {
+        String(dolField).split(',').forEach(d => processItem(dolsMap, d, pnl, rVal));
+      }
+
+      const po3Field = trade.po3Time || trade.po3Timing;
+      if (po3Field) {
+        String(po3Field).split(',').forEach(p => processItem(po3Map, p, pnl, rVal));
+      }
+
+      if (trade.model) processItem(modelsMap, trade.model, pnl, rVal);
+
+      const rating = trade.rating || 'A+';
+      processItem(ratingsMap, rating, pnl, rVal);
+
+      if (trade.date) {
+        const dayName = new Date(trade.date).toLocaleDateString('en-US', { weekday: 'long' });
+        if (weekdaysMap[dayName]) {
+          processItem(weekdaysMap, dayName, pnl, rVal);
+        }
+      }
+    });
+
+    const formatListOrdered = (map, orderedKeys) => {
+      return orderedKeys.map(key => {
+        const cleanKey = typeof key === 'object' ? key.label : key;
+        const item = map[cleanKey] || { name: cleanKey, trades: 0, wins: 0, totalR: 0 };
+        const winRate = item.trades > 0 ? (item.wins / item.trades) * 100 : 0;
+        const avgR = item.trades > 0 ? item.totalR / item.trades : 0;
+        return {
+          ...item,
+          winRate: winRate,
+          winRateStr: `${winRate.toFixed(1)}%`,
+          avgR: avgR,
+          totalR: item.totalR
+        };
+      });
+    };
+
+    return {
+      timeframes: formatListOrdered(timeframesMap, activeEntryTFs),
+      dols: formatListOrdered(dolsMap, activeDOLs),
+      po3: formatListOrdered(po3Map, activePO3s),
+      models: formatListOrdered(modelsMap, activeModels),
+      ratings: formatListOrdered(ratingsMap, ['A+', 'A', 'B', 'C', 'F']),
+      weekdays: formatListOrdered(weekdaysMap, ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
+    };
+  }, [enriched]);
+
+  // ── 2. CHARTS & DETAILS DATA ──
+  
   // Equity curve
   const equityCurve = useMemo(() => {
     const byDate = {};
     enriched.forEach(t => {
-      if (!byDate[t.date]) byDate[t.date] = 0;
-      byDate[t.date] += t.netPnL;
+      const dateStr = t.date ? t.date.slice(5) : '';
+      if (!dateStr) return;
+      byDate[dateStr] = (byDate[dateStr] || 0) + t.netPnL;
     });
     const sorted = Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b));
     let cum = 0;
     return sorted.map(([date, pnl]) => {
       cum += pnl;
-      return { date: date.slice(5), value: Math.round(cum * 100) / 100 };
+      return { date, value: cum };
     });
   }, [enriched]);
 
-  // By model for playbook
-  const byModel = useMemo(() => {
-    const groups = {};
-    enriched.forEach(t => {
-      const m = t.model || 'Unknown';
-      if (!groups[m]) groups[m] = { model: m, trades: 0, wins: 0, pnl: 0 };
-      groups[m].trades++;
-      if (t.netPnL > 0) groups[m].wins++;
-      groups[m].pnl += t.netPnL;
-    });
-    return Object.values(groups).sort((a, b) => b.pnl - a.pnl);
-  }, [enriched]);
-
-  // By symbol
-  const bySymbol = useMemo(() => {
-    const groups = {};
-    enriched.forEach(t => {
-      const s = t.symbol || 'Unknown';
-      if (!groups[s]) groups[s] = { symbol: s, trades: 0, wins: 0, pnl: 0 };
-      groups[s].trades++;
-      if (t.netPnL > 0) groups[s].wins++;
-      groups[s].pnl += t.netPnL;
-    });
-    return Object.values(groups).sort((a, b) => b.pnl - a.pnl);
-  }, [enriched]);
-
-  // Mistake freq
-  const mistakeFreq = useMemo(() => {
-    const freq = {};
-    enriched.forEach(t => {
-      (t.mistakes || []).forEach(m => {
-        freq[m] = (freq[m] || 0) + 1;
-      });
-    });
-    return Object.entries(freq).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
-  }, [enriched]);
-
-  // Day of Week performance
-  const dayOfWeekStats = useMemo(() => {
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const days = {
-      'Sunday': { name: 'Sun', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Monday': { name: 'Mon', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Tuesday': { name: 'Tue', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Wednesday': { name: 'Wed', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Thursday': { name: 'Thu', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Friday': { name: 'Fri', pnl: 0, trades: 0, wins: 0, losses: 0 },
-      'Saturday': { name: 'Sat', pnl: 0, trades: 0, wins: 0, losses: 0 }
+  // P&L Distribution (R) Bins
+  const pnlDistributionData = useMemo(() => {
+    const bins = {
+      '<-2R': 0,
+      '-2R': 0,
+      '-1R': 0,
+      '-0.5R': 0,
+      '0R': 0,
+      '0.5R': 0,
+      '1R': 0,
+      '2R': 0,
+      '>2R': 0
     };
 
+    enriched.forEach(t => {
+      let r = 0;
+      if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
+        r = parseFloat(t.rr) || 0;
+      } else {
+        r = t.netPnL / (t.riskAmount || 200);
+      }
+
+      if (r < -2.0) bins['<-2R']++;
+      else if (r <= -1.5) bins['-2R']++;
+      else if (r <= -0.75) bins['-1R']++;
+      else if (r < 0) bins['-0.5R']++;
+      else if (r === 0) bins['0R']++;
+      else if (r <= 0.75) bins['0.5R']++;
+      else if (r <= 1.5) bins['1R']++;
+      else if (r <= 2.5) bins['2R']++;
+      else bins['>2R']++;
+    });
+
+    return Object.entries(bins).map(([bin, count]) => ({ name: bin, count }));
+  }, [enriched]);
+
+  // Weekday Performance (R)
+  const weekdaysOutcome = useMemo(() => {
+    const data = {
+      Mon: 0,
+      Tue: 0,
+      Wed: 0,
+      Thu: 0,
+      Fri: 0
+    };
     enriched.forEach(t => {
       if (!t.date) return;
-      const d = new Date(t.date);
-      if (isNaN(d.getTime())) return;
-      const dayName = dayNames[d.getDay()];
-      if (days[dayName]) {
-        days[dayName].pnl += t.netPnL;
-        days[dayName].trades++;
-        if (isTradeWinRateEligible(t)) {
-          if (t.netPnL > 0) days[dayName].wins++;
-          else if (t.netPnL < 0) days[dayName].losses++;
+      const day = new Date(t.date).toLocaleDateString('en-US', { weekday: 'short' });
+      if (data[day] !== undefined) {
+        let r = 0;
+        if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
+          r = parseFloat(t.rr) || 0;
+        } else {
+          r = t.netPnL / (t.riskAmount || 200);
         }
+        data[day] += r;
       }
     });
-
-    return Object.values(days)
-      .filter(d => d.trades > 0 || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(d.name))
-      .map(d => {
-        const eligibleTrades = d.wins + d.losses;
-        return {
-          ...d,
-          winRate: eligibleTrades > 0 ? Math.round((d.wins / eligibleTrades) * 100) : 0,
-          pnl: Math.round(d.pnl)
-        };
-      });
+    return Object.entries(data).map(([day, r]) => ({ day, r }));
   }, [enriched]);
 
-  // Hour of Day performance
-  const hourlyStats = useMemo(() => {
-    const hoursMap = {};
-    for (let i = 8; i <= 17; i++) {
-      hoursMap[i] = { hour: `${i}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
-    }
-
+  // Performance by Session (NY, LN, AS, PM)
+  const sessionData = useMemo(() => {
+    const sessions = {
+      'New York': 0,
+      'London': 0,
+      'Asian': 0,
+      'Pre-Market': 0
+    };
     enriched.forEach(t => {
-      const tradeExecs = executions.filter(e => e.tradeId === t.id && e.type === 'ENTRY');
-      if (tradeExecs.length > 0) {
-        const date = new Date(tradeExecs[0].timestamp);
-        if (!isNaN(date.getTime())) {
-          const hr = date.getHours();
-          if (!hoursMap[hr]) {
-            hoursMap[hr] = { hour: `${hr}:00`, pnl: 0, tradesCount: 0, wins: 0, losses: 0 };
-          }
-          hoursMap[hr].pnl += t.netPnL;
-          hoursMap[hr].tradesCount++;
-          if (isTradeWinRateEligible(t)) {
-            if (t.netPnL > 0) hoursMap[hr].wins++;
-            else if (t.netPnL < 0) hoursMap[hr].losses++;
-          }
-        }
+      const s = t.session || 'New York';
+      if (sessions[s] !== undefined) {
+        sessions[s]++;
       }
     });
+    return Object.entries(sessions).map(([name, value]) => ({ name, value }));
+  }, [enriched]);
 
-    return Object.values(hoursMap).sort((a, b) => {
-      const aHr = parseInt(a.hour.split(':')[0]);
-      const bHr = parseInt(b.hour.split(':')[0]);
-      return aHr - bHr;
-    }).map(h => ({
-      ...h,
-      pnl: Math.round(h.pnl)
+  // Performance by Market
+  const marketPerformance = useMemo(() => {
+    const markets = {};
+    enriched.forEach(t => {
+      const sym = t.symbol || 'NQ';
+      if (!markets[sym]) markets[sym] = { symbol: sym, trades: 0, wins: 0, totalR: 0 };
+      markets[sym].trades++;
+      if (t.netPnL > 0) markets[sym].wins++;
+      
+      let r = 0;
+      if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
+        r = parseFloat(t.rr) || 0;
+      } else {
+        r = t.netPnL / (t.riskAmount || 200);
+      }
+      markets[sym].totalR += r;
+    });
+    return Object.values(markets).map(m => ({
+      ...m,
+      winRate: m.trades > 0 ? (m.wins / m.trades) * 100 : 0,
+      avgR: m.trades > 0 ? m.totalR / m.trades : 0
     }));
-  }, [enriched, executions]);
+  }, [enriched]);
 
-  const dayOfWeekInsights = useMemo(() => {
-    const activeDays = dayOfWeekStats.filter(d => d.trades > 0);
-    if (activeDays.length === 0) return { best: null, worst: null };
-    const sorted = [...activeDays].sort((a, b) => b.pnl - a.pnl);
-    return {
-      best: sorted[0].pnl > 0 ? sorted[0] : null,
-      worst: sorted[sorted.length - 1].pnl < 0 ? sorted[sorted.length - 1] : null
+  // Breakdown statistics (Avg Win, Avg Loss, Best, Worst, Win/Loss Ratio)
+  const rBreakdown = useMemo(() => {
+    const rMultiples = enriched.map(t => {
+      if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
+        return parseFloat(t.rr) || 0;
+      }
+      return t.netPnL / (t.riskAmount || 200);
+    });
+
+    const wins = rMultiples.filter(r => r > 0);
+    const losses = rMultiples.filter(r => r < 0);
+
+    const avgWin = wins.length ? wins.reduce((s, r) => s + r, 0) / wins.length : 0;
+    const avgLoss = losses.length ? losses.reduce((s, r) => s + r, 0) / losses.length : 0;
+    const best = rMultiples.length ? Math.max(...rMultiples) : 0;
+    const worst = rMultiples.length ? Math.min(...rMultiples) : 0;
+    const ratio = Math.abs(avgLoss) > 0 ? avgWin / Math.abs(avgLoss) : 0;
+
+    return { avgWin, avgLoss, best, worst, ratio };
+  }, [enriched]);
+
+  // Grade Distribution
+  const gradeDistribution = useMemo(() => {
+    const grades = {
+      'Grade A+/ A': 0,
+      'Grade B': 0,
+      'Grade C': 0,
+      'Grade F': 0
     };
-  }, [dayOfWeekStats]);
+    enriched.forEach(t => {
+      const g = t.rating || 'A+';
+      if (g === 'A+' || g === 'A') grades['Grade A+/ A']++;
+      else if (g === 'B') grades['Grade B']++;
+      else if (g === 'C') grades['Grade C']++;
+      else if (g === 'F') grades['Grade F']++;
+    });
+    return Object.entries(grades).map(([name, value]) => ({ name, value }));
+  }, [enriched]);
 
-  const hourlyInsights = useMemo(() => {
-    const activeHours = hourlyStats.filter(h => h.tradesCount > 0);
-    if (activeHours.length === 0) return { best: null, worst: null };
-    const sorted = [...activeHours].sort((a, b) => b.pnl - a.pnl);
-    return {
-      best: sorted[0].pnl > 0 ? sorted[0] : null,
-      worst: sorted[sorted.length - 1].pnl < 0 ? sorted[sorted.length - 1] : null
-    };
-  }, [hourlyStats]);
-
-  const isPositive = stats.total >= 0;
-  const [isScrolled, setIsScrolled] = useState(false);
   const handleScroll = (e) => {
-    const scrollTop = e.target.scrollTop;
-    setIsScrolled(scrollTop > 10);
-    if (onScrollChange) {
-      onScrollChange(scrollTop);
-    }
+    if (onScrollChange) onScrollChange(e.target.scrollTop);
   };
 
-  const OVERVIEW_KPIS = [
-    { label: 'Net P&L', value: fmt(stats.total), color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (isPositive ? '#30d158' : '#ff453a'), icon: TrendingUp },
-    { label: 'Win Rate', value: `${stats.winRate.toFixed(0)}%`, color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (stats.winRate >= 50 ? '#30d158' : '#ff453a'), icon: Target },
-    { label: 'Profit Factor', value: stats.pf.toFixed(2), color: stats.count === 0 ? 'rgba(255,255,255,0.7)' : (stats.pf >= 1.0 ? '#30d158' : '#ff453a'), icon: Zap },
-    { label: 'Total Trades', value: stats.count, color: '#bf5af2', icon: BookOpen },
-    { label: 'Avg Win', value: `$${stats.avgWin.toFixed(0)}`, color: '#30d158', icon: Award },
-    { label: 'Avg Loss', value: `$${stats.avgLoss.toFixed(0)}`, color: '#ff453a', icon: Shield },
-  ];
+  const renderBreakdownTable = (title, items) => {
+    return (
+      <div style={{
+        background: '#09090b',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '20px',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
+          <span style={{ fontSize: '14px', fontWeight: 800, color: '#fff' }}>{title}</span>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>{items.length} items</span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <th style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', padding: '6px 4px', textTransform: 'uppercase' }}>Label</th>
+                <th style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', padding: '6px 4px', textTransform: 'uppercase', textAlign: 'center' }}># Trades</th>
+                <th style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', padding: '6px 4px', textTransform: 'uppercase', textAlign: 'center' }}>Win Rate</th>
+                <th style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', padding: '6px 4px', textTransform: 'uppercase', textAlign: 'right' }}>Avg R</th>
+                <th style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', padding: '6px 4px', textTransform: 'uppercase', textAlign: 'right' }}>Total R</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => {
+                const totalRVal = item.totalR || 0;
+                return (
+                  <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <td style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', padding: '10px 4px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.name}
+                    </td>
+                    <td style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', padding: '10px 4px', textAlign: 'center' }}>
+                      {item.trades}
+                    </td>
+                    <td style={{ fontSize: '12px', color: '#fff', padding: '10px 4px', textAlign: 'center', fontWeight: 600 }}>
+                      {item.winRate.toFixed(0)}%
+                    </td>
+                    <td style={{ fontSize: '12px', padding: '10px 4px', textAlign: 'right', fontWeight: 700, color: item.avgR > 0 ? '#30d158' : (item.avgR < 0 ? '#ff453a' : '#fff') }}>
+                      {item.avgR >= 0 ? `+${item.avgR.toFixed(2)}` : `${item.avgR.toFixed(2)}`}
+                    </td>
+                    <td style={{ fontSize: '12px', padding: '10px 4px', textAlign: 'right', fontWeight: 700, color: totalRVal > 0 ? '#30d158' : (totalRVal < 0 ? '#ff453a' : '#fff') }}>
+                      {totalRVal >= 0 ? `+${totalRVal.toFixed(2)}` : `${totalRVal.toFixed(2)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: '#000' }}>
-      {/* Header */}
+    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', background: '#000000' }}>
+      
+      {/* ── STICKY BLURRY HEADER ── */}
       <div style={{
         flexShrink: 0,
         zIndex: 90,
@@ -295,40 +489,17 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
               </button>
             )}
             <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', margin: 0, marginBottom: 2 }}>
-                performance.
+              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: '#fff', margin: 0, marginBottom: 2 }}>
+                Analytics
               </h1>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                {stats.count} trades · {stats.winRate.toFixed(0)}% win rate
+                Detailed performance insights &amp; edge statistics
               </span>
-            </div>{/* title */}
-          </div>{/* left side */}
-          {stats.count > 0 && (
-            <button
-              onClick={() => onSharePnL && onSharePnL('daily')}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 20,
-                padding: '6px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'background 0.2s'
-              }}
-            >
-              <Camera size={13} />
-              <span>Share</span>
-              <ChevronDown size={12} color="rgba(255, 255, 255, 0.5)" />
-            </button>
-          )}
+            </div>
+          </div>
         </div>
 
-        {/* Tab Strip */}
+        {/* Tab Selector */}
         <div style={{
           display: 'flex',
           background: '#1c1c1e',
@@ -359,7 +530,7 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
         </div>
       </div>
 
-      {/* Scrollable Container */}
+      {/* ── SCROLLABLE CONTAINER ── */}
       <div 
         onScroll={handleScroll}
         style={{ 
@@ -367,501 +538,418 @@ export default function MobileStatsView({ trades, executions, selectedAccountId,
           overflowY: 'auto', 
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',
-          paddingTop: '16px',
-          paddingBottom: 'calc(64px + var(--safe-bottom, 34px) + 24px)'
+          padding: '16px',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom) + 24px)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px'
         }}
       >
         <AnimatePresence mode="wait">
+          
+          {/* ── OVERVIEW TAB ── */}
           {activeTab === 'overview' && (
-            <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              {/* Equity Chart */}
-              {equityCurve.length > 1 && (
-                <div style={{ padding: '0 16px', marginBottom: 16 }}>
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+            >
+              
+              {/* KPI Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                
+                {/* Payout Tracker */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid #b86eff',
+                  boxShadow: '0 0 12px rgba(184, 110, 255, 0.15)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#b86eff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Payout Tracker</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#30d158', margin: '4px 0' }}>+$0.00</div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>0 Payouts • Log &amp; Proof</span>
+                </div>
+
+                {/* Win Rate */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Win Rate</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: '4px 0' }}>{stats.winRate.toFixed(1)}%</div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>Overall Win Rate</span>
+                </div>
+
+                {/* Average R */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Average R</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#30d158', margin: '4px 0' }}>+{rBreakdown.avgWin.toFixed(2)}R</div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>{stats.totalR >= 0 ? `+${stats.totalR.toFixed(2)}R` : `${stats.totalR.toFixed(2)}R`} total</span>
+                </div>
+
+                {/* Profit Factor */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Profit Factor</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: '4px 0' }}>{stats.pf.toFixed(2)}</div>
                   <div style={{
-                    background: '#0f0f11',
-                    borderRadius: 20,
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    padding: '16px 0 8px',
-                    overflow: 'hidden'
+                    alignSelf: 'flex-start',
+                    fontSize: '8px',
+                    fontWeight: 800,
+                    background: stats.pf >= 1 ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+                    color: stats.pf >= 1 ? '#30d158' : '#ff453a',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase'
                   }}>
-                    <div style={{ padding: '0 16px 12px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Equity Curve</div>
-                      <div style={{ fontSize: 26, fontWeight: 700, color: isPositive ? '#30d158' : '#ff453a', letterSpacing: '-0.02em' }}>
-                        {fmt(stats.total)}
-                      </div>
-                    </div>
-                    <div style={{ height: 130 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={equityCurve} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="statsCurveGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={isPositive ? '#30d158' : '#ff453a'} stopOpacity={0.3} />
-                              <stop offset="100%" stopColor={isPositive ? '#30d158' : '#ff453a'} stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="date" tick={false} axisLine={false} tickLine={false} />
-                          <YAxis hide />
-                          <Area type="monotone" dataKey="value" stroke={isPositive ? '#30d158' : '#ff453a'} strokeWidth={2} fill="url(#statsCurveGrad)" dot={false} />
-                          <Tooltip
-                            contentStyle={{ background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 12 }}
-                            formatter={(v) => [`$${v.toFixed(2)}`, 'Equity']}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {stats.pf >= 1 ? 'Solid' : 'Needs Work'}
                   </div>
                 </div>
-              )}
 
-              {/* KPI Grid */}
-              <div style={{ padding: '0 16px', marginBottom: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {OVERVIEW_KPIS.map((k, i) => {
-                    const Icon = k.icon;
+                {/* Expectancy */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expectancy</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: stats.expectancy >= 0 ? '#30d158' : '#ff453a', margin: '4px 0' }}>
+                    {stats.expectancy >= 0 ? `+${stats.expectancy.toFixed(2)}R` : `${stats.expectancy.toFixed(2)}R`}
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>Per Trade</span>
+                </div>
+
+                {/* Total Trades */}
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '85px'
+                }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Trades</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', margin: '4px 0' }}>{stats.count}</div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>{stats.count} trades logged</span>
+                </div>
+
+              </div>
+
+              {/* Equity Curve Chart */}
+              <div style={{
+                background: '#09090b',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '16px'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Equity Curve</span>
+                <div style={{ height: 160, marginTop: 12 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={equityCurve} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="eqGlow" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#b86eff" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#b86eff" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" style={{ fontSize: '9px' }} />
+                      <YAxis stroke="rgba(255,255,255,0.2)" style={{ fontSize: '9px' }} />
+                      <Tooltip contentStyle={{ background: '#121216', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                      <Area type="monotone" dataKey="value" stroke="#b86eff" strokeWidth={2} fill="url(#eqGlow)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* P&L Distribution (R) */}
+              <div style={{
+                background: '#09090b',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '16px'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>P&amp;L Distribution (R)</span>
+                <div style={{ height: 160, marginTop: 12 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={pnlDistributionData} margin={{ top: 10, right: 5, left: -30, bottom: 0 }}>
+                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" style={{ fontSize: '9px' }} />
+                      <YAxis stroke="rgba(255,255,255,0.2)" style={{ fontSize: '9px' }} allowDecimals={false} />
+                      <Tooltip contentStyle={{ background: '#121216', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                      <Bar dataKey="count" fill="#b86eff" radius={[4, 4, 0, 0]}>
+                        {pnlDistributionData.map((entry, idx) => {
+                          const isNegative = entry.name.startsWith('-');
+                          return <Cell key={`cell-${idx}`} fill={isNegative ? 'rgba(255,69,58,0.75)' : (entry.name === '0R' ? 'rgba(255,255,255,0.3)' : 'rgba(48,209,88,0.75)')} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Weekday Performance */}
+              <div style={{
+                background: '#09090b',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '16px'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Performance by Day of Week</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                  {weekdaysOutcome.map((w) => {
+                    const isPos = w.r >= 0;
                     return (
-                      <div
-                        key={k.label}
-                        style={{
-                          background: '#0f0f11',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: 16,
-                          padding: '14px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                          <Icon size={14} color={k.color} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            {k.label}
-                          </span>
+                      <div key={w.day} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', width: '32px' }}>{w.day}</span>
+                        <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', position: 'relative' }}>
+                          <div style={{
+                            position: 'absolute',
+                            left: '50%',
+                            right: isPos ? 'auto' : '50%',
+                            width: `${Math.min(Math.abs(w.r) * 15, 50)}%`,
+                            height: '100%',
+                            background: isPos ? '#30d158' : '#ff453a',
+                            borderRadius: '3px',
+                          }} />
                         </div>
-                        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: k.color }}>
-                          {k.value}
-                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: isPos ? '#30d158' : '#ff453a', width: '55px', textAlign: 'right' }}>
+                          {w.r >= 0 ? `+${w.r.toFixed(2)}R` : `${w.r.toFixed(2)}R`}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Win/Loss breakdown */}
-              <div style={{ padding: '0 16px', marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                  Win / Loss Breakdown
-                </div>
-                <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <div style={{ height: 6, borderRadius: 3, background: '#30d158', flex: stats.winCount, transition: 'flex 0.4s' }} />
-                    <div style={{ height: 6, borderRadius: 3, background: '#ff453a', flex: stats.lossCount, transition: 'flex 0.4s' }} />
+              {/* Performance by Session */}
+              <div style={{
+                background: '#09090b',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '16px'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Performance by Session</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '14px' }}>
+                  <div style={{ width: '100px', height: '100px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={sessionData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={30}
+                          outerRadius={45}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {sessionData.map((entry, index) => {
+                            const colors = ['#b86eff', '#64d2ff', '#30d158', '#ffd60a'];
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                          })}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 700, color: '#30d158' }}>{stats.winCount}</span>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginLeft: 4 }}>wins</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 20, fontWeight: 700, color: '#ff453a' }}>{stats.lossCount}</span>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginLeft: 4 }}>losses</span>
-                    </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {sessionData.map((s, idx) => {
+                      const colors = ['#b86eff', '#64d2ff', '#30d158', '#ffd60a'];
+                      return (
+                        <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors[idx % colors.length] }} />
+                            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{s.name}</span>
+                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>{s.value} trades</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
-              {/* By Symbol */}
-              {bySymbol.length > 0 && (
-                <div style={{ padding: '0 16px', marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                    By Symbol
-                  </div>
-                  <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                    {bySymbol.slice(0, 5).map((s, i) => {
-                      const wr = s.trades > 0 ? (s.wins / s.trades) * 100 : 0;
-                      return (
-                        <div key={s.symbol} style={{
-                          padding: '12px 16px',
-                          borderBottom: i < Math.min(bySymbol.length, 5) - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12
-                        }}>
-                          <div style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 10,
-                            background: s.pnl >= 0 ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.12)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            fontWeight: 800,
-                            color: s.pnl >= 0 ? '#30d158' : '#ff453a'
-                          }}>
-                            {s.symbol.slice(0, 2)}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{s.symbol}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{s.trades} trades · {wr.toFixed(0)}% wr</div>
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: s.pnl >= 0 ? '#30d158' : '#ff453a' }}>
-                            {fmt(s.pnl)}
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* R Multiple Breakdown */}
+              <div style={{
+                background: '#09090b',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '20px',
+                padding: '16px'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>R Multiple Breakdown</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' }}>
+                  {[
+                    { label: 'Average Win', val: `+${rBreakdown.avgWin.toFixed(2)}R`, color: '#30d158' },
+                    { label: 'Average Loss', val: `${rBreakdown.avgLoss.toFixed(2)}R`, color: '#ff453a' },
+                    { label: 'Best Trade', val: `+${rBreakdown.best.toFixed(2)}R`, color: '#30d158' },
+                    { label: 'Worst Trade', val: `${rBreakdown.worst.toFixed(2)}R`, color: '#ff453a' },
+                    { label: 'Avg Win / Avg Loss Ratio', val: rBreakdown.ratio.toFixed(2), color: '#b86eff' },
+                  ].map((row) => (
+                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '6px' }}>
+                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{row.label}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: row.color }}>{row.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Performance by Market */}
+              {marketPerformance.length > 0 && (
+                <div style={{
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '20px',
+                  padding: '16px'
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Performance by Market</span>
+                  <div style={{ overflowX: 'auto', marginTop: '10px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <th style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', paddingBottom: '6px' }}>Market</th>
+                          <th style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', paddingBottom: '6px', textAlign: 'center' }}>Trades</th>
+                          <th style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', paddingBottom: '6px', textAlign: 'center' }}>Win Rate</th>
+                          <th style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', paddingBottom: '6px', textAlign: 'right' }}>Avg R</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {marketPerformance.map((m) => (
+                          <tr key={m.symbol} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ fontSize: '12px', fontWeight: 700, padding: '8px 0' }}>{m.symbol}</td>
+                            <td style={{ fontSize: '12px', padding: '8px 0', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>{m.trades}</td>
+                            <td style={{ fontSize: '12px', padding: '8px 0', textAlign: 'center', fontWeight: 600 }}>{m.winRate.toFixed(1)}%</td>
+                            <td style={{ fontSize: '12px', padding: '8px 0', textAlign: 'right', fontWeight: 700, color: m.avgR >= 0 ? '#30d158' : '#ff453a' }}>
+                              {m.avgR >= 0 ? `+${m.avgR.toFixed(2)}` : `${m.avgR.toFixed(2)}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
+
             </motion.div>
           )}
 
-          {activeTab === 'playbook' && (
-            <motion.div key="playbook" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div style={{ padding: '0 16px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                  Strategy Performance
-                </div>
-                {byModel.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
-                    No model data yet
-                  </div>
-                ) : (
-                  <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                    {byModel.map((m, i) => {
-                      const wr = m.trades > 0 ? (m.wins / m.trades) * 100 : 0;
-                      const isPos = m.pnl >= 0;
-                      return (
-                        <div key={m.model} style={{
-                          padding: '14px 16px',
-                          borderBottom: i < byModel.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {m.model}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                                {m.trades} trades · {wr.toFixed(0)}% wr
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: isPos ? '#30d158' : '#ff453a', marginLeft: 12 }}>
-                              {fmt(m.pnl)}
-                            </div>
-                          </div>
-                          {/* Progress bar */}
-                          <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                            <div style={{
-                              height: '100%',
-                              width: `${wr}%`,
-                              background: isPos ? '#30d158' : '#ff453a',
-                              borderRadius: 2,
-                              transition: 'width 0.4s'
-                            }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+          {/* ── SETUP STATS TAB ── */}
+          {activeTab === 'setupStats' && (
+            <motion.div
+              key="setupStats"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+            >
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>Setup &amp; Edge Statistics</span>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3 }}>
+                  Performance breakdown across Entry Timeframes, DOL Targets, PO3 Timings, Models, and Ratings.
+                </span>
               </div>
-            </motion.div>
-          )}
 
-          {activeTab === 'discipline' && (
-            <motion.div key="discipline" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div style={{ padding: '0 16px' }}>
-                {/* Key discipline metrics */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                    Risk Metrics
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px' }}>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Best Trade</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#30d158' }}>{fmt(stats.bigWin)}</div>
-                    </div>
-                    <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px' }}>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Worst Trade</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#ff453a' }}>-{fmt(stats.bigLoss)}</div>
-                    </div>
-                    <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px' }}>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Avg Win</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#30d158' }}>${stats.avgWin.toFixed(0)}</div>
-                    </div>
-                    <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px' }}>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Avg Loss</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#ff453a' }}>${stats.avgLoss.toFixed(0)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mistakes */}
-                {mistakeFreq.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                      Top Mistakes
-                    </div>
-                    <div style={{ background: '#0f0f11', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                      {mistakeFreq.map((m, i) => (
-                        <div key={m.name} style={{
-                          padding: '12px 16px',
-                          borderBottom: i < mistakeFreq.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12
-                        }}>
-                          <div style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
-                            background: 'rgba(255,69,58,0.12)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 13,
-                            fontWeight: 800,
-                            color: '#ff453a',
-                            flexShrink: 0
-                          }}>
-                            {m.count}
-                          </div>
-                          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', flex: 1 }}>{m.name}</span>
-                          <div style={{ height: 4, width: 60, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
-                            <div style={{
-                              height: '100%',
-                              width: `${Math.min(100, (m.count / mistakeFreq[0].count) * 100)}%`,
-                              background: '#ff453a',
-                              borderRadius: 2
-                            }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {mistakeFreq.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
-                    No mistakes logged yet — great discipline!
-                  </div>
-                )}
+              {/* Setup Stats Horizontal Filter Pills */}
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                paddingBottom: '2px'
+              }}>
+                {['All', 'Entry Timeframes', 'DOL Targets', 'PO3 Timings', 'Models', 'Ratings'].map((f) => {
+                  const isActive = activeTableFilter === f;
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setActiveTableFilter(f)}
+                      style={{
+                        flexShrink: 0,
+                        background: isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.04)',
+                        border: 'none',
+                        borderRadius: '100px',
+                        padding: '6px 14px',
+                        color: isActive ? '#000' : 'rgba(255, 255, 255, 0.65)',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {f}
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Render Selected Tables */}
+              {(activeTableFilter === 'All' || activeTableFilter === 'Entry Timeframes') && (
+                renderBreakdownTable('Entry Timeframes', edgeStats.timeframes)
+              )}
+
+              {(activeTableFilter === 'All' || activeTableFilter === 'DOL Targets') && (
+                renderBreakdownTable('Draw on Liquidity (DOL Targets)', edgeStats.dols)
+              )}
+
+              {(activeTableFilter === 'All' || activeTableFilter === 'PO3 Timings') && (
+                renderBreakdownTable('PO3 Timings', edgeStats.po3)
+              )}
+
+              {(activeTableFilter === 'All' || activeTableFilter === 'Models') && (
+                renderBreakdownTable('Entry Models', edgeStats.models)
+              )}
+
+              {(activeTableFilter === 'All' || activeTableFilter === 'Ratings') && (
+                renderBreakdownTable('Trade Rating Quality', edgeStats.ratings)
+              )}
+
+              {activeTableFilter === 'All' && (
+                renderBreakdownTable('Weekday Performance', edgeStats.weekdays)
+              )}
+
             </motion.div>
           )}
 
-          {activeTab === 'time' && (
-            <motion.div key="time" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                
-                {/* Day of Week PnL */}
-                <div style={{ background: '#0f0f11', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', padding: '16px' }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Calendar size={14} color="var(--colors-primary)" /> Weekday PnL Performance
-                  </h3>
-                  
-                  {/* Chart */}
-                  <div style={{ height: 180, width: '100%', marginBottom: 16 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dayOfWeekStats} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="mobileGainGradientDay" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#30d158" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#30d158" stopOpacity={0.05} />
-                          </linearGradient>
-                          <linearGradient id="mobileLossGradientDay" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ff453a" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#ff453a" stopOpacity={0.05} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} />
-                        <YAxis stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip
-                          contentStyle={{ background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 11 }}
-                          formatter={(v) => [`$${v}`, 'PnL']}
-                        />
-                        <Bar dataKey="pnl" barSize={14} radius={3}>
-                          {dayOfWeekStats.map((entry, index) => {
-                            const isGain = entry.pnl >= 0;
-                            return (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={isGain ? 'url(#mobileGainGradientDay)' : 'url(#mobileLossGradientDay)'}
-                                stroke={isGain ? '#30d158' : '#ff453a'}
-                                strokeWidth={1}
-                              />
-                            );
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Insights */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Insights</div>
-                    
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div style={{ flex: 1, background: 'rgba(48,209,88,0.05)', border: '1px solid rgba(48,209,88,0.12)', padding: '10px', borderRadius: 12 }}>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Best Weekday</div>
-                        {dayOfWeekInsights.best ? (
-                          <>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#30d158' }}>{dayOfWeekInsights.best.name}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{dayOfWeekInsights.best.winRate}% wr · {dayOfWeekInsights.best.trades} tr</div>
-                          </>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
-                        )}
-                      </div>
-                      <div style={{ flex: 1, background: 'rgba(255,69,58,0.05)', border: '1px solid rgba(255,69,58,0.12)', padding: '10px', borderRadius: 12 }}>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Worst Weekday</div>
-                        {dayOfWeekInsights.worst ? (
-                          <>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#ff453a' }}>{dayOfWeekInsights.worst.name}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{dayOfWeekInsights.worst.winRate}% wr · {dayOfWeekInsights.worst.trades} tr</div>
-                          </>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Recommendation */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 8,
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      padding: '8px 12px',
-                      borderRadius: 12,
-                      marginTop: 4
-                    }}>
-                      <Sparkles size={13} color="var(--colors-primary)" style={{ marginTop: 2, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
-                        {dayOfWeekInsights.best && dayOfWeekInsights.worst ? (
-                          <>Focus on trading <strong>{dayOfWeekInsights.best.name}</strong> where profitability peaks. Tighten risk on <strong>{dayOfWeekInsights.worst.name}</strong>.</>
-                        ) : dayOfWeekInsights.best ? (
-                          <>Your weekday profile is solid. Tuesday and Wednesday remain your core profitability drivers.</>
-                        ) : dayOfWeekInsights.worst ? (
-                          <>Weekday execution underperforming on <strong>{dayOfWeekInsights.worst.name}</strong>. Review these trade setups.</>
-                        ) : (
-                          <>Gather more weekday trading data to unlock schedules and performance recommendations.</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hour of Day PnL */}
-                <div style={{ background: '#0f0f11', borderRadius: 20, border: '1px solid rgba(255,255,255,0.06)', padding: '16px' }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Zap size={14} color="var(--colors-primary)" /> Hourly PnL Performance
-                  </h3>
-                  
-                  {/* Chart */}
-                  <div style={{ height: 180, width: '100%', marginBottom: 16 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={hourlyStats.filter(h => h.tradesCount > 0)} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="mobileGainGradientHour" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#30d158" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#30d158" stopOpacity={0.05} />
-                          </linearGradient>
-                          <linearGradient id="mobileLossGradientHour" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ff453a" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="#ff453a" stopOpacity={0.05} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="hour" stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} />
-                        <YAxis stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                        <Tooltip
-                          contentStyle={{ background: '#1c1c1e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 11 }}
-                          formatter={(v) => [`$${v}`, 'PnL']}
-                        />
-                        <Bar dataKey="pnl" barSize={12} radius={3}>
-                          {hourlyStats.filter(h => h.tradesCount > 0).map((entry, index) => {
-                            const isGain = entry.pnl >= 0;
-                            return (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={isGain ? 'url(#mobileGainGradientHour)' : 'url(#mobileLossGradientHour)'}
-                                stroke={isGain ? '#30d158' : '#ff453a'}
-                                strokeWidth={1}
-                              />
-                            );
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Insights */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Insights</div>
-                    
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div style={{ flex: 1, background: 'rgba(48,209,88,0.05)', border: '1px solid rgba(48,209,88,0.12)', padding: '10px', borderRadius: 12 }}>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Best Hour</div>
-                        {hourlyInsights.best ? (
-                          <>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#30d158' }}>{hourlyInsights.best.hour}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                              {hourlyInsights.best.tradesCount} tr · {Math.round((hourlyInsights.best.wins / hourlyInsights.best.tradesCount) * 100)}% wr
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
-                        )}
-                      </div>
-                      <div style={{ flex: 1, background: 'rgba(255,69,58,0.05)', border: '1px solid rgba(255,69,58,0.12)', padding: '10px', borderRadius: 12 }}>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 2 }}>Worst Hour</div>
-                        {hourlyInsights.worst ? (
-                          <>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#ff453a' }}>{hourlyInsights.worst.hour}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                              {hourlyInsights.worst.tradesCount} tr · {Math.round((hourlyInsights.worst.wins / hourlyInsights.worst.tradesCount) * 100)}% wr
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>None</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Recommendation */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 8,
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      padding: '8px 12px',
-                      borderRadius: 12,
-                      marginTop: 4
-                    }}>
-                      <Sparkles size={13} color="var(--colors-primary)" style={{ marginTop: 2, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
-                        {hourlyInsights.best && hourlyInsights.worst ? (
-                          <>Peak performance occurs around <strong>{hourlyInsights.best.hour}</strong>. Review discipline or fatigue levels at <strong>{hourlyInsights.worst.hour}</strong>.</>
-                        ) : hourlyInsights.best ? (
-                          <>Trading executions are highly optimal at <strong>{hourlyInsights.best.hour}</strong>. Keep running this session routine.</>
-                        ) : hourlyInsights.worst ? (
-                          <>Execution leakage concentrated at <strong>{hourlyInsights.worst.hour}</strong>. Consider sitting out or reducing risk during this period.</>
-                        ) : (
-                          <>Awaiting execution timestamp logs to isolate hourly execution efficiency.</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
-        <div style={{ height: 24 }} />
       </div>
+
     </div>
   );
 }
