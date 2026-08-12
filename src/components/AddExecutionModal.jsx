@@ -485,10 +485,10 @@ export default function AddExecutionModal() {
 
         <motion.div
           onClick={(e) => e.stopPropagation()}
-          initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95, y: 15 }}
+          initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: 12 }}
           animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
-          exit={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95, y: 15 }}
-          transition={isMobile ? { type: 'spring', damping: 28, stiffness: 240 } : { type: 'spring', stiffness: 350, damping: 28 }}
+          exit={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: 12 }}
+          transition={isMobile ? { type: 'spring', damping: 28, stiffness: 240 } : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           style={{
             width: '100%',
             maxWidth: '680px',

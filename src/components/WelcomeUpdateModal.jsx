@@ -117,10 +117,10 @@ export default function WelcomeUpdateModal({ isMobile }) {
         }}
       >
         <motion.div
-          initial={{ scale: 0.96, y: 15 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.96, y: 15 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          initial={{ scale: 0.96, y: 12, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.96, y: 12, opacity: 0 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           style={{
             width: '100%',
             maxWidth: 440,

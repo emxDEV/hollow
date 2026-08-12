@@ -449,8 +449,10 @@ export default function App() {
           <AnimatePresence mode="wait">
             {view === 'dashboard' && (
               <motion.div key="dashboard"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <DashboardView sidebarCollapsed={sidebarCollapsed} />
@@ -458,8 +460,10 @@ export default function App() {
             )}
             {view === 'analytics' && (
               <motion.div key="analytics"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <AnalyticsView />
@@ -467,8 +471,10 @@ export default function App() {
             )}
             {view === 'calendar' && (
               <motion.div key="calendar"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <CalendarView />
@@ -476,8 +482,10 @@ export default function App() {
             )}
             {view === 'journal' && (
               <motion.div key="journal"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <JournalView />
@@ -485,8 +493,10 @@ export default function App() {
             )}
             {view === 'weeklyReview' && (
               <motion.div key="weeklyReview"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <WeeklyReviewView />
@@ -494,8 +504,10 @@ export default function App() {
             )}
             {view === 'settings' && (
               <motion.div key="settings"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <SettingsView />

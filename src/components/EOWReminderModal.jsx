@@ -55,10 +55,10 @@ export default function EOWReminderModal() {
         onClick={handleDismiss}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           onClick={e => e.stopPropagation()}
           style={{
             background: '#0f0f11',
