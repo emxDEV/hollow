@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 
 export default function MobileJournalView({ addToast, onScrollChange }) {
-  const selectedDate = useUIStore(s => s.selectedDate);
+  const selectedDateRaw = useUIStore(s => s.selectedDate);
+  const selectedDate = selectedDateRaw || new Date().toISOString().split('T')[0];
   const setSelectedDate = useUIStore(s => s.setSelectedDate);
   const setIsAddExecutionOpen = useUIStore(s => s.setIsAddExecutionOpen);
   const setSelectedExecutionDetail = useUIStore(s => s.setSelectedExecutionDetail);
@@ -282,9 +283,9 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               >
                 <Calendar size={12} color="#b86eff" />
                 {(() => {
-                  const parts = selectedDate.split('-');
+                  const parts = (selectedDate || '').split('-');
                   if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
-                  return selectedDate;
+                  return selectedDate || '';
                 })()}
               </button>
               <input
@@ -974,7 +975,9 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 <div
                   key={exec.id}
                   onClick={() => {
-                    setSelectedDate(exec.date);
+                    if (exec.date) {
+                      setSelectedDate(exec.date);
+                    }
                     setSelectedExecutionDetail(exec);
                   }}
                   style={{
