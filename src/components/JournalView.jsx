@@ -273,7 +273,7 @@ export default function JournalView() {
         gap: '14px'
       }}>
         {/* Card 1: R Return */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontWeight: '700' }}>R Return</span>
           <div style={{ fontSize: '22px', fontWeight: '800', color: daySummary.totalPnL >= 0 ? '#30d158' : '#ff453a', marginTop: '4px' }}>
             {daySummary.totalR >= 0 ? '+' : ''}{daySummary.totalR}R
@@ -281,7 +281,7 @@ export default function JournalView() {
         </div>
 
         {/* Card 2: Day Win Rate */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontWeight: '700' }}>Day Win Rate</span>
           <div style={{ fontSize: '22px', fontWeight: '800', color: '#ffffff', marginTop: '4px' }}>
             {daySummary.winRate}%
@@ -289,7 +289,7 @@ export default function JournalView() {
         </div>
 
         {/* Card 3: Trades Executed */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px' }}>
           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontWeight: '700' }}>Trades Executed</span>
           <div style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginTop: '4px' }}>
             {daySummary.totalCount} ({daySummary.wins}W / {daySummary.losses}L{daySummary.be > 0 ? ` / ${daySummary.be}BE` : ''})
@@ -350,7 +350,7 @@ export default function JournalView() {
                 key={trade.id}
                 onClick={() => openEditExecution(trade.rawExec || trade)}
                 style={{
-                  background: '#0f0f11',
+                  background: 'var(--colors-surface-card)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '18px',
                   padding: '20px',

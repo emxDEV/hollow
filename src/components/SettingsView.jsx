@@ -552,7 +552,7 @@ function CustomPillManager() {
       {/* Grid of Pill Category Manager Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Category 1: Models */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(184, 110, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(184, 110, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#b86eff' }}>Playbook Models</div>
@@ -622,7 +622,7 @@ function CustomPillManager() {
         </div>
 
         {/* Category 2: Draw on Liquidity (DOL) with Color Picker */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(48, 209, 88, 0.24)', borderRadius: '20px', padding: '20px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(48, 209, 88, 0.24)', borderRadius: '20px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#30d158' }}>Draw on Liquidity (DOL)</div>
@@ -712,7 +712,7 @@ function CustomPillManager() {
         </div>
 
         {/* Category 3: PO3 Execution Times */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(255, 159, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(255, 159, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#ff9f0a' }}>PO3 Execution Timings</div>
@@ -782,7 +782,7 @@ function CustomPillManager() {
         </div>
 
         {/* Category 4: Entry Timeframes */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(100, 210, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(100, 210, 255, 0.24)', borderRadius: '20px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#64d2ff' }}>Entry Timeframes</div>
@@ -852,7 +852,7 @@ function CustomPillManager() {
         </div>
 
         {/* Category 5: Psychology & Mindset Tags */}
-        <div style={{ background: '#0f0f11', border: '1px solid rgba(255, 214, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
+        <div style={{ background: 'var(--colors-surface-card)', border: '1px solid rgba(255, 214, 10, 0.24)', borderRadius: '20px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffd60a' }}>Psychology & Mindset Tags</div>

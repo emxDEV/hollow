@@ -151,7 +151,7 @@ export default function DashboardView() {
         height: '100%',
         width: '100%',
         overflowY: 'auto',
-        background: '#070709',
+        background: '#000000',
         color: '#ffffff',
         padding: isMobile ? '16px' : '32px 36px',
         boxSizing: 'border-box'
@@ -289,8 +289,8 @@ export default function DashboardView() {
                     key={exec.id}
                     onClick={() => openEditExecution(exec)}
                     style={{
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
                       borderRadius: '12px',
                       padding: '14px 16px',
                       display: 'flex',
@@ -298,10 +298,16 @@ export default function DashboardView() {
                       justifyContent: 'space-between',
                       gap: '14px',
                       cursor: 'pointer',
-                      transition: 'border-color 0.15s'
+                      transition: 'all 0.15s ease'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(184, 110, 255, 0.4)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)'}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'rgba(184, 110, 255, 0.45)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                       <div className={isWin ? 'hollow-badge-gain' : (isLoss ? 'hollow-badge-loss' : 'hollow-glass-input')} style={{ padding: '5px 10px', borderRadius: '8px', minWidth: '46px', textAlign: 'center', justifyContent: 'center' }}>

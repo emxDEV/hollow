@@ -66,7 +66,7 @@ export default function Sidebar({
       style={{
         flexShrink: 0,
         background: '#09090b',
-        borderRight: '1px solid #1c1c1e',
+        borderRight: '1px solid rgba(255, 255, 255, 0.08)',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',

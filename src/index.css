@@ -2,7 +2,7 @@
 
 /* HOLLOW OBSIDIAN-GLASS COGNITIVE DESIGN SYSTEM */
 :root {
-  --colors-canvas-dark: #070709;
+  --colors-canvas-dark: #000000;
   --colors-canvas-light: #ffffff;
   
   --colors-primary: #b86eff;
@@ -14,10 +14,10 @@
   --colors-cyan-accent: #64d2ff;
   --colors-cyan-dim: rgba(100, 210, 255, 0.12);
   
-  --colors-surface-soft: #121216;
-  --colors-surface-card: #0c0c0e;
-  --colors-surface-deep: #050507;
-  --colors-surface-elevated: #16161c;
+  --colors-surface-soft: #0f0f11;
+  --colors-surface-card: #09090b;
+  --colors-surface-deep: #000000;
+  --colors-surface-elevated: #121214;
   
   --colors-hairline-dark: rgba(255, 255, 255, 0.08);
   --colors-hairline-strong: rgba(255, 255, 255, 0.16);
@@ -82,8 +82,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image: 
-    radial-gradient(circle at 15% 10%, rgba(184, 110, 255, 0.07) 0%, transparent 40%),
-    radial-gradient(circle at 85% 90%, rgba(100, 210, 255, 0.05) 0%, transparent 45%);
+    radial-gradient(circle at 50% 0%, rgba(184, 110, 255, 0.04) 0%, transparent 50%);
   background-attachment: fixed;
   overflow: hidden; /* Lock scroll bounce on mobile Safari */
 }
@@ -252,12 +251,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* HOLLOW GLASS CARD SYSTEM */
 .hollow-card {
-  background: linear-gradient(145deg, rgba(18, 18, 24, 0.8) 0%, rgba(10, 10, 14, 0.9) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--colors-hairline-dark);
+  background: var(--colors-surface-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
   transition: border-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
@@ -266,8 +263,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hollow-card-interactive:hover {
-  border-color: var(--colors-primary-glow);
-  box-shadow: 0 12px 36px -8px rgba(184, 110, 255, 0.18), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  border-color: var(--colors-primary);
+  box-shadow: 0 12px 36px rgba(184, 110, 255, 0.15);
   transform: translateY(-2px);
 }
 

@@ -482,7 +482,7 @@ export default function CalendarView() {
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'flex-end',
-              background: '#0f0f11',
+              background: 'var(--colors-surface-card)',
               border: '1px solid rgba(255, 255, 255, 0.08)'
             }}>
               <span style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.4)' }}>
@@ -536,8 +536,8 @@ export default function CalendarView() {
               exit={{ scale: 0.95, y: 10 }}
               onClick={e => e.stopPropagation()}
               style={{
-                background: '#0f0f11',
-                border: '1px solid rgba(184, 110, 255, 0.3)',
+                background: 'var(--colors-surface-card)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '20px',
                 width: '100%',
                 maxWidth: '480px',

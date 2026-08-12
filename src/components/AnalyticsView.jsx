@@ -24,7 +24,7 @@ const COLORS = {
   gold: '#ffd60a',
   cyan: '#64d2ff',
   muted: 'rgba(255, 255, 255, 0.45)',
-  cardBg: '#0f0f11',
+  cardBg: '#09090b',
   cardBorder: 'rgba(255, 255, 255, 0.08)'
 };
 

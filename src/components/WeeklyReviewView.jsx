@@ -1025,7 +1025,7 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
           flexDirection: isMobile ? 'row' : 'none',
           gridTemplateColumns: isMobile ? 'none' : 'repeat(5, 1fr)',
           gap: '12px',
-          background: '#0f0f11',
+          background: 'var(--colors-surface-card)',
           border: '1px solid var(--colors-hairline-dark)',
           borderRadius: 'var(--radius-lg)',
           padding: '12px',
@@ -1057,7 +1057,7 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
                     ? 'rgba(255, 255, 255, 0.08)' 
                     : isWinningDay ? 'rgba(48, 209, 88, 0.04)'
                     : isLosingDay ? 'rgba(255, 69, 58, 0.04)'
-                    : '#0f0f11',
+                    : 'var(--colors-surface-card)',
                   boxShadow: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -1145,8 +1145,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
             flexDirection: 'column', 
             gap: '20px', 
             padding: '24px', 
-            background: '#0f0f11',
-            border: '1px solid #1c1c1e',
+            background: 'var(--colors-surface-card)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             borderLeft: `4px solid ${weeklyTradeMetrics.totalPnL >= 0 ? 'var(--colors-gain)' : 'var(--colors-loss)'}` 
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1274,10 +1274,10 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
             display: 'flex',
             flexDirection: 'row',
             gap: '4px',
-            background: '#0f0f11',
+            background: 'rgba(255, 255, 255, 0.03)',
             padding: '4px',
             borderRadius: '14px',
-            border: '1px solid #1c1c1e',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             width: '100%',
             overflowX: isMobile ? 'auto' : 'visible',
             scrollbarWidth: 'none'
@@ -1302,14 +1302,13 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
                     padding: '8px 16px',
                     borderRadius: '10px',
                     border: 'none',
-                    background: isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                    background: isActive ? 'var(--colors-primary)' : 'transparent',
                     color: isActive ? '#fff' : 'var(--colors-on-dark-mute)',
                     fontFamily: 'var(--font-heading)',
-                    fontWeight: '600',
+                    fontWeight: '700',
                     fontSize: '13px',
                     cursor: 'pointer',
                     transition: 'all var(--transition-fast)',
-                    border: isActive ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid transparent',
                     boxShadow: 'none',
                     width: 'auto',
                     flexShrink: isMobile ? 0 : 1,
@@ -1336,8 +1335,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
               flexDirection: 'column', 
               gap: '24px', 
               padding: '24px', 
-              background: '#0f0f11',
-              border: '1px solid #1c1c1e',
+              background: 'var(--colors-surface-card)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               flex: 1 
             }}>
               
@@ -1576,8 +1575,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
               flexDirection: 'column', 
               gap: '24px', 
               padding: '24px', 
-              background: '#0f0f11',
-              border: '1px solid #1c1c1e',
+              background: 'var(--colors-surface-card)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               flex: 1 
             }}>
               
@@ -1819,8 +1818,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
               flexDirection: 'column', 
               gap: '20px', 
               padding: '24px', 
-              background: '#0f0f11',
-              border: '1px solid #1c1c1e',
+              background: 'var(--colors-surface-card)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               flex: 1 
             }}>
               
@@ -1902,8 +1901,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
               flexDirection: 'column', 
               gap: '20px', 
               padding: '24px', 
-              background: '#0f0f11',
-              border: '1px solid #1c1c1e',
+              background: 'var(--colors-surface-card)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               flex: 1 
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2035,11 +2034,11 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
              <button 
               onClick={handleExportPDF}
               style={{
-                background: '#0f0f11',
-                border: '1px solid var(--colors-hairline-dark)',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 color: '#fff',
                 padding: '10px 20px',
-                fontWeight: '600',
+                fontWeight: '700',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -2051,12 +2050,12 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
                 width: isMobile ? '100%' : 'auto'
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = '#1c1c1e';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = '#0f0f11';
-                e.currentTarget.style.borderColor = 'var(--colors-hairline-dark)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
               }}
             >
               Export PDF Report
@@ -2451,8 +2450,8 @@ export default function WeeklyReviewView({ trades: propsTrades = [], executions:
           <div 
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#0f0f11',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: 'var(--colors-surface-card)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '20px',
               width: '100%',
               maxWidth: '650px',
