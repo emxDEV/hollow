@@ -307,6 +307,8 @@ export default function MobileApp() {
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        transform: 'translate(0, 0)',
+        WebkitTransform: 'translate(0, 0)',
       }}>
         <WelcomeUpdateModal isMobile={true} />
 

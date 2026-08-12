@@ -1,5 +1,4 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { LayoutDashboard, BarChart2, Plus, BookOpen, Settings } from 'lucide-react';
 
 const TABS = [
@@ -11,16 +10,17 @@ const TABS = [
 ];
 
 export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) {
-  const nav = (
+  return (
     <div style={{
+      /* position: fixed relative to the transformed parent wrapper */
       position: 'fixed',
       bottom: 0,
       left: 0,
       right: 0,
-      zIndex: 9999,
-      // max() nutzt den Safe-Area-Balken (z.B. iPhone 34px), gibt aber mindestens 16px Abstand auf Android
-      paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
-      paddingTop: '12px',
+      zIndex: 200,
+      // Minimal padding bottom to put the bar at the absolute bottom edge of the phone screen
+      paddingBottom: '2px',
+      paddingTop: '8px',
       background: 'rgba(9, 9, 11, 0.97)',
       backdropFilter: 'blur(24px) saturate(190%)',
       WebkitBackdropFilter: 'blur(24px) saturate(190%)',
@@ -29,7 +29,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
       alignItems: 'center',
       justifyContent: 'space-around',
       boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.7)',
-      touchAction: 'none', // Verhindert, dass Wischen auf der Bar die Seite scrollt
+      touchAction: 'none', // Prevents gestures on the bar from scrolling the page
     }}>
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
@@ -42,8 +42,8 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               onClick={() => onAddClick ? onAddClick() : onTabChange('add')}
               style={{
                 flexShrink: 0,
-                width: '52px',
-                height: '52px',
+                width: '48px',
+                height: '48px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #b86eff 0%, #8a30f6 100%)',
                 border: 'none',
@@ -54,14 +54,14 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
                 boxShadow: '0 4px 18px rgba(138, 48, 246, 0.55), 0 0 12px rgba(184, 110, 255, 0.4)',
                 WebkitTapHighlightColor: 'transparent',
                 outline: 'none',
-                transform: 'translateY(-8px)', // Etwas angehoben
+                transform: 'translateY(-6px)', // Slightly raised action button
                 transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
               onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(0.95)'; }}
-              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(1)'; }}
-              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(1)'; }} // Wichtig: Falls der Touch abgebrochen wird (z.B. durch Scrollen)
+              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
+              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
             >
-              <Plus size={26} strokeWidth={2.5} color="#ffffff" />
+              <Plus size={24} strokeWidth={2.5} color="#ffffff" />
             </button>
           );
         }
@@ -76,11 +76,10 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '4px',
+              gap: '2px',
               background: 'transparent',
               border: 'none',
-              // Padding unten auf 0 gesetzt, da der Container (nav) das Spacing übernimmt
-              padding: '4px 2px 0px',
+              padding: '4px 2px 2px',
               minWidth: '50px',
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
@@ -95,13 +94,13 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               transition: 'all 0.2s ease',
             }}>
               <IconComponent
-                size={22}
+                size={20}
                 strokeWidth={isActive ? 2.3 : 1.8}
                 color={isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.45)'}
               />
             </div>
             <span style={{
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: isActive ? 700 : 500,
               letterSpacing: '-0.01em',
               fontFamily: "var(--font, 'Inter', -apple-system, sans-serif)",
@@ -115,6 +114,4 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
       })}
     </div>
   );
-
-  return createPortal(nav, document.body);
 }

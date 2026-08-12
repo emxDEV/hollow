@@ -191,7 +191,7 @@ export default function HomeView({ addToast, onScrollChange, onNavigate, onOpenW
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           padding: '20px 16px',
-          paddingBottom: 'calc(var(--safe-bottom, 34px) + 96px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom) + 96px)',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
