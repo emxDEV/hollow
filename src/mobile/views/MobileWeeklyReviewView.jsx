@@ -852,51 +852,63 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
           </div>
         </div>
 
-        {/* Tab Strip */}
+        {/* Unified Tab Container (Gray Card Box) */}
         <div style={{
-          display: 'flex',
           background: '#09090b',
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 14,
-          padding: 3,
-          marginTop: 20,
-          marginBottom: 16,
-          overflowX: 'auto',
-          scrollbarWidth: 'none'
-        }} className="hollow-menu-scrollbar">
-          {[
-            { id: 'playbook', label: 'Executions', icon: BookOpen },
-            { id: 'audit', label: 'Audit', icon: ClipboardCheck },
-            { id: 'objectives', label: 'Objectives', icon: Target },
-            { id: 'news', label: 'News', icon: Newspaper }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1,
-                minWidth: '75px',
-                background: activeTab === tab.id ? '#b86eff' : 'transparent',
-                border: 'none',
-                borderRadius: 11,
-                padding: '10px 4px',
-                color: activeTab === tab.id ? '#fff' : 'rgba(255,255,255,0.45)',
-                fontSize: '11px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 5,
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s ease',
-                cursor: 'pointer'
-              }}
-            >
-              <tab.icon size={13} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+          borderRadius: '16px',
+          padding: '16px',
+          marginTop: '20px',
+          marginBottom: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          {/* Tab Strip selector (horizontal row) */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: 11,
+            padding: 3,
+            overflowX: 'auto',
+            scrollbarWidth: 'none'
+          }}>
+            {[
+              { id: 'playbook', label: 'Executions', icon: BookOpen },
+              { id: 'audit', label: 'Audit', icon: ClipboardCheck },
+              { id: 'objectives', label: 'Objectives', icon: Target },
+              { id: 'news', label: 'News', icon: Newspaper }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1,
+                  minWidth: '75px',
+                  background: activeTab === tab.id ? '#b86eff' : 'transparent',
+                  border: 'none',
+                  borderRadius: 9,
+                  padding: '8px 4px',
+                  color: activeTab === tab.id ? '#fff' : 'rgba(255,255,255,0.45)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}
+              >
+                <tab.icon size={12} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Tab 1: Execution History */}
         {activeTab === 'playbook' && (
@@ -1367,6 +1379,8 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
             </div>
           </div>
         )}
+          </div>
+        </div>
 
       </div>
 

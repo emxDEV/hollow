@@ -403,7 +403,6 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* All scroll wrappers inside views need bottom padding to clear the fixed bottom nav */
-  .hollow-menu-scrollbar,
   [style*="overflow-y: auto"],
   [style*="overflowY"] {
     padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
