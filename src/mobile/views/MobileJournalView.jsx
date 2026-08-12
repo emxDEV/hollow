@@ -529,6 +529,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                       accentColor: slider.color,
                       height: '6px',
                       borderRadius: '3px',
+                      background: `linear-gradient(to right, ${slider.color} 0%, ${slider.color} ${((slider.val - 1) / 9) * 100}%, rgba(255, 255, 255, 0.1) ${((slider.val - 1) / 9) * 100}%, rgba(255, 255, 255, 0.1) 100%)`,
                       cursor: 'pointer',
                       outline: 'none',
                       border: 'none',
