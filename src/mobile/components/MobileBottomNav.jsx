@@ -18,12 +18,12 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
       left: 0,
       right: 0,
       zIndex: 200,
-      // Minimal padding bottom to put the bar at the absolute bottom edge of the phone screen
-      paddingBottom: '2px',
-      paddingTop: '8px',
-      background: 'rgba(9, 9, 11, 0.97)',
-      backdropFilter: 'blur(24px) saturate(190%)',
-      WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+      // Increased padding to position bar at absolute bottom with safe-area notch space
+      paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
+      paddingTop: '12px',
+      background: 'rgba(9, 9, 11, 0.98)',
+      backdropFilter: 'blur(28px) saturate(190%)',
+      WebkitBackdropFilter: 'blur(28px) saturate(190%)',
       borderTop: '1px solid rgba(255, 255, 255, 0.08)',
       display: 'flex',
       alignItems: 'center',
@@ -42,8 +42,8 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               onClick={() => onAddClick ? onAddClick() : onTabChange('add')}
               style={{
                 flexShrink: 0,
-                width: '48px',
-                height: '48px',
+                width: '52px',
+                height: '52px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #b86eff 0%, #8a30f6 100%)',
                 border: 'none',
@@ -54,14 +54,14 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
                 boxShadow: '0 4px 18px rgba(138, 48, 246, 0.55), 0 0 12px rgba(184, 110, 255, 0.4)',
                 WebkitTapHighlightColor: 'transparent',
                 outline: 'none',
-                transform: 'translateY(-6px)', // Slightly raised action button
+                transform: 'translateY(-10px)', // Raised action button
                 transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
-              onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(0.95)'; }}
-              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
-              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(1)'; }}
+              onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(0.95)'; }}
+              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-10px) scale(1)'; }}
+              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-10px) scale(1)'; }}
             >
-              <Plus size={24} strokeWidth={2.5} color="#ffffff" />
+              <Plus size={26} strokeWidth={2.5} color="#ffffff" />
             </button>
           );
         }
@@ -76,10 +76,10 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '2px',
+              gap: '4px',
               background: 'transparent',
               border: 'none',
-              padding: '4px 2px 2px',
+              padding: '6px 2px 2px',
               minWidth: '50px',
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
@@ -94,7 +94,7 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
               transition: 'all 0.2s ease',
             }}>
               <IconComponent
-                size={20}
+                size={22}
                 strokeWidth={isActive ? 2.3 : 1.8}
                 color={isActive ? '#b86eff' : 'rgba(255, 255, 255, 0.45)'}
               />
