@@ -429,33 +429,55 @@ body {
 /* Slider */
 .ios-slider {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  outline: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1) !important;
+  outline: none !important;
+  border: none !important;
+}
+
+.ios-slider::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.1) !important;
+  height: 6px;
+  border-radius: 3px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ios-slider::-moz-range-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+  height: 6px;
+  border-radius: 3px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .ios-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: white;
+  background: #ffffff !important;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   border: none !important;
   outline: none !important;
+  margin-top: -7px;
 }
 
 .ios-slider::-moz-range-thumb {
   border: none !important;
   outline: none !important;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: white;
+  background: #ffffff !important;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }

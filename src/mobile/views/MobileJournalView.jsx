@@ -149,6 +149,20 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
     return await db.trades.toArray();
   }, []) || [];
 
+  const sortedExecutions = useMemo(() => {
+    if (!allExecutions) return [];
+    return [...allExecutions].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a.executionTime || '';
+      const timeB = b.executionTime || '';
+      return timeB.localeCompare(timeA);
+    });
+  }, [allExecutions]);
+
   // Compute daily totals
   const daySummary = useMemo(() => {
     let totalPnL = 0;
@@ -366,7 +380,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               transition: 'all 0.2s ease',
             }}
           >
-            All Executions ({allTrades.length})
+            All Executions ({allExecutions.length})
           </button>
         </div>
 
@@ -514,13 +528,14 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                       width: '100%',
                       accentColor: slider.color,
                       height: '6px',
-                      background: 'rgba(255, 255, 255, 0.1)',
                       borderRadius: '3px',
                       cursor: 'pointer',
                       outline: 'none',
                       border: 'none',
                       boxShadow: 'none',
-                      WebkitTapHighlightColor: 'transparent'
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitAppearance: 'none',
+                      appearance: 'none'
                     }}
                   />
                 </div>
@@ -931,21 +946,36 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       ) : (
         /* ── ALL TRADES / EXECUTIONS LIST TAB ── */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {allTrades.length === 0 ? (
+          {sortedExecutions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
               No executions logged yet.
             </div>
           ) : (
-            allTrades.map(trade => {
-              const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
-              const math = calculateTradePnL(trade, tradeExecs);
-              const isGain = math.netPnL > 0;
-              const isLoss = math.netPnL < 0;
+            sortedExecutions.map(exec => {
+              const isGain = parseFloat(exec.rr) > 0.05 || (exec.manualPnL && parseFloat(exec.manualPnL) > 0);
+              const isLoss = parseFloat(exec.rr) < -0.05 || (exec.manualPnL && parseFloat(exec.manualPnL) < 0);
+              
+              let outcomeText = '';
+              if (exec.manualPnL !== undefined && exec.manualPnL !== '') {
+                const val = parseFloat(exec.manualPnL);
+                outcomeText = `${val >= 0 ? '+' : ''}$${Math.abs(val).toFixed(2)}`;
+              } else {
+                const val = parseFloat(exec.rr || 0);
+                outcomeText = `${val >= 0 ? '+' : ''}${val.toFixed(2)}R`;
+              }
+
+              let outcomeColor = '#ffffff';
+              if (isGain) outcomeColor = '#30d158';
+              else if (isLoss) outcomeColor = '#ff453a';
+              else if ((exec.wl || '').toUpperCase().startsWith('BE')) outcomeColor = '#ffd60a';
 
               return (
                 <div
-                  key={trade.id}
-                  onClick={() => setSelectedDate(trade.date)}
+                  key={exec.id}
+                  onClick={() => {
+                    setSelectedDate(exec.date);
+                    setSelectedExecutionDetail(exec);
+                  }}
                   style={{
                     background: '#09090b',
                     border: '1px solid rgba(255,255,255,0.08)',
@@ -959,25 +989,33 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 >
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff' }}>{trade.symbol}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff' }}>{exec.symbol || 'NQ'}</span>
                       <span style={{
                         fontSize: '9px',
                         fontWeight: 700,
-                        color: trade.direction === 'SHORT' ? '#ff453a' : '#30d158',
+                        color: exec.bias === 'Short' || exec.direction === 'SHORT' ? '#ff453a' : '#30d158',
                         textTransform: 'uppercase'
                       }}>
-                        {trade.direction}
+                        {exec.direction || exec.bias || 'LONG'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{trade.date}</span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{exec.date}</span>
+                      {exec.executionTime && (
+                        <>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>•</span>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{exec.executionTime} EST</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{
                       fontSize: '15px',
                       fontWeight: 800,
-                      color: isGain ? '#30d158' : (isLoss ? '#ff453a' : '#ffffff')
+                      color: outcomeColor
                     }}>
-                      {isGain ? '+' : ''}${Math.abs(math.netPnL).toFixed(2)}
+                      {outcomeText}
                     </div>
                   </div>
                 </div>
