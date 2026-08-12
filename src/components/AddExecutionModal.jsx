@@ -599,20 +599,22 @@ export default function AddExecutionModal() {
           </div>
 
           {/* STEP PROGRESS INDICATOR */}
-          <div style={{ display: 'flex', gap: '4px', padding: isMobile ? '0 14px' : '0 24px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '6px', padding: isMobile ? '0 14px' : '0 24px', marginTop: '12px' }}>
             {stepsHeader.map((s) => (
               <div
                 key={s.num}
                 onClick={() => setCurrentStep(s.num)}
                 style={{
                   flex: 1,
-                  height: '4px',
-                  borderRadius: '2px',
-                  background: currentStep >= s.num
-                    ? 'linear-gradient(90deg, #b86eff, #8a30f6)'
-                    : 'rgba(255, 255, 255, 0.08)',
+                  height: '3px',
+                  borderRadius: '10px',
+                  background: currentStep === s.num
+                    ? '#b86eff'
+                    : currentStep > s.num
+                      ? 'rgba(184, 110, 255, 0.4)'
+                      : 'rgba(255, 255, 255, 0.08)',
                   cursor: 'pointer',
-                  transition: 'all 0.3s'
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               />
             ))}
@@ -647,8 +649,8 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#0e0e12',
-                          border: '1px solid rgba(255,255,255,0.08)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '12px',
                           padding: '10px 14px',
                           color: '#fff',
@@ -942,7 +944,7 @@ export default function AddExecutionModal() {
                   </div>
 
                   {/* Day & Month Auto Display */}
-                  <div style={{ display: 'flex', gap: '12px', background: '#0e0e12', padding: '12px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', gap: '12px', background: 'rgba(255, 255, 255, 0.02)', padding: '12px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div style={{ flex: 1, fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
                       Day: <strong style={{ color: '#fff' }}>{form.day}</strong>
                     </div>
@@ -998,8 +1000,8 @@ export default function AddExecutionModal() {
                         onKeyDown={e => { if (e.key === 'Enter') handleAddCustomModel(); }}
                         style={{
                           flex: 1,
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '10px',
                           padding: '8px 12px',
                           color: '#fff',
@@ -1011,13 +1013,13 @@ export default function AddExecutionModal() {
                         type="button"
                         onClick={handleAddCustomModel}
                         style={{
-                          background: '#b86eff',
-                          border: 'none',
+                          background: 'rgba(184, 110, 255, 0.15)',
+                          border: '1px solid rgba(184, 110, 255, 0.35)',
                           borderRadius: '10px',
                           padding: '8px 14px',
                           fontSize: '12px',
                           fontWeight: '700',
-                          color: '#000',
+                          color: '#d8b4ff',
                           cursor: 'pointer',
                           flexShrink: 0
                         }}
@@ -1083,8 +1085,8 @@ export default function AddExecutionModal() {
                         onChange={e => setNewDOLLabel(e.target.value)}
                         style={{
                           flex: 1,
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '10px',
                           padding: '8px 12px',
                           color: '#fff',
@@ -1119,13 +1121,13 @@ export default function AddExecutionModal() {
                           type="button"
                           onClick={handleAddCustomDOL}
                           style={{
-                            background: newDOLColor,
-                            border: 'none',
+                            background: `${newDOLColor}15`,
+                            border: `1px solid ${newDOLColor}35`,
                             borderRadius: '10px',
                             padding: '8px 14px',
                             fontSize: '12px',
                             fontWeight: '700',
-                            color: '#000',
+                            color: newDOLColor,
                             cursor: 'pointer',
                             flexShrink: 0
                           }}
@@ -1179,8 +1181,8 @@ export default function AddExecutionModal() {
                         onKeyDown={e => { if (e.key === 'Enter') handleAddCustomPO3Time(); }}
                         style={{
                           flex: 1,
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '10px',
                           padding: '8px 12px',
                           color: '#fff',
@@ -1192,13 +1194,13 @@ export default function AddExecutionModal() {
                         type="button"
                         onClick={handleAddCustomPO3Time}
                         style={{
-                          background: '#ff9f0a',
-                          border: 'none',
+                          background: 'rgba(255, 159, 10, 0.15)',
+                          border: '1px solid rgba(255, 159, 10, 0.35)',
                           borderRadius: '10px',
                           padding: '8px 14px',
                           fontSize: '12px',
                           fontWeight: '700',
-                          color: '#000',
+                          color: '#ffbe5b',
                           cursor: 'pointer',
                           flexShrink: 0
                         }}
@@ -1244,8 +1246,8 @@ export default function AddExecutionModal() {
                         onKeyDown={e => { if (e.key === 'Enter') handleAddCustomEntryTF(); }}
                         style={{
                           flex: 1,
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '10px',
                           padding: '8px 12px',
                           color: '#fff',
@@ -1257,13 +1259,13 @@ export default function AddExecutionModal() {
                         type="button"
                         onClick={handleAddCustomEntryTF}
                         style={{
-                          background: '#64d2ff',
-                          border: 'none',
+                          background: 'rgba(100, 210, 255, 0.15)',
+                          border: '1px solid rgba(100, 210, 255, 0.35)',
                           borderRadius: '10px',
                           padding: '8px 14px',
                           fontSize: '12px',
                           fontWeight: '700',
-                          color: '#000',
+                          color: '#7ad7ff',
                           cursor: 'pointer',
                           flexShrink: 0
                         }}
@@ -1285,7 +1287,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(255,69,58,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1306,7 +1308,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(48,209,88,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1327,7 +1329,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(255,214,10,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1362,7 +1364,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(184,110,255,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1383,7 +1385,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(100,210,255,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1404,7 +1406,7 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
+                          background: 'rgba(255, 255, 255, 0.02)',
                           border: '1px solid rgba(100,210,255,0.3)',
                           borderRadius: '12px',
                           padding: '10px 14px',
@@ -1426,7 +1428,7 @@ export default function AddExecutionModal() {
                     ].map(({ key, label, color }) => {
                       const imgList = form[key] || [];
                       return (
-                        <div key={key} style={{ background: '#14121d', borderRadius: '16px', padding: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div key={key} style={{ background: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', padding: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <div style={{ fontSize: '12px', fontWeight: '700', color: color, display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <ImageIcon size={15} /> {label} ({imgList.length})
@@ -1596,8 +1598,8 @@ export default function AddExecutionModal() {
                         onKeyDown={e => { if (e.key === 'Enter') handleAddCustomPsychTag(); }}
                         style={{
                           flex: 1,
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
                           borderRadius: '10px',
                           padding: '8px 12px',
                           color: '#fff',
@@ -1609,13 +1611,13 @@ export default function AddExecutionModal() {
                         type="button"
                         onClick={handleAddCustomPsychTag}
                         style={{
-                          background: '#30d158',
-                          border: 'none',
+                          background: 'rgba(48, 209, 88, 0.15)',
+                          border: '1px solid rgba(48, 209, 88, 0.35)',
                           borderRadius: '10px',
                           padding: '8px 14px',
                           fontSize: '12px',
                           fontWeight: '700',
-                          color: '#000',
+                          color: '#34c759',
                           cursor: 'pointer',
                           flexShrink: 0
                         }}
@@ -1635,8 +1637,8 @@ export default function AddExecutionModal() {
                       style={{
                         width: '100%',
                         marginTop: '6px',
-                        background: '#14121d',
-                        border: '1px solid rgba(255,255,255,0.12)',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: '12px',
                         padding: '12px 14px',
                         color: '#fff',
