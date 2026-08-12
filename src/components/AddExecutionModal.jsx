@@ -622,6 +622,8 @@ export default function AddExecutionModal() {
             padding: isMobile ? '16px' : '24px',
             maxHeight: isMobile ? '72vh' : '68vh',
             overflowY: 'auto',
+            overflowX: 'hidden',
+            touchAction: 'pan-y',
             background: isMobile ? '#000000' : '#09090b'
           }} className="hollow-menu-scrollbar">
 

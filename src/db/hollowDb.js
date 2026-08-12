@@ -156,7 +156,20 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     }
 
     const sideVal = (obj.bias || '').toUpperCase() === 'SHORT' ? 'SELL' : 'BUY';
-    const typeVal = 'ENTRY';
+
+    // Pack all other local-only properties into type using __HOLLOW_META__
+    const meta = {};
+    const metaKeys = [
+      'rr', 'wl', 'rating', 'model', 'dol', 'entryTf', 'session', 'bias', 'symbol', 'date',
+      'po3Times', 'notes', 'executionTime', 'outcomeTimeStart', 'outcomeTimeEnd', 'emotion',
+      'psychTags', 'ltfImages', 'mtfImages', 'htfImages', 'outcomeImages', 'day', 'month', 'sl', 'tp'
+    ];
+    metaKeys.forEach(k => {
+      if (obj[k] !== undefined) meta[k] = obj[k];
+    });
+
+    const serializedMeta = JSON.stringify(meta);
+    const typeVal = `ENTRY\n\n__HOLLOW_META__:${serializedMeta}`;
 
     const cleaned = {
       ...obj,
@@ -428,6 +441,25 @@ export function unprefixRecord(obj, userId, tableName) {
     }
   } else if (tableName === 'weeklyPlanners') {
     clean.weekId = strip(clean.weekId);
+  } else if (tableName === 'trades') {
+    clean.id = strip(clean.id);
+    if (clean.accountId) clean.accountId = strip(clean.accountId);
+
+    // Unpack metadata from commentFazit if present
+    if (clean.commentFazit && typeof clean.commentFazit === 'string') {
+      const parts = clean.commentFazit.split('\n\n__HOLLOW_META__:');
+      if (parts.length > 1) {
+        const originalFazit = parts[0];
+        const serializedMeta = parts[parts.length - 1];
+        try {
+          const meta = JSON.parse(serializedMeta);
+          Object.assign(clean, meta);
+        } catch (e) {
+          console.error("Failed to parse hollow trades metadata:", e);
+        }
+        clean.commentFazit = originalFazit;
+      }
+    }
   } else if (tableName === 'executions') {
     clean.id = strip(clean.id);
     if (clean.tradeId) clean.tradeId = strip(clean.tradeId);
