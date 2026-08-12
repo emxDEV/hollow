@@ -21,7 +21,8 @@ import {
   Activity,
   Plus,
   Trash2,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { calculateTradePnL, isTradeWinRateEligible } from '../../utils/tradeMath';
 import { getPayouts, savePayouts } from '../../db/hollowDb';
