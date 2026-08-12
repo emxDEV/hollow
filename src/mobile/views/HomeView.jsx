@@ -143,7 +143,8 @@ export default function HomeView({
         dateStr,
         pnlR,
         status,
-        count
+        count,
+        traded
       });
     }
     
