@@ -538,27 +538,45 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
   return (
     <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#000' }}>
       {/* Header */}
-      <div style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)', paddingLeft: '16px', paddingRight: '16px', paddingBottom: 0, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', marginBottom: 12 }}>
+      <div style={{
+        flexShrink: 0,
+        zIndex: 100,
+        paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+        paddingLeft: '20px',
+        paddingRight: '20px',
+        paddingBottom: '14px',
+        background: 'rgba(0, 0, 0, 0.72)',
+        backdropFilter: 'blur(28px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', padding: 4, display: 'flex', alignItems: 'center' }}>
+            <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '4px 0', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
               <ChevronLeft size={22} />
             </button>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>weekly review.</h1>
+            <div>
+              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
+                Weekly Review
+              </h1>
+              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>
+                Consolidated EOW Trading Station
+              </span>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={handleExportPDF}
               style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 10,
-                padding: '8px 12px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '10px',
+                padding: '7px 12px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
                 color: '#fff',
-                fontSize: 12,
+                fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer'
               }}
@@ -572,81 +590,79 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
               style={{
                 background: '#fff',
                 border: 'none',
-                borderRadius: 10,
-                padding: '8px 14px',
-                fontSize: 13,
+                borderRadius: '10px',
+                padding: '7px 14px',
+                fontSize: '12px',
                 fontWeight: 700,
                 color: '#000',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
-                opacity: saving ? 0.6 : 1
+                opacity: saving ? 0.6 : 1,
+                cursor: 'pointer'
               }}
             >
-              <Save size={14} />
+              <Save size={13} />
               Save
             </button>
           </div>
-        </div>
-
-        {/* Week Navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
-          <button 
-            onClick={() => handleWeekShift(-1)} 
-            disabled={weekOptions.indexOf(selectedWeekId) === weekOptions.length - 1}
-            style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, color: '#fff', opacity: weekOptions.indexOf(selectedWeekId) === weekOptions.length - 1 ? 0.3 : 1 }}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: 'monospace' }}>
-            Week {selectedWeekId} ({weekDates.start} to {selectedWeekFridayStr})
-          </span>
-          <button 
-            onClick={() => handleWeekShift(1)} 
-            disabled={weekOptions.indexOf(selectedWeekId) === 0}
-            style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: 6, color: '#fff', opacity: weekOptions.indexOf(selectedWeekId) === 0 ? 0.3 : 1 }}
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
-        {/* Tab Strip */}
-        <div style={{ display: 'flex', background: '#1c1c1e', borderRadius: 12, padding: 3, marginBottom: 14, overflowX: 'auto', scrollbarWidth: 'none' }} className="hollow-menu-scrollbar">
-          {[
-            { id: 'playbook', label: 'Executions', icon: BookOpen },
-            { id: 'audit', label: 'Audit', icon: ClipboardCheck },
-            { id: 'objectives', label: 'Objectives', icon: Target },
-            { id: 'news', label: 'News', icon: Newspaper }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1,
-                minWidth: '75px',
-                background: activeTab === tab.id ? '#2c2c2e' : 'transparent',
-                border: 'none',
-                borderRadius: 10,
-                padding: '8px 4px',
-                color: activeTab === tab.id ? '#fff' : 'rgba(255,255,255,0.4)',
-                fontSize: '11px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <tab.icon size={12} />
-              {tab.label}
-            </button>
-          ))}
         </div>
       </div>
 
       {/* Scrollable View Area */}
       <div className="scroll-area" style={{ flex: 1, padding: '0 16px 100px', overflowY: 'auto' }}>
+        
+        {/* Week Navigator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          marginBottom: 16,
+          background: '#09090b',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '16px',
+          padding: '12px',
+          marginTop: '16px',
+        }}>
+          <button 
+            onClick={() => handleWeekShift(-1)} 
+            disabled={weekOptions.indexOf(selectedWeekId) === weekOptions.length - 1}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: 6,
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              cursor: 'pointer',
+              opacity: weekOptions.indexOf(selectedWeekId) === weekOptions.length - 1 ? 0.3 : 1
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: 'monospace', letterSpacing: '-0.01em' }}>
+            Week {selectedWeekId} ({weekDates.start} to {selectedWeekFridayStr})
+          </span>
+          <button 
+            onClick={() => handleWeekShift(1)} 
+            disabled={weekOptions.indexOf(selectedWeekId) === 0}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: 6,
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              cursor: 'pointer',
+              opacity: weekOptions.indexOf(selectedWeekId) === 0 ? 0.3 : 1
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
         
         {/* Mindset Quote Banner */}
         <div style={{
@@ -834,6 +850,52 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
               );
             })}
           </div>
+        </div>
+
+        {/* Tab Strip */}
+        <div style={{
+          display: 'flex',
+          background: '#09090b',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: 14,
+          padding: 3,
+          marginTop: 20,
+          marginBottom: 16,
+          overflowX: 'auto',
+          scrollbarWidth: 'none'
+        }} className="hollow-menu-scrollbar">
+          {[
+            { id: 'playbook', label: 'Executions', icon: BookOpen },
+            { id: 'audit', label: 'Audit', icon: ClipboardCheck },
+            { id: 'objectives', label: 'Objectives', icon: Target },
+            { id: 'news', label: 'News', icon: Newspaper }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1,
+                minWidth: '75px',
+                background: activeTab === tab.id ? '#b86eff' : 'transparent',
+                border: 'none',
+                borderRadius: 11,
+                padding: '10px 4px',
+                color: activeTab === tab.id ? '#fff' : 'rgba(255,255,255,0.45)',
+                fontSize: '11px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer'
+              }}
+            >
+              <tab.icon size={13} />
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Tab 1: Execution History */}
