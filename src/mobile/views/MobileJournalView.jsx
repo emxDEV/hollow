@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 
 export default function MobileJournalView({ addToast, onScrollChange }) {
-  const today = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(today);
+  const selectedDate = useUIStore(s => s.selectedDate);
+  const setSelectedDate = useUIStore(s => s.setSelectedDate);
+  
   const [activeTab, setActiveTab] = useState('daily'); // 'daily' | 'trades'
   const [zoomImage, setZoomImage] = useState(null);
   const setIsAddExecutionOpen = useUIStore(s => s.setIsAddExecutionOpen);
@@ -154,119 +155,158 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
       }}>
 
         {/* ── TOP HEADER & DATE PICKER ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
-            Daily Journal
-          </h1>
-          <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)' }}>
-            Execution ledger & mindset
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff', margin: 0, letterSpacing: '-0.02em' }}>
+              Daily Journal
+            </h1>
+            <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>
+              Clean execution ledger and trade reflections
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <button
+              onClick={() => handleDateShift(-1)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Date picker trigger */}
+            <div style={{ position: 'relative' }}>
+              <button
+                style={{
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#fff',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '0 10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Calendar size={12} color="#b86eff" />
+                {(() => {
+                  const parts = selectedDate.split('-');
+                  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+                  return selectedDate;
+                })()}
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: 0,
+                  cursor: 'pointer',
+                  width: '100%',
+                  height: '100%'
+                }}
+              />
+            </div>
+
+            {/* Today button */}
+            <button
+              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              style={{
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(184, 110, 255, 0.12)',
+                border: '1px solid rgba(184, 110, 255, 0.25)',
+                color: '#d8b4fe',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '0 10px',
+                cursor: 'pointer'
+              }}
+            >
+              Today
+            </button>
+
+            <button
+              onClick={() => handleDateShift(1)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
+        {/* ── SEGMENT TABS: Daily Log vs All Trades ── */}
         <div style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: '#121216',
           borderRadius: '12px',
-          padding: '4px',
+          padding: '3px',
+          border: '1px solid rgba(255, 255, 255, 0.06)'
         }}>
           <button
-            onClick={() => handleDateShift(-1)}
+            onClick={() => setActiveTab('daily')}
             style={{
-              background: 'transparent',
+              flex: 1,
+              padding: '7px 0',
+              borderRadius: '9px',
               border: 'none',
-              color: '#ffffff',
-              padding: '6px 8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#b86eff',
+              background: activeTab === 'daily' ? '#b86eff' : 'transparent',
+              color: activeTab === 'daily' ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
               fontSize: '12px',
               fontWeight: 700,
-              padding: '4px 6px',
-              outline: 'none',
               cursor: 'pointer',
-              fontFamily: 'inherit'
-            }}
-          />
-
-          <button
-            onClick={() => handleDateShift(1)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#ffffff',
-              padding: '6px 8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
+              transition: 'all 0.2s ease',
             }}
           >
-            <ChevronRight size={16} />
+            Daily Log
+          </button>
+          <button
+            onClick={() => setActiveTab('trades')}
+            style={{
+              flex: 1,
+              padding: '7px 0',
+              borderRadius: '9px',
+              border: 'none',
+              background: activeTab === 'trades' ? '#b86eff' : 'transparent',
+              color: activeTab === 'trades' ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            All Executions ({allTrades.length})
           </button>
         </div>
+
       </div>
-
-      {/* ── SEGMENT TABS: Daily Log vs All Trades ── */}
-      <div style={{
-        display: 'flex',
-        background: '#121216',
-        borderRadius: '14px',
-        padding: '4px',
-        border: '1px solid rgba(255, 255, 255, 0.06)'
-      }}>
-        <button
-          onClick={() => setActiveTab('daily')}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'daily' ? '#b86eff' : 'transparent',
-            color: activeTab === 'daily' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          Daily Log ({selectedDate})
-        </button>
-        <button
-          onClick={() => setActiveTab('trades')}
-          style={{
-            flex: 1,
-            padding: '8px 0',
-            borderRadius: '10px',
-            border: 'none',
-            background: activeTab === 'trades' ? '#b86eff' : 'transparent',
-            color: activeTab === 'trades' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          All Executions ({allTrades.length})
-        </button>
-      </div>{/* tab strip */}
-
-      </div>{/* end sticky header */}
 
       {/* ── SCROLLABLE CONTENT ── */}
       <div
@@ -287,46 +327,71 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
 
       {activeTab === 'daily' ? (
         <>
-          {/* ── DAILY SUMMARY CARDS ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+          {/* ── DAILY SUMMARY CARDS (Redesigned matching screenshot 2) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+            
+            {/* R Return Card */}
             <div style={{
-              background: '#0e0e12',
+              background: '#09090b',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '14px',
+              borderRadius: '14px',
+              padding: '12px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '65px'
             }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 600, textTransform: 'uppercase' }}>
-                Day Net P&L
+              <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                R Return
               </span>
               <div style={{
-                fontSize: '20px',
+                fontSize: '16px',
                 fontWeight: 800,
-                color: daySummary.totalPnL > 0 ? '#30d158' : (daySummary.totalPnL < 0 ? '#ff453a' : '#ffffff'),
+                color: parseFloat(daySummary.totalR) > 0.05 ? '#30d158' : (parseFloat(daySummary.totalR) < -0.05 ? '#ff453a' : '#ffffff'),
                 marginTop: '4px'
               }}>
-                {daySummary.totalPnL > 0 ? '+' : ''}${Math.abs(daySummary.totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {parseFloat(daySummary.totalR) >= 0 ? `+${daySummary.totalR}R` : `${daySummary.totalR}R`}
               </div>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>
-                {daySummary.totalR >= 0 ? '+' : ''}{daySummary.totalR}R Multiple
-              </span>
             </div>
 
+            {/* Day Win Rate Card */}
             <div style={{
-              background: '#0e0e12',
+              background: '#09090b',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '14px',
+              borderRadius: '14px',
+              padding: '12px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '65px'
             }}>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 600, textTransform: 'uppercase' }}>
-                Performance
+              <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                Day Win Rate
               </span>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', marginTop: '4px' }}>
-                {daySummary.winRate}% Win Rate
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff', marginTop: '4px' }}>
+                {daySummary.winRate.toFixed(1)}%
               </div>
-              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>
-                {daySummary.wins}W / {daySummary.losses}L · {daySummary.totalCount} Trades
-              </span>
             </div>
+
+            {/* Trades Executed Card */}
+            <div style={{
+              background: '#09090b',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '14px',
+              padding: '12px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '65px'
+            }}>
+              <span style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                Trades Executed
+              </span>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginTop: '4px', whiteSpace: 'nowrap' }}>
+                {daySummary.totalCount} ({daySummary.wins}W / {daySummary.losses}L)
+              </div>
+            </div>
+
           </div>
 
           {/* ── COGNITIVE MINDSET & DAILY NOTES ── */}
@@ -343,63 +408,67 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Brain size={18} color="#b86eff" />
                 <span style={{ fontSize: '14px', fontWeight: 700, color: '#d8b4fe' }}>
-                  Daily Psychology & Reflections
+                  Daily Psychology &amp; Reflections
                 </span>
               </div>
               <button
                 onClick={saveReflections}
                 style={{
-                  background: 'rgba(184, 110, 255, 0.15)',
-                  border: '1px solid rgba(184, 110, 255, 0.35)',
-                  borderRadius: '8px',
-                  color: '#d8b4fe',
-                  fontSize: '11px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#b86eff',
+                  fontSize: '12px',
                   fontWeight: 700,
-                  padding: '4px 10px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
               >
-                Save Note
+                Save
               </button>
             </div>
 
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="What went well today? Any psychological mistakes or lessons learned from the session?"
-              rows={3}
+              placeholder="Reflect on today's discipline, emotional state, adherence to rules..."
               style={{
                 width: '100%',
-                background: '#16161c',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
-                padding: '10px 12px',
-                color: '#ffffff',
+                height: '70px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px',
+                padding: '10px',
+                color: '#fff',
                 fontSize: '13px',
-                lineHeight: 1.5,
-                outline: 'none',
+                fontFamily: 'inherit',
                 resize: 'none',
-                boxSizing: 'border-box',
-                fontFamily: 'inherit'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
           </div>
 
-          {/* ── EXECUTIONS LIST ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Session Executions ({dayTrades.length})
+          {/* ── LOGGED EXECUTIONS HEADER ── */}
+          <div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '10px',
+              paddingLeft: '2px'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Executions Logged for {selectedDate}
               </span>
               <button
                 onClick={() => setIsAddExecutionOpen(true)}
                 style={{
-                  background: '#b86eff',
-                  color: '#ffffff',
+                  background: 'none',
                   border: 'none',
-                  borderRadius: '10px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
+                  color: '#b86eff',
+                  fontSize: '11px',
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
@@ -432,147 +501,143 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
                 </span>
               </div>
             ) : (
-              dayTrades.map(trade => {
-                const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
-                const math = calculateTradePnL(trade, tradeExecs);
-                const isGain = math.netPnL > 0;
-                const isLoss = math.netPnL < 0;
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {dayTrades.map(trade => {
+                  const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
+                  const math = calculateTradePnL(trade, tradeExecs);
+                  const isGain = math.netPnL > 0;
+                  const isLoss = math.netPnL < 0;
 
-                // Extract image
-                const tradeImg = Array.isArray(trade.images) && trade.images.length > 0
-                  ? (Array.isArray(trade.images[0]) ? trade.images[0][0] : trade.images[0])
-                  : null;
+                  // Extract image
+                  const tradeImg = Array.isArray(trade.images) && trade.images.length > 0
+                    ? (Array.isArray(trade.images[0]) ? trade.images[0][0] : trade.images[0])
+                    : null;
 
-                return (
-                  <div
-                    key={trade.id}
-                    style={{
-                      background: '#0e0e12',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '16px',
-                      padding: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                    }}
-                  >
-                    {/* Header Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          color: '#ffffff',
-                          fontWeight: 800,
-                          fontSize: '12px',
-                          padding: '3px 8px',
-                          borderRadius: '6px'
-                        }}>
-                          {trade.symbol || 'NQ'}
-                        </span>
-                        <span style={{
-                          background: trade.direction === 'SHORT' ? 'rgba(255, 69, 58, 0.15)' : 'rgba(48, 209, 88, 0.15)',
-                          color: trade.direction === 'SHORT' ? '#ff453a' : '#30d158',
-                          fontWeight: 800,
-                          fontSize: '12px',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}>
-                          {trade.direction === 'SHORT' ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-                          {trade.direction || 'LONG'}
-                        </span>
-                        {trade.model && (
+                  return (
+                    <div
+                      key={trade.id}
+                      style={{
+                        background: '#0e0e12',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '16px',
+                        padding: '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}
+                    >
+                      {/* Top Row: Info Pills + Outcome P&L */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{
-                            background: 'rgba(184, 110, 255, 0.12)',
-                            color: '#d8b4fe',
+                            background: 'rgba(100, 210, 255, 0.15)',
+                            color: '#64d2ff',
+                            fontWeight: 800,
                             fontSize: '11px',
-                            fontWeight: 600,
                             padding: '3px 8px',
-                            borderRadius: '6px'
+                            borderRadius: '6px',
+                            textTransform: 'uppercase'
                           }}>
-                            {trade.model}
+                            {trade.symbol || 'NQ'}
                           </span>
-                        )}
-                      </div>
+                          
+                          <span style={{
+                            background: trade.direction === 'SHORT' ? 'rgba(255, 69, 58, 0.15)' : 'rgba(48, 209, 88, 0.15)',
+                            color: trade.direction === 'SHORT' ? '#ff453a' : '#30d158',
+                            fontWeight: 800,
+                            fontSize: '11px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            textTransform: 'uppercase'
+                          }}>
+                            {trade.direction || 'LONG'}
+                          </span>
+                          
+                          {trade.rating && (
+                            <span style={{
+                              background: 'rgba(184, 110, 255, 0.12)',
+                              color: '#d8b4fe',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              padding: '3px 8px',
+                              borderRadius: '6px'
+                            }}>
+                              Grade {trade.rating}
+                            </span>
+                          )}
+                        </div>
 
-                      <div style={{
-                        fontSize: '17px',
-                        fontWeight: 800,
-                        color: isGain ? '#30d158' : (isLoss ? '#ff453a' : '#ffffff')
-                      }}>
-                        {isGain ? '+' : ''}${Math.abs(math.netPnL).toFixed(2)}
-                      </div>
-                    </div>
-
-                    {/* Confluences & Details */}
-                    {trade.commentExecution && (
-                      <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.75)', margin: 0, lineHeight: 1.4 }}>
-                        {trade.commentExecution}
-                      </p>
-                    )}
-
-                    {/* Chart Screenshot Thumbnail */}
-                    {tradeImg && (
-                      <div
-                        onClick={() => setZoomImage(tradeImg)}
-                        style={{
-                          position: 'relative',
-                          width: '100%',
-                          height: '140px',
-                          borderRadius: '12px',
-                          overflow: 'hidden',
-                          background: '#000000',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <img
-                          src={tradeImg}
-                          alt="Execution chart"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
+                        {/* Outcome P&L (right side) */}
                         <div style={{
-                          position: 'absolute',
-                          bottom: '8px',
-                          right: '8px',
-                          background: 'rgba(0, 0, 0, 0.7)',
-                          backdropFilter: 'blur(4px)',
-                          borderRadius: '6px',
-                          padding: '4px 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '11px',
-                          color: '#ffffff',
-                          fontWeight: 600
+                          fontSize: '16px',
+                          fontWeight: 800,
+                          color: isGain ? '#30d158' : (isLoss ? '#ff453a' : '#ffffff')
                         }}>
-                          <ZoomIn size={12} /> Tap to zoom
+                          {isGain ? '+' : ''}${Math.abs(math.netPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })
+
+                      {/* Bottom Row: Draw on Liquidity details & reflections */}
+                      {trade.dol && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Target size={12} color="#b86eff" />
+                          <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 500 }}>
+                            DOL: {trade.dol}
+                          </span>
+                        </div>
+                      )}
+
+                      {trade.commentExecution && (
+                        <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', margin: 0, lineHeight: 1.4 }}>
+                          {trade.commentExecution}
+                        </p>
+                      )}
+
+                      {/* Chart Screenshot Thumbnail */}
+                      {tradeImg && (
+                        <div
+                          onClick={() => setZoomImage(tradeImg)}
+                          style={{
+                            alignSelf: 'flex-start',
+                            width: '80px',
+                            height: '50px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            position: 'relative',
+                            cursor: 'pointer',
+                            marginTop: '4px'
+                          }}
+                        >
+                          <img src={tradeImg} alt="setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(0,0,0,0.25)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <Eye size={12} color="#fff" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </>
       ) : (
-        /* ── ALL TRADES HISTORICAL LIST ── */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        /* ── ALL TRADES / EXECUTIONS LIST TAB ── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {allTrades.length === 0 ? (
-            <div style={{
-              background: '#0e0e12',
-              borderRadius: '16px',
-              padding: '36px 20px',
-              textAlign: 'center',
-              color: 'rgba(255, 255, 255, 0.4)'
-            }}>
-              No historical trades recorded yet.
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
+              No executions logged yet.
             </div>
           ) : (
-            allTrades.slice(0, 50).map(trade => {
+            allTrades.map(trade => {
               const tradeExecs = allExecutions.filter(e => e.tradeId === trade.id);
               const math = calculateTradePnL(trade, tradeExecs);
               const isGain = math.netPnL > 0;
@@ -581,48 +646,40 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
               return (
                 <div
                   key={trade.id}
-                  onClick={() => {
-                    if (trade.date) setSelectedDate(trade.date);
-                    setActiveTab('daily');
-                  }}
+                  onClick={() => setSelectedDate(trade.date)}
                   style={{
-                    background: '#0e0e12',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '14px',
+                    background: '#09090b',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '16px',
                     padding: '14px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    cursor: 'pointer',
+                    cursor: 'pointer'
                   }}
                 >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
-                        {trade.symbol || 'NQ'}
-                      </span>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff' }}>{trade.symbol}</span>
                       <span style={{
-                        fontSize: '10px',
+                        fontSize: '9px',
                         fontWeight: 700,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: trade.direction === 'SHORT' ? 'rgba(255, 69, 58, 0.15)' : 'rgba(48, 209, 88, 0.15)',
-                        color: trade.direction === 'SHORT' ? '#ff453a' : '#30d158'
+                        color: trade.direction === 'SHORT' ? '#ff453a' : '#30d158',
+                        textTransform: 'uppercase'
                       }}>
-                        {trade.direction || 'LONG'}
+                        {trade.direction}
                       </span>
                     </div>
-                    <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)' }}>
-                      {trade.date} · {trade.model || 'Standard Setup'}
-                    </span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{trade.date}</span>
                   </div>
-
-                  <div style={{
-                    fontSize: '15px',
-                    fontWeight: 800,
-                    color: isGain ? '#30d158' : (isLoss ? '#ff453a' : '#ffffff')
-                  }}>
-                    {isGain ? '+' : ''}${Math.abs(math.netPnL).toFixed(2)}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: 800,
+                      color: isGain ? '#30d158' : (isLoss ? '#ff453a' : '#ffffff')
+                    }}>
+                      {isGain ? '+' : ''}${Math.abs(math.netPnL).toFixed(2)}
+                    </div>
                   </div>
                 </div>
               );
@@ -631,7 +688,9 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         </div>
       )}
 
-      {/* ── FULLSCREEN IMAGE ZOOM MODAL ── */}
+      </div>
+
+      {/* ── IMAGE ZOOM OVERLAY ── */}
       <AnimatePresence>
         {zoomImage && (
           <motion.div
@@ -642,37 +701,38 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.95)',
-              zIndex: 3000,
+              background: 'rgba(0,0,0,0.95)',
+              zIndex: 10000,
               display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
               alignItems: 'center',
-              padding: '16px',
+              justifyContent: 'center',
+              padding: '16px'
             }}
           >
             <button
               onClick={() => setZoomImage(null)}
               style={{
                 position: 'absolute',
-                top: 'calc(var(--safe-top, 47px) + 12px)',
+                top: 'calc(env(safe-area-inset-top) + 16px)',
                 right: '16px',
                 background: 'rgba(255, 255, 255, 0.1)',
                 border: 'none',
-                color: '#ffffff',
                 borderRadius: '50%',
-                width: '40px',
-                height: '40px',
+                width: '36px',
+                height: '36px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer',
+                color: '#fff',
+                cursor: 'pointer'
               }}
             >
               <X size={20} />
             </button>
-
-            <img
+            <motion.img
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
               src={zoomImage}
               alt="Zoomed execution chart"
               onClick={e => e.stopPropagation()}
@@ -687,7 +747,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
           </motion.div>
         )}
       </AnimatePresence>
-      </div>{/* end scrollable content */}
+
     </div>
   );
 }

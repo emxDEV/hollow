@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../db/hollowDb';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useUIStore } from '../../store/useUIStore';
 import {
   Bell,
   X,
@@ -25,6 +26,9 @@ export default function HomeView({
   trades = [],
   executions = []
 }) {
+  const setSelectedDate = useUIStore(s => s.setSelectedDate);
+  const lastTapRef = React.useRef(0);
+
   const [activeModal, setActiveModal] = useState(null); // null | 'notifications'
   const [selectedDayInfo, setSelectedDayInfo] = useState(null); // { dateStr, pnlR, status, count }
   const [zoomImage, setZoomImage] = useState(null);
@@ -90,10 +94,8 @@ export default function HomeView({
     
     // First day of current month
     const firstDay = new Date(year, month, 1);
-    // Day of the week for 1st day (0 = Sunday, 1 = Monday, etc.)
-    let startDayOfWeek = firstDay.getDay();
-    // Adjust to Monday-first grid (0 = Monday, 6 = Sunday)
-    startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+    // Day of the week for 1st day (0 = Sunday, 1 = Monday, etc.) - Sunday first!
+    const startDayOfWeek = firstDay.getDay(); 
     
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const cells = [];
@@ -147,6 +149,48 @@ export default function HomeView({
     
     return cells;
   }, [executions, currentCalendarDate]);
+
+  const calendarRows = useMemo(() => {
+    const rows = [];
+    const tempCells = [...calendarData];
+    
+    let weekIndex = 1;
+    while (tempCells.length > 0) {
+      const weekCells = tempCells.splice(0, 7);
+      
+      // Pad end of month
+      while (weekCells.length < 7) {
+        weekCells.push({ padding: true, id: `pad-end-${weekCells.length}` });
+      }
+      
+      // Calculate weekly metrics
+      let weeklyPnL = 0;
+      let weeklyTradedDays = 0;
+      weekCells.forEach(d => {
+        if (!d.padding && d.traded) {
+          weeklyPnL += d.pnlR;
+          weeklyTradedDays++;
+        }
+      });
+      
+      let weeklyStatus = 'none';
+      if (weeklyTradedDays > 0) {
+        if (weeklyPnL > 0.05) weeklyStatus = 'win';
+        else if (weeklyPnL < -0.05) weeklyStatus = 'loss';
+        else weeklyStatus = 'breakeven';
+      }
+      
+      rows.push({
+        weekIndex,
+        cells: weekCells,
+        weeklyPnL,
+        weeklyTradedDays,
+        weeklyStatus
+      });
+      weekIndex++;
+    }
+    return rows;
+  }, [calendarData]);
 
   const selectedDayExecutions = useMemo(() => {
     if (!selectedDayInfo || !selectedDayInfo.dateStr) return [];
@@ -548,84 +592,176 @@ export default function HomeView({
           }}>
             
             {/* Weekdays Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center' }}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((wd, i) => (
-                <span key={i} style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', textAlign: 'center', columnGap: '4px' }}>
+              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'WEEKLY'].map((wd) => (
+                <span key={wd} style={{ fontSize: '7.5px', fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                   {wd}
                 </span>
               ))}
             </div>
 
-            {/* Calendar Days Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: '10px', columnGap: '6px' }}>
-              {calendarData.map((cell) => {
-                if (cell.padding) {
-                  return <div key={cell.id} />;
-                }
+            {/* Calendar Rows Grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {calendarRows.map((row) => (
+                <div key={row.weekIndex} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', columnGap: '5px' }}>
+                  {/* Render 7 Days of the Week */}
+                  {row.cells.map((cell) => {
+                    if (cell.padding) {
+                      return (
+                        <div key={cell.id} style={{
+                          background: 'rgba(255, 255, 255, 0.01)',
+                          border: '1px solid rgba(255, 255, 255, 0.02)',
+                          borderRadius: '6px',
+                          minHeight: '52px'
+                        }} />
+                      );
+                    }
 
-                // Determine day colors
-                let dayBg = 'rgba(255, 255, 255, 0.03)';
-                let dayColor = 'rgba(255, 255, 255, 0.8)';
-                let dayBorder = '1px solid rgba(255, 255, 255, 0.06)';
-                let glow = 'none';
-
-                if (cell.status === 'win') {
-                  dayBg = '#30d158'; // green
-                  dayColor = '#000000';
-                  dayBorder = 'none';
-                  glow = '0 0 10px rgba(48, 209, 88, 0.35)';
-                } else if (cell.status === 'loss') {
-                  dayBg = '#ff453a'; // red
-                  dayColor = '#ffffff';
-                  dayBorder = 'none';
-                  glow = '0 0 10px rgba(255, 69, 58, 0.35)';
-                } else if (cell.status === 'breakeven') {
-                  dayBg = '#ffd60a'; // yellow
-                  dayColor = '#000000';
-                  dayBorder = 'none';
-                  glow = '0 0 10px rgba(255, 214, 10, 0.35)';
-                }
-
-                // Highlight today's cell
-                const isCellToday = cell.dateStr === todayStr;
-
-                return (
-                  <div
-                    key={cell.id}
-                    onClick={() => setSelectedDayInfo(cell)}
-                    style={{
-                      aspectRatio: '1',
-                      borderRadius: '50%',
-                      background: dayBg,
-                      color: dayColor,
-                      border: isCellToday ? '1px solid #b86eff' : dayBorder,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '13px',
-                      fontWeight: cell.traded || isCellToday ? 800 : 500,
-                      cursor: 'pointer',
-                      boxShadow: glow,
-                      position: 'relative',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                  >
-                    {cell.day}
+                    const isCellToday = cell.dateStr === todayStr;
                     
-                    {/* Small Dot under today's date */}
-                    {isCellToday && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '4px',
-                        width: '3px',
-                        height: '3px',
-                        borderRadius: '50%',
-                        background: '#b86eff'
-                      }} />
-                    )}
-                  </div>
-                );
-              })}
+                    let pnlColor = 'rgba(255, 255, 255, 0.4)';
+                    let borderStyle = '1px solid rgba(255, 255, 255, 0.08)';
+                    let cellBg = '#09090b';
+
+                    if (cell.status === 'win') {
+                      pnlColor = '#30d158'; // Green
+                      borderStyle = '1px solid rgba(48, 209, 88, 0.35)';
+                    } else if (cell.status === 'loss') {
+                      pnlColor = '#ff453a'; // Red
+                      borderStyle = '1px solid rgba(255, 69, 58, 0.35)';
+                    } else if (cell.status === 'breakeven') {
+                      pnlColor = '#ffd60a'; // Yellow
+                      borderStyle = '1px solid rgba(255, 214, 10, 0.35)';
+                    }
+
+                    if (isCellToday) {
+                      borderStyle = '1px solid #b86eff';
+                    }
+
+                    const handleDayClick = () => {
+                      const now = Date.now();
+                      if (selectedDayInfo && selectedDayInfo.dateStr === cell.dateStr && now - lastTapRef.current < 350) {
+                        // Double click/tap detected!
+                        setSelectedDate(cell.dateStr);
+                        onNavigate('journal');
+                      } else {
+                        setSelectedDayInfo(cell);
+                      }
+                      lastTapRef.current = now;
+                    };
+
+                    return (
+                      <div
+                        key={cell.id}
+                        onClick={handleDayClick}
+                        style={{
+                          background: cellBg,
+                          border: borderStyle,
+                          borderRadius: '6px',
+                          padding: '4px 2px',
+                          minHeight: '52px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        {/* Day Number in top-right */}
+                        <span style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.35)', alignSelf: 'flex-end', paddingRight: '2px', lineHeight: 1 }}>
+                          {cell.day}
+                        </span>
+
+                        {/* P&L outcome in center */}
+                        {cell.traded ? (
+                          <span style={{
+                            fontSize: '9.5px',
+                            fontWeight: 800,
+                            color: pnlColor,
+                            textAlign: 'center',
+                            lineHeight: 1.1,
+                            letterSpacing: '-0.02em',
+                            margin: '2px 0'
+                          }}>
+                            {cell.pnlR >= 0 ? `+${cell.pnlR.toFixed(1)}R` : `${cell.pnlR.toFixed(1)}R`}
+                          </span>
+                        ) : <div style={{ flex: 1 }} />}
+
+                        {/* Trade count at bottom */}
+                        {cell.traded ? (
+                          <span style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', lineHeight: 1 }}>
+                            {cell.count} {cell.count === 1 ? 'trade' : 'trades'}
+                          </span>
+                        ) : <div style={{ height: '7px' }} />}
+                      </div>
+                    );
+                  })}
+
+                  {/* WEEKLY Outcome Column */}
+                  {(() => {
+                    const isWeeklyPos = row.weeklyPnL > 0.05;
+                    const isWeeklyNeg = row.weeklyPnL < -0.05;
+                    const isWeeklyTraded = row.weeklyTradedDays > 0;
+                    
+                    let weeklyColor = 'rgba(255, 255, 255, 0.4)';
+                    let weeklyBorder = '1px solid rgba(255, 255, 255, 0.04)';
+
+                    if (isWeeklyTraded) {
+                      if (isWeeklyPos) {
+                        weeklyColor = '#30d158';
+                        weeklyBorder = '1px solid rgba(48, 209, 88, 0.2)';
+                      } else if (isWeeklyNeg) {
+                        weeklyColor = '#ff453a';
+                        weeklyBorder = '1px solid rgba(255, 69, 58, 0.2)';
+                      } else {
+                        weeklyColor = '#ffd60a';
+                        weeklyBorder = '1px solid rgba(255, 214, 10, 0.2)';
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={`weekly-${row.weekIndex}`}
+                        style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: weeklyBorder,
+                          borderRadius: '6px',
+                          padding: '4px 2px',
+                          minHeight: '52px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          opacity: 0.85
+                        }}
+                      >
+                        {/* Weekly Label */}
+                        <span style={{ fontSize: '7px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 1 }}>
+                          Week {row.weekIndex}
+                        </span>
+
+                        {/* Weekly PNL */}
+                        <span style={{
+                          fontSize: '9.5px',
+                          fontWeight: 800,
+                          color: weeklyColor,
+                          textAlign: 'center',
+                          lineHeight: 1.1,
+                          letterSpacing: '-0.02em',
+                          margin: '2px 0'
+                        }}>
+                          {row.weeklyPnL >= 0 ? `+${row.weeklyPnL.toFixed(1)}R` : `${row.weeklyPnL.toFixed(1)}R`}
+                        </span>
+
+                        {/* Weekly active days */}
+                        <span style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', lineHeight: 1 }}>
+                          {row.weeklyTradedDays} {row.weeklyTradedDays === 1 ? 'day' : 'days'}
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ))}
             </div>
 
             {/* Selected day inline detail card */}
