@@ -31,37 +31,101 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
     return await db.dailyJournals.get(selectedDate);
   }, [selectedDate]);
 
-  // Form state for journal reflections
-  const [notes, setNotes] = useState('');
-  const [focusRating, setFocusRating] = useState(5);
-  const [disciplineRating, setDisciplineRating] = useState(5);
+  // Pre-market checklist
+  const [newsChecked, setNewsChecked] = useState(false);
+  const [htfAnalysisDone, setHtfAnalysisDone] = useState(false);
+  const [liquidityDrawn, setLiquidityDrawn] = useState(false);
+  const [dailyOpenMapped, setDailyOpenMapped] = useState(false);
+
+  // Ratings (1-10)
+  const [mentalFocus, setMentalFocus] = useState(5);
+  const [patienceLevel, setPatienceLevel] = useState(5);
+  const [riskAdherence, setRiskAdherence] = useState(5);
+
+  // Habits
+  const [sleepHours, setSleepHours] = useState(8);
+  const [sleepQuality, setSleepQuality] = useState('Good');
+  const [workoutDone, setWorkoutDone] = useState(false);
+  const [dietClean, setDietClean] = useState(false);
+  const [meditationDone, setMeditationDone] = useState(false);
+  const [homeworkDone, setHomeworkDone] = useState(false);
+
+  // Notes
+  const [preMarketNotes, setPreMarketNotes] = useState('');
+  const [postMarketNotes, setPostMarketNotes] = useState('');
 
   useEffect(() => {
     if (dailyJournal) {
-      setNotes(dailyJournal.notes || dailyJournal.generalNotes || '');
-      setFocusRating(dailyJournal.focusRating || dailyJournal.focus || 5);
-      setDisciplineRating(dailyJournal.disciplineRating || dailyJournal.discipline || 5);
+      setNewsChecked(!!dailyJournal.newsChecked);
+      setHtfAnalysisDone(!!dailyJournal.htfAnalysisDone);
+      setLiquidityDrawn(!!dailyJournal.liquidityDrawn);
+      setDailyOpenMapped(!!dailyJournal.dailyOpenMapped);
+
+      setMentalFocus(dailyJournal.mentalFocus || 5);
+      setPatienceLevel(dailyJournal.patienceLevel || 5);
+      setRiskAdherence(dailyJournal.riskAdherence || 5);
+
+      setSleepHours(dailyJournal.sleepHours || 8);
+      setSleepQuality(dailyJournal.sleepQuality || 'Good');
+      setWorkoutDone(!!dailyJournal.workoutDone);
+      setDietClean(!!dailyJournal.dietClean);
+      setMeditationDone(!!dailyJournal.meditationDone);
+      setHomeworkDone(!!dailyJournal.homeworkDone);
+
+      setPreMarketNotes(dailyJournal.preMarketNotes || '');
+      setPostMarketNotes(dailyJournal.postMarketNotes || '');
     } else {
-      setNotes('');
-      setFocusRating(5);
-      setDisciplineRating(5);
+      setNewsChecked(false);
+      setHtfAnalysisDone(false);
+      setLiquidityDrawn(false);
+      setDailyOpenMapped(false);
+
+      setMentalFocus(5);
+      setPatienceLevel(5);
+      setRiskAdherence(5);
+
+      setSleepHours(8);
+      setSleepQuality('Good');
+      setWorkoutDone(false);
+      setDietClean(false);
+      setMeditationDone(false);
+      setHomeworkDone(false);
+
+      setPreMarketNotes('');
+      setPostMarketNotes('');
     }
   }, [dailyJournal, selectedDate]);
 
-  // Auto-save reflections
-  const saveReflections = async () => {
+  const saveJournal = async (updates = {}, quiet = true) => {
     if (!db || !db.dailyJournals) return;
     const existing = await db.dailyJournals.get(selectedDate) || {};
-    await db.dailyJournals.put({
+    const payload = {
       ...existing,
       date: selectedDate,
-      notes,
-      generalNotes: notes,
-      focusRating,
-      disciplineRating,
+      newsChecked: updates.newsChecked !== undefined ? updates.newsChecked : newsChecked,
+      htfAnalysisDone: updates.htfAnalysisDone !== undefined ? updates.htfAnalysisDone : htfAnalysisDone,
+      liquidityDrawn: updates.liquidityDrawn !== undefined ? updates.liquidityDrawn : liquidityDrawn,
+      dailyOpenMapped: updates.dailyOpenMapped !== undefined ? updates.dailyOpenMapped : dailyOpenMapped,
+
+      mentalFocus: updates.mentalFocus !== undefined ? updates.mentalFocus : mentalFocus,
+      patienceLevel: updates.patienceLevel !== undefined ? updates.patienceLevel : patienceLevel,
+      riskAdherence: updates.riskAdherence !== undefined ? updates.riskAdherence : riskAdherence,
+
+      sleepHours: updates.sleepHours !== undefined ? updates.sleepHours : sleepHours,
+      sleepQuality: updates.sleepQuality !== undefined ? updates.sleepQuality : sleepQuality,
+      workoutDone: updates.workoutDone !== undefined ? updates.workoutDone : workoutDone,
+      dietClean: updates.dietClean !== undefined ? updates.dietClean : dietClean,
+      meditationDone: updates.meditationDone !== undefined ? updates.meditationDone : meditationDone,
+      homeworkDone: updates.homeworkDone !== undefined ? updates.homeworkDone : homeworkDone,
+
+      preMarketNotes: updates.preMarketNotes !== undefined ? updates.preMarketNotes : preMarketNotes,
+      postMarketNotes: updates.postMarketNotes !== undefined ? updates.postMarketNotes : postMarketNotes,
       updatedAt: new Date().toISOString()
-    });
-    if (addToast) addToast('Journal reflections saved', 'success');
+    };
+    await db.dailyJournals.put(payload);
+    if (!quiet && addToast) {
+      addToast('Journal saved successfully', 'success');
+    }
   };
 
   // Fetch trades and executions for selected date
@@ -397,57 +461,289 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
           {/* ── COGNITIVE MINDSET & DAILY NOTES ── */}
           <div style={{
             background: '#0e0e12',
-            border: '1px solid rgba(184, 110, 255, 0.2)',
-            borderRadius: '18px',
-            padding: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '18px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px'
+            gap: '20px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Brain size={18} color="#b86eff" />
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#d8b4fe' }}>
-                  Daily Psychology &amp; Reflections
+                <span style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff' }}>
+                  Daily Journal Details
                 </span>
               </div>
-              <button
-                onClick={saveReflections}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#b86eff',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                Save
-              </button>
+              <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={11} color="#b86eff" /> Auto-saved on change
+              </span>
             </div>
 
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Reflect on today's discipline, emotional state, adherence to rules..."
-              style={{
-                width: '100%',
-                height: '70px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '10px',
-                padding: '10px',
-                color: '#fff',
-                fontSize: '13px',
-                fontFamily: 'inherit',
-                resize: 'none',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
+            {/* SECTION 1: PRE-MARKET PREP */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pre-Market Prep</span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                {[
+                  { label: 'News Checked', val: newsChecked, key: 'newsChecked', set: setNewsChecked },
+                  { label: 'HTF Analysis', val: htfAnalysisDone, key: 'htfAnalysisDone', set: setHtfAnalysisDone },
+                  { label: 'Liquidity Levels', val: liquidityDrawn, key: 'liquidityDrawn', set: setLiquidityDrawn },
+                  { label: 'Daily Open Mapped', val: dailyOpenMapped, key: 'dailyOpenMapped', set: setDailyOpenMapped }
+                ].map(item => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      const next = !item.val;
+                      item.set(next);
+                      saveJournal({ [item.key]: next });
+                    }}
+                    style={{
+                      background: item.val ? 'rgba(184, 110, 255, 0.15)' : 'rgba(255,255,255,0.02)',
+                      border: item.val ? '1px solid rgba(184, 110, 255, 0.35)' : '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      color: item.val ? '#d8b4fe' : 'rgba(255,255,255,0.5)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '3px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: item.val ? '#b86eff' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#000',
+                      fontSize: '9px',
+                      fontWeight: 900
+                    }}>
+                      {item.val && '✓'}
+                    </div>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={preMarketNotes}
+                onChange={e => setPreMarketNotes(e.target.value)}
+                onBlur={() => saveJournal({ preMarketNotes })}
+                placeholder="Write your pre-market bias, key levels, or strategy plan..."
+                style={{
+                  width: '100%',
+                  height: '52px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* SECTION 2: SLIDERS & METRICS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Performance Ratings</span>
+              
+              {[
+                { label: 'Mental Focus', val: mentalFocus, set: setMentalFocus, key: 'mentalFocus', icon: '🧠', color: '#b86eff' },
+                { label: 'Discipline & Patience', val: patienceLevel, set: setPatienceLevel, key: 'patienceLevel', icon: '🧘', color: '#64d2ff' },
+                { label: 'Risk Adherence', val: riskAdherence, set: setRiskAdherence, key: 'riskAdherence', icon: '🛡️', color: '#30d158' }
+              ].map(slider => (
+                <div key={slider.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                      {slider.icon} {slider.label}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: slider.color }}>
+                      {slider.val} / 10
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={slider.val}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      slider.set(val);
+                    }}
+                    onTouchEnd={() => saveJournal()}
+                    onMouseUp={() => saveJournal()}
+                    style={{
+                      width: '100%',
+                      accentColor: slider.color,
+                      height: '4px',
+                      background: 'rgba(255,255,255,0.1)',
+                      borderRadius: '2px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* SECTION 3: DAILY ROUTINE & SLEEP */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Habits &amp; Routine</span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                {[
+                  { label: 'Workout Done', val: workoutDone, key: 'workoutDone', set: setWorkoutDone },
+                  { label: 'Clean Diet', val: dietClean, key: 'dietClean', set: setDietClean },
+                  { label: 'Meditation', val: meditationDone, key: 'meditationDone', set: setMeditationDone },
+                  { label: 'Charts Homework', val: homeworkDone, key: 'homeworkDone', set: setHomeworkDone }
+                ].map(item => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      const next = !item.val;
+                      item.set(next);
+                      saveJournal({ [item.key]: next });
+                    }}
+                    style={{
+                      background: item.val ? 'rgba(48, 209, 88, 0.12)' : 'rgba(255,255,255,0.02)',
+                      border: item.val ? '1px solid rgba(48, 209, 88, 0.35)' : '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      color: item.val ? '#30d158' : 'rgba(255,255,255,0.5)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '3px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: item.val ? '#30d158' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#000',
+                      fontSize: '9px',
+                      fontWeight: 900
+                    }}>
+                      {item.val && '✓'}
+                    </div>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sleep details */}
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                background: 'rgba(255,255,255,0.01)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                borderRadius: '12px',
+                padding: '10px 12px',
+                alignItems: 'center'
+              }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>Sleep Hours</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="24"
+                    value={sleepHours}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setSleepHours(val);
+                      saveJournal({ sleepHours: val });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      outline: 'none',
+                      width: '100%',
+                      padding: 0
+                    }}
+                  />
+                </div>
+                
+                <div style={{ width: '1px', alignSelf: 'stretch', background: 'rgba(255,255,255,0.08)' }} />
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>Sleep Quality</label>
+                  <select
+                    value={sleepQuality}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSleepQuality(val);
+                      saveJournal({ sleepQuality: val });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      outline: 'none',
+                      width: '100%',
+                      padding: 0,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="Good" style={{ background: '#000' }}>Good</option>
+                    <option value="Fair" style={{ background: '#000' }}>Fair</option>
+                    <option value="Poor" style={{ background: '#000' }}>Poor</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 4: POST-MARKET REFLECTION */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Post-Market Reflection</span>
+              <textarea
+                value={postMarketNotes}
+                onChange={e => setPostMarketNotes(e.target.value)}
+                onBlur={() => saveJournal({ postMarketNotes })}
+                placeholder="How did you perform? What setups worked or failed? General summary..."
+                style={{
+                  width: '100%',
+                  height: '68px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
           </div>
 
           {/* ── LOGGED EXECUTIONS HEADER ── */}

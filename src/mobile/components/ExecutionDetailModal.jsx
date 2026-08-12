@@ -93,9 +93,9 @@ export default function ExecutionDetailModal() {
           display: 'flex',
           alignItems: isMobile ? 'flex-end' : 'center',
           justifyContent: 'center',
-          background: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)'
+          background: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)'
         }}
         onClick={() => setSelectedExecution(null)}
       >
@@ -420,7 +420,9 @@ export default function ExecutionDetailModal() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.95)',
+              background: 'rgba(0,0,0,0.7)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
               zIndex: 100000,
               display: 'flex',
               alignItems: 'center',
