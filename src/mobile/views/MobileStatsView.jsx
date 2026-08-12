@@ -43,6 +43,23 @@ export default function MobileStatsView({ trades = [], executions = [], selected
   const [activeTab, setActiveTab] = useState('overview');
   const [activeTableFilter, setActiveTableFilter] = useState('All'); // 'All' | 'Entry Timeframes' | 'DOL Targets' | 'PO3 Timings' | 'Models' | 'Ratings'
 
+  // Filter systems
+  const [datePreset, setDatePreset] = useState('30D'); // '7D' | '30D' | '90D' | '6M' | '1Y' | 'All'
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customRange, setCustomRange] = useState(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 30);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  });
+
+  // Temp state for custom date picker dialog inputs
+  const [tempStart, setTempStart] = useState(customRange.start);
+  const [tempEnd, setTempEnd] = useState(customRange.end);
+
   // Payouts Tracker State & Dialog
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutsList, setPayoutsList] = useState([]);
@@ -129,21 +146,72 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       return { ...t, netPnL, grossPnL, commissions };
     });
 
-    return [...tradeEnriched, ...standaloneExecTrades];
   }, [acctTrades, executions]);
+
+  // Synchronize customRange with datePreset
+  useEffect(() => {
+    if (!datePreset) return;
+    const end = new Date();
+    const start = new Date();
+    switch (datePreset) {
+      case '7D':
+        start.setDate(end.getDate() - 7);
+        break;
+      case '30D':
+        start.setDate(end.getDate() - 30);
+        break;
+      case '90D':
+        start.setDate(end.getDate() - 90);
+        break;
+      case '6M':
+        start.setMonth(end.getMonth() - 6);
+        break;
+      case '1Y':
+        start.setFullYear(end.getFullYear() - 1);
+        break;
+      case 'All':
+        start.setTime(0); // Epoch start
+        break;
+      default:
+        return;
+    }
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+    setCustomRange({ start: startStr, end: endStr });
+    setTempStart(startStr);
+    setTempEnd(endStr);
+  }, [datePreset]);
+
+  const filteredEnriched = useMemo(() => {
+    return enriched.filter(t => {
+      if (!t.date) return false;
+      return t.date >= customRange.start && t.date <= customRange.end;
+    });
+  }, [enriched, customRange]);
+
+  const formattedDateRange = useMemo(() => {
+    const startD = new Date(customRange.start);
+    const endD = new Date(customRange.end);
+    if (isNaN(startD.getTime()) || isNaN(endD.getTime())) return 'Select Dates';
+    
+    const options = { month: 'short', day: 'numeric' };
+    const startStr = startD.toLocaleDateString('en-US', options);
+    const endStr = endD.toLocaleDateString('en-US', { ...options, year: 'numeric' });
+    return `${startStr} – ${endStr}`;
+  }, [customRange]);
 
   // General KPIs and stats
   const stats = useMemo(() => {
-    if (!enriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, totalR: 0, expectancy: 0, wins: 0, losses: 0 };
+    if (!filteredEnriched.length) return { total: 0, winRate: 0, pf: 0, avgWin: 0, avgLoss: 0, count: 0, totalR: 0, expectancy: 0, wins: 0, losses: 0 };
     
-    const wins = enriched.filter(t => t.netPnL > 0);
-    const losses = enriched.filter(t => t.netPnL < 0);
+    const wins = filteredEnriched.filter(t => t.netPnL > 0);
+    const losses = filteredEnriched.filter(t => t.netPnL < 0);
     const totalWin = wins.reduce((s, t) => s + t.netPnL, 0);
     const totalLoss = Math.abs(losses.reduce((s, t) => s + t.netPnL, 0));
 
     // Calculate total R-multiple
     let totalR = 0;
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
         totalR += parseFloat(t.rr) || 0;
       } else {
@@ -152,18 +220,18 @@ export default function MobileStatsView({ trades = [], executions = [], selected
     });
 
     return {
-      total: enriched.reduce((s, t) => s + t.netPnL, 0),
-      winRate: (wins.length / enriched.length) * 100,
+      total: filteredEnriched.reduce((s, t) => s + t.netPnL, 0),
+      winRate: (wins.length / filteredEnriched.length) * 100,
       pf: totalLoss > 0 ? totalWin / totalLoss : totalWin > 0 ? 9.99 : 0,
       avgWin: wins.length ? totalWin / wins.length : 0,
       avgLoss: losses.length ? totalLoss / losses.length : 0,
-      count: enriched.length,
+      count: filteredEnriched.length,
       totalR,
-      expectancy: totalR / enriched.length,
+      expectancy: totalR / filteredEnriched.length,
       wins: wins.length,
       losses: losses.length
     };
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // ── 1. SETUP STATS / EDGE DATA ──
   const edgeStats = useMemo(() => {
@@ -217,7 +285,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       map[cleanKey].totalR += rVal;
     };
 
-    enriched.forEach(trade => {
+    filteredEnriched.forEach(trade => {
       const pnl = trade.netPnL;
       let rVal = 0;
       if (trade.rr !== undefined && trade.rr !== null && trade.rr !== '') {
@@ -276,14 +344,14 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       ratings: formatListOrdered(ratingsMap, ['A+', 'A', 'B', 'C', 'F']),
       weekdays: formatListOrdered(weekdaysMap, ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
     };
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // ── 2. CHARTS & DETAILS DATA ──
   
   // Equity curve
   const equityCurve = useMemo(() => {
     const byDate = {};
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       const dateStr = t.date ? t.date.slice(5) : '';
       if (!dateStr) return;
       byDate[dateStr] = (byDate[dateStr] || 0) + t.netPnL;
@@ -294,7 +362,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       cum += pnl;
       return { date, value: cum };
     });
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // P&L Distribution (R) Bins
   const pnlDistributionData = useMemo(() => {
@@ -310,7 +378,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       '>2R': 0
     };
 
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       let r = 0;
       if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
         r = parseFloat(t.rr) || 0;
@@ -330,7 +398,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
     });
 
     return Object.entries(bins).map(([bin, count]) => ({ name: bin, count }));
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // Weekday Performance (R)
   const weekdaysOutcome = useMemo(() => {
@@ -341,7 +409,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       Thu: 0,
       Fri: 0
     };
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       if (!t.date) return;
       const day = new Date(t.date).toLocaleDateString('en-US', { weekday: 'short' });
       if (data[day] !== undefined) {
@@ -355,7 +423,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       }
     });
     return Object.entries(data).map(([day, r]) => ({ day, r }));
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // Performance by Session (NY, LN, AS, PM)
   const sessionData = useMemo(() => {
@@ -365,19 +433,19 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       'Asian': 0,
       'Pre-Market': 0
     };
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       const s = t.session || 'New York';
       if (sessions[s] !== undefined) {
         sessions[s]++;
       }
     });
     return Object.entries(sessions).map(([name, value]) => ({ name, value }));
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // Performance by Market
   const marketPerformance = useMemo(() => {
     const markets = {};
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       const sym = t.symbol || 'NQ';
       if (!markets[sym]) markets[sym] = { symbol: sym, trades: 0, wins: 0, totalR: 0 };
       markets[sym].trades++;
@@ -396,11 +464,11 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       winRate: m.trades > 0 ? (m.wins / m.trades) * 100 : 0,
       avgR: m.trades > 0 ? m.totalR / m.trades : 0
     }));
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // Breakdown statistics (Avg Win, Avg Loss, Best, Worst, Win/Loss Ratio)
   const rBreakdown = useMemo(() => {
-    const rMultiples = enriched.map(t => {
+    const rMultiples = filteredEnriched.map(t => {
       if (t.rr !== undefined && t.rr !== null && t.rr !== '') {
         return parseFloat(t.rr) || 0;
       }
@@ -417,7 +485,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
     const ratio = Math.abs(avgLoss) > 0 ? avgWin / Math.abs(avgLoss) : 0;
 
     return { avgWin, avgLoss, best, worst, ratio };
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   // Grade Distribution
   const gradeDistribution = useMemo(() => {
@@ -427,7 +495,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       'Grade C': 0,
       'Grade F': 0
     };
-    enriched.forEach(t => {
+    filteredEnriched.forEach(t => {
       const g = t.rating || 'A+';
       if (g === 'A+' || g === 'A') grades['Grade A+/ A']++;
       else if (g === 'B') grades['Grade B']++;
@@ -435,7 +503,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
       else if (g === 'F') grades['Grade F']++;
     });
     return Object.entries(grades).map(([name, value]) => ({ name, value }));
-  }, [enriched]);
+  }, [filteredEnriched]);
 
   const handleScroll = (e) => {
     if (onScrollChange) onScrollChange(e.target.scrollTop);
@@ -547,10 +615,80 @@ export default function MobileStatsView({ trades = [], executions = [], selected
           </div>
         </div>
 
+        {/* Date Filter System Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'space-between', marginTop: '4px' }}>
+          {/* Preset Buttons Pill container */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '24px',
+            padding: '2px',
+            flex: 1,
+            maxWidth: '240px'
+          }}>
+            {['7D', '30D', '90D', '6M', '1Y', 'All'].map(p => {
+              const isSel = datePreset === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setDatePreset(p)}
+                  style={{
+                    flex: 1,
+                    background: isSel ? '#b86eff' : 'transparent',
+                    border: 'none',
+                    borderRadius: '20px',
+                    padding: '6px 0',
+                    color: isSel ? '#fff' : 'rgba(255,255,255,0.4)',
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Date Picker trigger pill */}
+          <button
+            onClick={() => {
+              setTempStart(customRange.start);
+              setTempEnd(customRange.end);
+              setShowDatePicker(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '24px',
+              padding: '6px 14px',
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              maxWidth: '170px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={13} color="#b86eff" />
+              <span>{formattedDateRange}</span>
+            </div>
+            <ChevronDown size={12} color="rgba(255,255,255,0.4)" />
+          </button>
+        </div>
+
         {/* Tab Selector */}
         <div style={{
           display: 'flex',
-          background: '#1c1c1e',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: 12,
           padding: 3
         }}>
@@ -560,7 +698,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
               onClick={() => setActiveTab(tab.id)}
               style={{
                 flex: 1,
-                background: activeTab === tab.id ? '#2c2c2e' : 'transparent',
+                background: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 'transparent',
                 border: 'none',
                 borderRadius: 10,
                 padding: '8px 4px',
@@ -1213,6 +1351,129 @@ export default function MobileStatsView({ trades = [], executions = [], selected
 
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CUSTOM DATE RANGE PICKER MODAL SHEET ── */}
+      <AnimatePresence>
+        {showDatePicker && (
+          <div
+            onClick={() => setShowDatePicker(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)'
+            }}
+          >
+            <motion.div
+              onClick={e => e.stopPropagation()}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              style={{
+                width: '100%',
+                background: '#09090b',
+                borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '24px 24px 0 0',
+                padding: '20px',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '15px', fontWeight: 800, color: '#fff' }}>Custom Date Range</span>
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Start Date</label>
+                  <input
+                    type="date"
+                    value={tempStart}
+                    onChange={e => setTempStart(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '10px',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>End Date</label>
+                  <input
+                    type="date"
+                    value={tempEnd}
+                    onChange={e => setTempEnd(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '10px',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomRange({ start: tempStart, end: tempEnd });
+                  setDatePreset(null); // Clear preset selection as it's now custom
+                  setShowDatePicker(false);
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #b86eff 0%, #8a30f6 100%)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 15px rgba(138, 48, 246, 0.3)'
+                }}
+              >
+                Apply Date Range
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
