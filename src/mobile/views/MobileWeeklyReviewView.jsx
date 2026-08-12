@@ -664,21 +664,6 @@ export default function MobileWeeklyReviewView({ trades, executions, accounts, s
           </button>
         </div>
         
-        {/* Mindset Quote Banner */}
-        <div style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 16,
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          marginBottom: 16
-        }}>
-          <span style={{ fontSize: 9, color: accentColor, fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase' }}>MINDSET AUDIT</span>
-          <p style={{ fontSize: 12, fontStyle: 'italic', color: 'rgba(255,255,255,0.7)', lineHeight: 1.4, margin: 0 }}>"{quote.text}"</p>
-          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>— {quote.author}</span>
-        </div>
 
         {/* Weekly Stats Summary (R metrics) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
