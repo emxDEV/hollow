@@ -148,6 +148,14 @@ export default function HomeView({
     return cells;
   }, [executions, currentCalendarDate]);
 
+  const selectedDayExecutions = useMemo(() => {
+    if (!selectedDayInfo || !selectedDayInfo.dateStr) return [];
+    return executions.filter(e => {
+      const dateStr = e.date || new Date(e.timestamp || Date.now()).toISOString().split('T')[0];
+      return dateStr === selectedDayInfo.dateStr;
+    });
+  }, [executions, selectedDayInfo]);
+
   const handleMonthShift = (direction) => {
     const nextDate = new Date(currentCalendarDate);
     nextDate.setMonth(nextDate.getMonth() + direction);
@@ -626,14 +634,18 @@ export default function HomeView({
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
+                  background: 'rgba(255, 255, 255, 0.02)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '14px',
-                  padding: '12px 14px',
-                  marginTop: '4px'
+                  borderRadius: '16px',
+                  padding: '14px',
+                  marginTop: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Header of selected day detail */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Calendar size={14} color="#b86eff" />
                     <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
@@ -646,11 +658,127 @@ export default function HomeView({
                     color: selectedDayInfo.status === 'win' ? '#30d158' : (selectedDayInfo.status === 'loss' ? '#ff453a' : (selectedDayInfo.status === 'breakeven' ? '#ffd60a' : 'rgba(255,255,255,0.4)'))
                   }}>
                     {selectedDayInfo.traded
-                      ? `${selectedDayInfo.pnlR >= 0 ? '+' : ''}${selectedDayInfo.pnlR.toFixed(2)}R (${selectedDayInfo.count} trades)`
+                      ? `Outcome: ${selectedDayInfo.pnlR >= 0 ? '+' : ''}${selectedDayInfo.pnlR.toFixed(2)}R`
                       : 'No Trades'
                     }
                   </span>
                 </div>
+
+                {/* Executions for selected day */}
+                {selectedDayExecutions.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)', textAlign: 'center', padding: '8px 0' }}>
+                    No executions recorded for this day.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {selectedDayExecutions.map(exec => {
+                      const isWin = exec.wl === 'Win';
+                      const isLoss = exec.wl === 'Loss';
+                      const hasImage = Array.isArray(exec.images) && exec.images.length > 0;
+                      const imgData = hasImage ? (Array.isArray(exec.images[0]) ? exec.images[0][0] : exec.images[0]) : null;
+
+                      let rValueStr = '0.00R';
+                      if (exec.rr !== undefined && exec.rr !== null && exec.rr !== '') {
+                        const num = parseFloat(String(exec.rr).replace(/[^0-9.-]/g, ''));
+                        if (!isNaN(num)) {
+                          rValueStr = num >= 0 ? `+${num.toFixed(2)}R` : `${num.toFixed(2)}R`;
+                        }
+                      } else if (isWin) {
+                        rValueStr = '+2.00R';
+                      } else if (isLoss) {
+                        rValueStr = '-1.00R';
+                      }
+
+                      return (
+                        <div
+                          key={exec.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.04)',
+                            borderRadius: '12px',
+                            padding: '8px 10px',
+                          }}
+                        >
+                          {/* Mini Direction/Symbol bubble */}
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: exec.bias === 'Long' ? 'rgba(48, 209, 88, 0.1)' : 'rgba(255, 69, 58, 0.1)',
+                            border: exec.bias === 'Long' ? '1px solid rgba(48, 209, 88, 0.2)' : '1px solid rgba(255, 69, 58, 0.2)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <span style={{ fontSize: '9px', fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>{exec.symbol || 'NQ'}</span>
+                            <span style={{ fontSize: '7px', fontWeight: 700, color: exec.bias === 'Long' ? '#30d158' : '#ff453a', textTransform: 'uppercase', lineHeight: 1 }}>
+                              {exec.bias === 'Long' ? 'Buy' : 'Sell'}
+                            </span>
+                          </div>
+
+                          {/* Model & Rating */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {exec.model || 'Standard Setup'}
+                              </span>
+                              {exec.rating && (
+                                <span style={{
+                                  fontSize: '8px',
+                                  fontWeight: 800,
+                                  background: 'rgba(184, 110, 255, 0.15)',
+                                  color: '#b86eff',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px',
+                                }}>
+                                  {exec.rating}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Image zoom link */}
+                          {imgData && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomImage(imgData);
+                              }}
+                              style={{
+                                width: '38px',
+                                height: '26px',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                position: 'relative',
+                                cursor: 'pointer',
+                                flexShrink: 0
+                              }}
+                            >
+                              <img src={imgData} alt="setup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                          )}
+
+                          {/* Outcome R */}
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              color: isWin ? '#30d158' : (isLoss ? '#ff453a' : '#ffd60a')
+                            }}>
+                              {rValueStr}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             )}
 
