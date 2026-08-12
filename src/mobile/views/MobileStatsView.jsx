@@ -108,8 +108,9 @@ export default function MobileStatsView({ trades = [], executions = [], selected
 
   // Filter trades based on active account
   const acctTrades = useMemo(() => {
-    if (!selectedAccountId || selectedAccountId === 'all') return trades;
-    return trades.filter(t => t.accountId === selectedAccountId);
+    const safeTrades = Array.isArray(trades) ? trades : [];
+    if (!selectedAccountId || selectedAccountId === 'all') return safeTrades;
+    return safeTrades.filter(t => t.accountId === selectedAccountId);
   }, [trades, selectedAccountId]);
 
   // Enrich trades with net outcomes
@@ -141,12 +142,16 @@ export default function MobileStatsView({ trades = [], executions = [], selected
         };
       });
 
-    const tradeEnriched = acctTrades.map(t => {
-      const execs = executions.filter(e => e.tradeId === t.id);
+    const safeTrades = Array.isArray(acctTrades) ? acctTrades : [];
+    const safeExecs = Array.isArray(executions) ? executions : [];
+
+    const tradeEnriched = safeTrades.map(t => {
+      const execs = safeExecs.filter(e => e.tradeId === t.id);
       const { netPnL, grossPnL, commissions } = calculateTradePnL(t, execs);
       return { ...t, netPnL, grossPnL, commissions };
     });
 
+    return [...tradeEnriched, ...standaloneExecTrades];
   }, [acctTrades, executions]);
 
   // Synchronize customRange with datePreset
