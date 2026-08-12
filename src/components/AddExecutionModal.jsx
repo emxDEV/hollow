@@ -144,6 +144,7 @@ export default function AddExecutionModal() {
       model: '',
       dol: '',
       entryTf: '',
+      session: 'New York',
       po3Times: [],
       sl: '15.00',
       tp: '37.50',
@@ -384,6 +385,7 @@ export default function AddExecutionModal() {
       model: '',
       dol: '',
       entryTf: '',
+      session: 'New York',
       po3Times: [],
       sl: '15.00',
       tp: '37.50',
@@ -459,43 +461,47 @@ export default function AddExecutionModal() {
           inset: 0,
           zIndex: 10000,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isMobile ? 'flex-end' : 'center',
           justifyContent: 'center',
-          padding: isMobile ? '8px' : '16px',
-          background: 'rgba(5, 4, 10, 0.86)',
-          backdropFilter: 'blur(26px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(26px) saturate(180%)',
+          padding: isMobile ? '0' : '16px',
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           cursor: 'pointer'
         }}
       >
         {/* Ambient Halo */}
-        <div style={{
-          position: 'absolute',
-          width: isMobile ? '280px' : '540px',
-          height: isMobile ? '280px' : '540px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(160, 80, 255, 0.22) 0%, rgba(120, 30, 240, 0.06) 60%, rgba(0,0,0,0) 80%)',
-          filter: 'blur(60px)',
-          pointerEvents: 'none'
-        }} />
+        {!isMobile && (
+          <div style={{
+            position: 'absolute',
+            width: '540px',
+            height: '540px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(184, 110, 255, 0.15) 0%, rgba(184, 110, 255, 0.03) 60%, rgba(0,0,0,0) 80%)',
+            filter: 'blur(60px)',
+            pointerEvents: 'none'
+          }} />
+        )}
 
         <motion.div
           onClick={(e) => e.stopPropagation()}
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+          initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95, y: 15 }}
+          animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+          exit={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95, y: 15 }}
+          transition={isMobile ? { type: 'spring', damping: 28, stiffness: 240 } : { type: 'spring', stiffness: 350, damping: 28 }}
           style={{
             width: '100%',
             maxWidth: '680px',
-            background: '#0d0b14',
-            border: '1px solid rgba(184, 110, 255, 0.24)',
-            borderRadius: isMobile ? '16px' : '28px',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(138, 48, 246, 0.18)',
+            background: '#09090b',
+            border: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+            borderTop: isMobile ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: isMobile ? '24px 24px 0 0' : '28px',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
             position: 'relative',
+            maxHeight: isMobile ? '92vh' : 'auto',
             cursor: 'default'
           }}
         >
@@ -612,8 +618,12 @@ export default function AddExecutionModal() {
             ))}
           </div>
 
-          {/* STEP CONTENT BODY */}
-          <div style={{ padding: isMobile ? '16px' : '24px', maxHeight: isMobile ? '60vh' : '68vh', overflowY: 'auto' }} className="hollow-menu-scrollbar">
+          <div style={{
+            padding: isMobile ? '16px' : '24px',
+            maxHeight: isMobile ? '72vh' : '68vh',
+            overflowY: 'auto',
+            background: isMobile ? '#000000' : '#09090b'
+          }} className="hollow-menu-scrollbar">
 
             <AnimatePresence mode="wait">
               {/* STEP 1: SESSION & CORE SETUP */}
@@ -635,8 +645,8 @@ export default function AddExecutionModal() {
                         style={{
                           width: '100%',
                           marginTop: '6px',
-                          background: '#14121d',
-                          border: '1px solid rgba(255,255,255,0.1)',
+                          background: '#0e0e12',
+                          border: '1px solid rgba(255,255,255,0.08)',
                           borderRadius: '12px',
                           padding: '10px 14px',
                           color: '#fff',
@@ -888,8 +898,49 @@ export default function AddExecutionModal() {
                     </div>
                   </div>
 
+                  {/* Session Selection */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Session</label>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                      {[
+                        { value: 'Asian', label: 'Asia', color: '#ff453a', bg: 'rgba(255, 69, 58, 0.16)' },
+                        { value: 'London', label: 'London', color: '#64d2ff', bg: 'rgba(100, 210, 255, 0.16)' },
+                        { value: 'New York', label: 'NY', color: '#b86eff', bg: 'rgba(184, 110, 255, 0.16)' }
+                      ].map(s => {
+                        const isSel = form.session === s.value || (s.value === 'New York' && !form.session);
+                        return (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => setForm({ ...form, session: s.value })}
+                            style={{
+                              flex: 1,
+                              padding: '10px',
+                              borderRadius: '12px',
+                              border: isSel ? `1.5px solid ${s.color}` : '1px solid rgba(255,255,255,0.08)',
+                              background: isSel ? s.bg : 'rgba(255,255,255,0.03)',
+                              color: isSel ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                              fontSize: '13px',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              boxShadow: isSel ? `0 0 14px ${s.color}25` : 'none',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.color }} />
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Day & Month Auto Display */}
-                  <div style={{ display: 'flex', gap: '12px', background: '#14121d', padding: '12px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', gap: '12px', background: '#0e0e12', padding: '12px 16px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ flex: 1, fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
                       Day: <strong style={{ color: '#fff' }}>{form.day}</strong>
                     </div>
