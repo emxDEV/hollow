@@ -625,13 +625,16 @@ export default function HomeView({
 
                     if (cell.status === 'win') {
                       pnlColor = '#30d158'; // Green
-                      borderStyle = '1px solid rgba(48, 209, 88, 0.35)';
+                      cellBg = 'rgba(48, 209, 88, 0.16)';
+                      borderStyle = '1px solid rgba(48, 209, 88, 0.3)';
                     } else if (cell.status === 'loss') {
                       pnlColor = '#ff453a'; // Red
-                      borderStyle = '1px solid rgba(255, 69, 58, 0.35)';
+                      cellBg = 'rgba(255, 69, 58, 0.16)';
+                      borderStyle = '1px solid rgba(255, 69, 58, 0.3)';
                     } else if (cell.status === 'breakeven') {
                       pnlColor = '#ffd60a'; // Yellow
-                      borderStyle = '1px solid rgba(255, 214, 10, 0.35)';
+                      cellBg = 'rgba(255, 214, 10, 0.16)';
+                      borderStyle = '1px solid rgba(255, 214, 10, 0.3)';
                     }
 
                     if (isCellToday) {
@@ -706,17 +709,21 @@ export default function HomeView({
                     
                     let weeklyColor = 'rgba(255, 255, 255, 0.4)';
                     let weeklyBorder = '1px solid rgba(255, 255, 255, 0.04)';
+                    let weeklyBg = 'rgba(255,255,255,0.02)';
 
                     if (isWeeklyTraded) {
                       if (isWeeklyPos) {
                         weeklyColor = '#30d158';
-                        weeklyBorder = '1px solid rgba(48, 209, 88, 0.2)';
+                        weeklyBorder = '1px solid rgba(48, 209, 88, 0.3)';
+                        weeklyBg = 'rgba(48, 209, 88, 0.16)';
                       } else if (isWeeklyNeg) {
                         weeklyColor = '#ff453a';
-                        weeklyBorder = '1px solid rgba(255, 69, 58, 0.2)';
+                        weeklyBorder = '1px solid rgba(255, 69, 58, 0.3)';
+                        weeklyBg = 'rgba(255, 69, 58, 0.16)';
                       } else {
                         weeklyColor = '#ffd60a';
-                        weeklyBorder = '1px solid rgba(255, 214, 10, 0.2)';
+                        weeklyBorder = '1px solid rgba(255, 214, 10, 0.3)';
+                        weeklyBg = 'rgba(255, 214, 10, 0.16)';
                       }
                     }
 
@@ -724,7 +731,7 @@ export default function HomeView({
                       <div
                         key={`weekly-${row.weekIndex}`}
                         style={{
-                          background: 'rgba(255,255,255,0.02)',
+                          background: weeklyBg,
                           border: weeklyBorder,
                           borderRadius: '6px',
                           padding: '4px 2px',

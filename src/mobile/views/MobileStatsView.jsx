@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip,
@@ -19,9 +19,12 @@ import {
   Calendar,
   Layers,
   Activity,
-  Plus
+  Plus,
+  Trash2,
+  X
 } from 'lucide-react';
 import { calculateTradePnL, isTradeWinRateEligible } from '../../utils/tradeMath';
+import { getPayouts, savePayouts } from '../../db/hollowDb';
 
 const fmt = (n) => {
   if (!n && n !== 0) return '$0';
@@ -39,6 +42,51 @@ const STAT_TABS = [
 export default function MobileStatsView({ trades = [], executions = [], selectedAccountId = 'all', onSharePnL, onBack, onScrollChange }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeTableFilter, setActiveTableFilter] = useState('All'); // 'All' | 'Entry Timeframes' | 'DOL Targets' | 'PO3 Timings' | 'Models' | 'Ratings'
+
+  // Payouts Tracker State & Dialog
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutsList, setPayoutsList] = useState([]);
+  const [formAmount, setFormAmount] = useState('');
+  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formPropFirm, setFormPropFirm] = useState('');
+
+  // Fetch payouts on mount
+  useEffect(() => {
+    async function load() {
+      const data = await getPayouts();
+      setPayoutsList(data || []);
+    }
+    load();
+  }, []);
+
+  const totalPayoutsSum = useMemo(() => {
+    return payoutsList.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  }, [payoutsList]);
+
+  const handleAddPayout = async (e) => {
+    e.preventDefault();
+    if (!formAmount) return;
+    const newPayout = {
+      id: Date.now(),
+      amount: parseFloat(formAmount) || 0,
+      date: formDate || new Date().toISOString().split('T')[0],
+      propFirm: formPropFirm || 'Apex'
+    };
+    const updated = [newPayout, ...payoutsList];
+    setPayoutsList(updated);
+    await savePayouts(updated);
+    
+    // Reset form
+    setFormAmount('');
+    setFormPropFirm('');
+    setFormDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleDeletePayout = async (id) => {
+    const updated = payoutsList.filter(p => p.id !== id);
+    setPayoutsList(updated);
+    await savePayouts(updated);
+  };
 
   // Filter trades based on active account
   const acctTrades = useMemo(() => {
@@ -562,20 +610,28 @@ export default function MobileStatsView({ trades = [], executions = [], selected
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                 
                 {/* Payout Tracker */}
-                <div style={{
-                  background: '#09090b',
-                  border: '1px solid #b86eff',
-                  boxShadow: '0 0 12px rgba(184, 110, 255, 0.15)',
-                  borderRadius: '16px',
-                  padding: '12px 14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  minHeight: '85px'
-                }}>
+                <div
+                  onClick={() => setShowPayoutModal(true)}
+                  style={{
+                    background: '#09090b',
+                    border: '1px solid #b86eff',
+                    boxShadow: '0 0 12px rgba(184, 110, 255, 0.15)',
+                    borderRadius: '16px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: '85px',
+                    cursor: 'pointer'
+                  }}
+                >
                   <span style={{ fontSize: '10px', fontWeight: 700, color: '#b86eff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Payout Tracker</span>
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#30d158', margin: '4px 0' }}>+$0.00</div>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>0 Payouts • Log &amp; Proof</span>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#30d158', margin: '4px 0' }}>
+                    +${totalPayoutsSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)' }}>
+                    {payoutsList.length} Payout{payoutsList.length === 1 ? '' : 's'} • Log &amp; Proof
+                  </span>
                 </div>
 
                 {/* Win Rate */}
@@ -949,6 +1005,216 @@ export default function MobileStatsView({ trades = [], executions = [], selected
 
         </AnimatePresence>
       </div>
+
+      {/* ── PAYOUT TRACKER MODAL ── */}
+      <AnimatePresence>
+        {showPayoutModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center'
+            }}
+            onClick={() => setShowPayoutModal(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              style={{
+                width: '100%',
+                maxHeight: '80vh',
+                background: '#09090b',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+                padding: '24px 20px',
+                paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px',
+                boxSizing: 'border-box'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#fff' }}>Payout Tracker</h2>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: '2px 0 0 0' }}>Log prop firm payouts and track historical data</p>
+                </div>
+                <button
+                  onClick={() => setShowPayoutModal(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Add Payout Form */}
+              <form onSubmit={handleAddPayout} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Amount ($)</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 2500"
+                      value={formAmount}
+                      onChange={e => setFormAmount(e.target.value)}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        color: '#fff',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={formDate}
+                      onChange={e => setFormDate(e.target.value)}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '8px',
+                        padding: '9px 10px',
+                        color: '#fff',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Prop Firm / Platform</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Apex, Topstep, FundedNext"
+                    value={formPropFirm}
+                    onChange={e => setFormPropFirm(e.target.value)}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      color: '#fff',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    background: '#b86eff',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Plus size={16} /> Add Payout
+                </button>
+              </form>
+
+              {/* Historical List */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
+                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>History ({payoutsList.length})</span>
+                
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px' }}>
+                  {payoutsList.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>
+                      No payouts logged yet.
+                    </div>
+                  ) : (
+                    payoutsList.map(p => (
+                      <div
+                        key={p.id}
+                        style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.04)',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{p.propFirm}</div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
+                            {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#30d158' }}>
+                            +${parseFloat(p.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            onClick={() => handleDeletePayout(p.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#ff453a',
+                              padding: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
