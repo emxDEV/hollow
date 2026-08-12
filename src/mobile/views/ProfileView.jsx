@@ -9,6 +9,7 @@ import {
   ChevronRight,
   X,
   Check,
+  BookOpen,
 } from 'lucide-react';
 
 function PurpleToggle({ checked, onChange }) {
@@ -333,6 +334,53 @@ export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyRevi
                   addToast(next ? 'Notifications enabled' : 'Notifications disabled', 'info');
                 }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* ── ADDITIONAL ── */}
+        <div>
+          <div style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '0.08em',
+            color: 'rgba(255, 255, 255, 0.4)',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+            paddingLeft: '2px',
+          }}>
+            Additional ...
+          </div>
+
+          <div style={{
+            background: '#09090b',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            overflow: 'hidden',
+          }}>
+            {/* Weekly Review Row */}
+            <div
+              onClick={onOpenWeeklyReview}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '15px 18px',
+                gap: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ color: 'rgba(255, 255, 255, 0.65)', display: 'flex' }}>
+                <BookOpen size={18} strokeWidth={2} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.01em', marginBottom: '2px' }}>
+                  Weekly Review
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                  Consolidated EOW trading station
+                </div>
+              </div>
+              <ChevronRight size={16} color="rgba(255, 255, 255, 0.3)" />
             </div>
           </div>
         </div>
