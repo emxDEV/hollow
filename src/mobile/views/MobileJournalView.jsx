@@ -7,7 +7,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { 
   ChevronLeft, ChevronRight, Calendar, Plus, Target, Clock, Tag, Smile,
   TrendingUp, TrendingDown, BookOpen, CheckSquare, Brain, Edit3, Image as ImageIcon,
-  CheckCircle, AlertTriangle, Eye, X, ZoomIn
+  CheckCircle, AlertTriangle, Eye, X, ZoomIn, Sparkles
 } from 'lucide-react';
 
 export default function MobileJournalView({ addToast, onScrollChange }) {
