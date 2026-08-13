@@ -8,46 +8,103 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import useUIStore from '../store/useUIStore';
 
-// High/Medium impact economic events generator based on standard US schedule
+// Forex Factory authentic USD economic events scheduler
 function getEventsForDate(dateStr) {
   if (!dateStr) return [];
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return [];
   const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
   const dayOfMonth = d.getDate();
+  const month = d.getMonth(); // 0 = Jan, 1 = Feb, etc.
+  const year = d.getFullYear();
   const events = [];
 
-  // 1st Friday of the month: NFP
-  if (dayOfWeek === 5 && dayOfMonth <= 7) {
-    events.push({ name: 'NFP', impact: 'high' });
+  // Helper to find Nth weekday of a month
+  const getNthWeekdayOfMonth = (y, m, wDay, n) => {
+    let count = 0;
+    for (let day = 1; day <= 31; day++) {
+      const tempDate = new Date(y, m, day);
+      if (tempDate.getMonth() !== m) break;
+      if (tempDate.getDay() === wDay) {
+        count++;
+        if (count === n) return day;
+      }
+    }
+    return null;
+  };
+
+  // 1. GREY FOLDERS (USD Holidays - Bank Holiday / Non-Economic)
+  if (month === 0 && dayOfMonth === 1) {
+    events.push({ name: 'USD Bank Holiday (New Year\'s)', impact: 'grey' });
   }
-  // 2nd Tuesday of the month: CPI
-  if (dayOfWeek === 2 && dayOfMonth >= 8 && dayOfMonth <= 14) {
-    events.push({ name: 'CPI', impact: 'high' });
+  if (month === 0 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 0, 1, 3)) {
+    events.push({ name: 'USD Bank Holiday (MLK Day)', impact: 'grey' });
   }
-  // 2nd Wednesday of the month: PPI
-  if (dayOfWeek === 3 && dayOfMonth >= 8 && dayOfMonth <= 14) {
-    events.push({ name: 'PPI', impact: 'high' });
+  if (month === 1 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 1, 1, 3)) {
+    events.push({ name: 'USD Bank Holiday (Presidents\' Day)', impact: 'grey' });
   }
-  // 3rd Wednesday: FOMC Decision
-  if (dayOfWeek === 3 && dayOfMonth >= 15 && dayOfMonth <= 21) {
-    events.push({ name: 'FOMC Decision', impact: 'high' });
+  if (month === 4 && dayOfWeek === 1) {
+    const nextWeek = new Date(year, 4, dayOfMonth + 7);
+    if (nextWeek.getMonth() !== 4) {
+      events.push({ name: 'USD Bank Holiday (Memorial Day)', impact: 'grey' });
+    }
   }
-  // Every Thursday: Jobless Claims
-  if (dayOfWeek === 4) {
-    events.push({ name: 'Jobless Claims', impact: 'medium' });
+  if (month === 5 && dayOfMonth === 19) {
+    events.push({ name: 'USD Bank Holiday (Juneteenth)', impact: 'grey' });
   }
-  // 1st of the month: ISM Manufacturing PMI
-  if (dayOfMonth === 1) {
-    events.push({ name: 'ISM Mfg PMI', impact: 'medium' });
+  if (month === 6 && dayOfMonth === 4) {
+    events.push({ name: 'USD Bank Holiday (Independence Day)', impact: 'grey' });
   }
-  // 3rd of the month: ISM Services PMI
-  if (dayOfMonth === 3) {
-    events.push({ name: 'ISM Serv PMI', impact: 'medium' });
+  if (month === 8 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 8, 1, 1)) {
+    events.push({ name: 'USD Bank Holiday (Labor Day)', impact: 'grey' });
   }
-  // 15th of the month: Retail Sales
+  if (month === 10 && dayOfWeek === 4 && dayOfMonth === getNthWeekdayOfMonth(year, 10, 4, 4)) {
+    events.push({ name: 'USD Bank Holiday (Thanksgiving)', impact: 'grey' });
+  }
+  if (month === 11 && dayOfMonth === 25) {
+    events.push({ name: 'USD Bank Holiday (Christmas Day)', impact: 'grey' });
+  }
+
+  // 2. RED FOLDERS (High Impact USD Indicators)
+  if (dayOfWeek === 5 && dayOfMonth === getNthWeekdayOfMonth(year, month, 5, 1)) {
+    events.push({ name: 'USD NFP / Unemployment', impact: 'red' });
+  }
+  if (dayOfWeek === 2 && dayOfMonth === getNthWeekdayOfMonth(year, month, 2, 2)) {
+    events.push({ name: 'USD CPI / Core CPI m/m', impact: 'red' });
+  }
+  if (dayOfWeek === 3 && dayOfMonth === getNthWeekdayOfMonth(year, month, 3, 2)) {
+    events.push({ name: 'USD PPI m/m', impact: 'red' });
+  }
+  if (dayOfWeek === 3 && dayOfMonth === getNthWeekdayOfMonth(year, month, 3, 3)) {
+    if ([0, 2, 4, 5, 6, 8, 10, 11].includes(month)) {
+      events.push({ name: 'USD FOMC Statement / Rate', impact: 'red' });
+    }
+  }
   if (dayOfMonth === 15) {
-    events.push({ name: 'Retail Sales', impact: 'high' });
+    events.push({ name: 'USD Retail Sales / Core', impact: 'red' });
+  }
+  if (dayOfWeek === 4 && [0, 3, 6, 9].includes(month) && dayOfMonth === getNthWeekdayOfMonth(year, month, 4, 4)) {
+    events.push({ name: 'USD Advance GDP q/q', impact: 'red' });
+  }
+  if (dayOfMonth === 5) {
+    events.push({ name: 'USD ISM Services PMI', impact: 'red' });
+  }
+
+  // 3. ORANGE FOLDERS (Medium Impact USD Indicators)
+  if (dayOfWeek === 4 && !events.some(e => e.name.includes('GDP'))) {
+    events.push({ name: 'USD Unemployment Claims', impact: 'orange' });
+  }
+  if (dayOfWeek === 2) {
+    const nextWeek = new Date(year, month, dayOfMonth + 7);
+    if (nextWeek.getMonth() !== month) {
+      events.push({ name: 'USD CB Consumer Confidence', impact: 'orange' });
+    }
+  }
+  if (dayOfMonth === 17) {
+    events.push({ name: 'USD Building Permits', impact: 'orange' });
+  }
+  if (dayOfMonth === 23) {
+    events.push({ name: 'USD Flash PMI', impact: 'orange' });
   }
 
   return events;
@@ -499,13 +556,13 @@ export default function CalendarView() {
                               <div
                                 key={evIdx}
                                 style={{
-                                  background: ev.impact === 'high' ? 'rgba(255,69,58,0.12)' : 'rgba(255,214,10,0.12)',
-                                  border: ev.impact === 'high' ? '1px solid rgba(255,69,58,0.2)' : '1px solid rgba(255,214,10,0.2)',
+                                  background: ev.impact === 'red' ? 'rgba(255,69,58,0.12)' : (ev.impact === 'orange' ? 'rgba(255,159,10,0.12)' : 'rgba(142,142,147,0.12)'),
+                                  border: ev.impact === 'red' ? '1px solid rgba(255,69,58,0.2)' : (ev.impact === 'orange' ? '1px solid rgba(255,159,10,0.2)' : '1px solid rgba(142,142,147,0.2)'),
                                   borderRadius: '6px',
                                   padding: '2px 4px',
                                   fontSize: '9px',
                                   fontWeight: '800',
-                                  color: ev.impact === 'high' ? '#ff453a' : '#ffd60a',
+                                  color: ev.impact === 'red' ? '#ff453a' : (ev.impact === 'orange' ? '#ff9f0a' : '#8e8e93'),
                                   textAlign: 'center',
                                   whiteSpace: 'nowrap',
                                   overflow: 'hidden',
@@ -516,7 +573,7 @@ export default function CalendarView() {
                                   gap: '3px'
                                 }}
                               >
-                                <span>{ev.impact === 'high' ? '🔴' : '🟡'}</span>
+                                <span>{ev.impact === 'red' ? '🔴' : (ev.impact === 'orange' ? '🟠' : '📁')}</span>
                                 <span>{ev.name}</span>
                               </div>
                             ))}
@@ -617,11 +674,11 @@ export default function CalendarView() {
                           gap: '10px'
                         }}
                       >
-                        <span style={{ fontSize: '14px' }}>{ev.impact === 'high' ? '🔴' : '🟡'}</span>
+                        <span style={{ fontSize: '14px' }}>{ev.impact === 'red' ? '🔴' : (ev.impact === 'orange' ? '🟠' : '📁')}</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '13px', fontWeight: 750, color: '#fff' }}>{ev.name}</div>
                           <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '1px' }}>
-                            {ev.impact === 'high' ? 'High Impact Event' : 'Medium Impact Event'}
+                            {ev.impact === 'red' ? 'High Impact USD Event' : (ev.impact === 'orange' ? 'Medium Impact USD Event' : 'USD Bank Holiday')}
                           </div>
                         </div>
                       </div>

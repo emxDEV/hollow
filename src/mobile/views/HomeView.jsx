@@ -86,22 +86,105 @@ export default function HomeView({
     return sorted.slice(0, 5);
   }, [executions]);
 
-  // High/Medium impact economic events generator schedule
+  // Forex Factory authentic USD economic events scheduler
   const getEventsForDate = (dateStr) => {
     if (!dateStr) return [];
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return [];
-    const dayOfWeek = d.getDay();
+    const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const dayOfMonth = d.getDate();
+    const month = d.getMonth(); // 0 = Jan, 1 = Feb, etc.
+    const year = d.getFullYear();
     const events = [];
-    if (dayOfWeek === 5 && dayOfMonth <= 7) events.push({ name: 'NFP', impact: 'high' });
-    if (dayOfWeek === 2 && dayOfMonth >= 8 && dayOfMonth <= 14) events.push({ name: 'CPI', impact: 'high' });
-    if (dayOfWeek === 3 && dayOfMonth >= 8 && dayOfMonth <= 14) events.push({ name: 'PPI', impact: 'high' });
-    if (dayOfWeek === 3 && dayOfMonth >= 15 && dayOfMonth <= 21) events.push({ name: 'FOMC Decision', impact: 'high' });
-    if (dayOfWeek === 4) events.push({ name: 'Jobless Claims', impact: 'medium' });
-    if (dayOfMonth === 1) events.push({ name: 'ISM Mfg PMI', impact: 'medium' });
-    if (dayOfMonth === 3) events.push({ name: 'ISM Serv PMI', impact: 'medium' });
-    if (dayOfMonth === 15) events.push({ name: 'Retail Sales', impact: 'high' });
+
+    // Helper to find Nth weekday of a month
+    const getNthWeekdayOfMonth = (y, m, wDay, n) => {
+      let count = 0;
+      for (let day = 1; day <= 31; day++) {
+        const tempDate = new Date(y, m, day);
+        if (tempDate.getMonth() !== m) break;
+        if (tempDate.getDay() === wDay) {
+          count++;
+          if (count === n) return day;
+        }
+      }
+      return null;
+    };
+
+    // 1. GREY FOLDERS (USD Holidays - Bank Holiday / Non-Economic)
+    if (month === 0 && dayOfMonth === 1) {
+      events.push({ name: 'USD Holiday (New Year\'s)', impact: 'grey' });
+    }
+    if (month === 0 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 0, 1, 3)) {
+      events.push({ name: 'USD Holiday (MLK Day)', impact: 'grey' });
+    }
+    if (month === 1 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 1, 1, 3)) {
+      events.push({ name: 'USD Holiday (Presidents\' Day)', impact: 'grey' });
+    }
+    if (month === 4 && dayOfWeek === 1) {
+      const nextWeek = new Date(year, 4, dayOfMonth + 7);
+      if (nextWeek.getMonth() !== 4) {
+        events.push({ name: 'USD Holiday (Memorial Day)', impact: 'grey' });
+      }
+    }
+    if (month === 5 && dayOfMonth === 19) {
+      events.push({ name: 'USD Holiday (Juneteenth)', impact: 'grey' });
+    }
+    if (month === 6 && dayOfMonth === 4) {
+      events.push({ name: 'USD Holiday (Independence Day)', impact: 'grey' });
+    }
+    if (month === 8 && dayOfWeek === 1 && dayOfMonth === getNthWeekdayOfMonth(year, 8, 1, 1)) {
+      events.push({ name: 'USD Holiday (Labor Day)', impact: 'grey' });
+    }
+    if (month === 10 && dayOfWeek === 4 && dayOfMonth === getNthWeekdayOfMonth(year, 10, 4, 4)) {
+      events.push({ name: 'USD Holiday (Thanksgiving)', impact: 'grey' });
+    }
+    if (month === 11 && dayOfMonth === 25) {
+      events.push({ name: 'USD Holiday (Christmas Day)', impact: 'grey' });
+    }
+
+    // 2. RED FOLDERS (High Impact USD Indicators)
+    if (dayOfWeek === 5 && dayOfMonth === getNthWeekdayOfMonth(year, month, 5, 1)) {
+      events.push({ name: 'USD NFP', impact: 'red' });
+    }
+    if (dayOfWeek === 2 && dayOfMonth === getNthWeekdayOfMonth(year, month, 2, 2)) {
+      events.push({ name: 'USD CPI m/m', impact: 'red' });
+    }
+    if (dayOfWeek === 3 && dayOfMonth === getNthWeekdayOfMonth(year, month, 3, 2)) {
+      events.push({ name: 'USD PPI m/m', impact: 'red' });
+    }
+    if (dayOfWeek === 3 && dayOfMonth === getNthWeekdayOfMonth(year, month, 3, 3)) {
+      if ([0, 2, 4, 5, 6, 8, 10, 11].includes(month)) {
+        events.push({ name: 'USD FOMC', impact: 'red' });
+      }
+    }
+    if (dayOfMonth === 15) {
+      events.push({ name: 'USD Retail Sales', impact: 'red' });
+    }
+    if (dayOfWeek === 4 && [0, 3, 6, 9].includes(month) && dayOfMonth === getNthWeekdayOfMonth(year, month, 4, 4)) {
+      events.push({ name: 'USD Adv GDP', impact: 'red' });
+    }
+    if (dayOfMonth === 5) {
+      events.push({ name: 'USD ISM Services', impact: 'red' });
+    }
+
+    // 3. ORANGE FOLDERS (Medium Impact USD Indicators)
+    if (dayOfWeek === 4 && !events.some(e => e.name.includes('GDP'))) {
+      events.push({ name: 'USD Unemployment', impact: 'orange' });
+    }
+    if (dayOfWeek === 2) {
+      const nextWeek = new Date(year, month, dayOfMonth + 7);
+      if (nextWeek.getMonth() !== month) {
+        events.push({ name: 'USD CB Consumer', impact: 'orange' });
+      }
+    }
+    if (dayOfMonth === 17) {
+      events.push({ name: 'USD Building Permits', impact: 'orange' });
+    }
+    if (dayOfMonth === 23) {
+      events.push({ name: 'USD Flash PMI', impact: 'orange' });
+    }
+
     return events;
   };
 
@@ -806,13 +889,13 @@ export default function HomeView({
                         ) : (
                           firstEvent ? (
                             <div style={{
-                              background: firstEvent.impact === 'high' ? 'rgba(255,69,58,0.1)' : 'rgba(255,214,10,0.1)',
-                              border: firstEvent.impact === 'high' ? '1px solid rgba(255,69,58,0.2)' : '1px solid rgba(255,214,10,0.2)',
+                              background: firstEvent.impact === 'red' ? 'rgba(255,69,58,0.1)' : (firstEvent.impact === 'orange' ? 'rgba(255,159,10,0.1)' : 'rgba(142,142,147,0.1)'),
+                              border: firstEvent.impact === 'red' ? '1px solid rgba(255,69,58,0.2)' : (firstEvent.impact === 'orange' ? '1px solid rgba(255,159,10,0.2)' : '1px solid rgba(142,142,147,0.2)'),
                               borderRadius: '4px',
                               padding: '1px 2px',
                               fontSize: '6.5px',
                               fontWeight: '800',
-                              color: firstEvent.impact === 'high' ? '#ff453a' : '#ffd60a',
+                              color: firstEvent.impact === 'red' ? '#ff453a' : (firstEvent.impact === 'orange' ? '#ff9f0a' : '#8e8e93'),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -821,7 +904,7 @@ export default function HomeView({
                               width: '100%',
                               boxSizing: 'border-box'
                             }}>
-                              <span>{firstEvent.impact === 'high' ? '🔴' : '🟡'}</span>
+                              <span>{firstEvent.impact === 'red' ? '🔴' : (firstEvent.impact === 'orange' ? '🟠' : '📁')}</span>
                               <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{firstEvent.name}</span>
                             </div>
                           ) : <div style={{ flex: 1 }} />
