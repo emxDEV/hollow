@@ -45,6 +45,7 @@ export default function AnalyticsView() {
   // Payout Tracker Modal State & Persistence
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const [payoutModalTab, setPayoutModalTab] = useState('payouts'); // 'payouts' | 'insights'
+  const [collapsedYears, setCollapsedYears] = useState({});
 
   // Load payouts reactively from IndexedDB dailyJournals
   const payoutsList = useLiveQuery(() => getPayouts(), []) || [];
@@ -1921,13 +1922,33 @@ export default function AnalyticsView() {
                             
                             {Object.entries(firm.yearlyData).map(([year, yearData]) => {
                               const maxMonthAmt = Math.max(...Object.values(yearData.months), 1);
+                              const yearKey = `${firm.name}-${year}`;
+                              const isYearCollapsed = collapsedYears[yearKey];
 
                               return (
                                 <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                   {/* Year Header Row */}
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '6px' }}>
+                                  <div 
+                                    onClick={() => {
+                                      setCollapsedYears(prev => ({
+                                        ...prev,
+                                        [yearKey]: !prev[yearKey]
+                                      }));
+                                    }}
+                                    style={{ 
+                                      display: 'flex', 
+                                      justifyContent: 'space-between', 
+                                      alignItems: 'center', 
+                                      borderBottom: '1px solid rgba(255,255,255,0.04)', 
+                                      paddingBottom: '6px',
+                                      cursor: 'pointer',
+                                      userSelect: 'none'
+                                    }}
+                                  >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '800', color: '#fff' }}>
-                                      <span style={{ color: '#30d158' }}>⊖</span>
+                                      <span style={{ color: '#30d158', fontSize: '14px', transition: 'all 0.15s ease' }}>
+                                        {isYearCollapsed ? '⊕' : '⊖'}
+                                      </span>
                                       <span>{year}</span>
                                     </div>
                                     <span style={{ fontSize: '13px', fontWeight: '800', color: '#30d158' }}>
@@ -1936,24 +1957,26 @@ export default function AnalyticsView() {
                                   </div>
 
                                   {/* Month Bars Grid */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
-                                    {Object.entries(yearData.months).map(([month, amt]) => {
-                                      const pct = (amt / maxMonthAmt) * 100;
-                                      return (
-                                        <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                          <span style={{ width: '28px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>
-                                            {month}
-                                          </span>
-                                          <div style={{ flex: 1, height: '14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '100px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                  {!isYearCollapsed && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                                      {Object.entries(yearData.months).map(([month, amt]) => {
+                                        const pct = (amt / maxMonthAmt) * 100;
+                                        return (
+                                          <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ width: '28px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>
+                                              {month}
+                                            </span>
+                                            <div style={{ flex: 1, height: '14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '100px', overflow: 'hidden' }}>
+                                              <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                            </div>
+                                            <span style={{ fontSize: '11.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '55px' }}>
+                                              ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                            </span>
                                           </div>
-                                          <span style={{ fontSize: '11.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '55px' }}>
-                                            ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

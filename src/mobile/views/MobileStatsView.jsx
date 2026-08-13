@@ -64,6 +64,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
   // Payouts Tracker State & Dialog
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutModalTab, setPayoutModalTab] = useState('insights'); // 'payouts' | 'insights'
+  const [collapsedYears, setCollapsedYears] = useState({});
   const [payoutsList, setPayoutsList] = useState([]);
   const [formAmount, setFormAmount] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1548,12 +1549,33 @@ export default function MobileStatsView({ trades = [], executions = [], selected
                               
                               {Object.entries(firm.yearlyData).map(([year, yearData]) => {
                                 const maxMonthAmt = Math.max(...Object.values(yearData.months), 1);
+                                const yearKey = `${firm.name}-${year}`;
+                                const isYearCollapsed = collapsedYears[yearKey];
 
                                 return (
                                   <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '4px' }}>
+                                    {/* Year Header Row */}
+                                    <div 
+                                      onClick={() => {
+                                        setCollapsedYears(prev => ({
+                                          ...prev,
+                                          [yearKey]: !prev[yearKey]
+                                        }));
+                                      }}
+                                      style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center', 
+                                        borderBottom: '1px solid rgba(255,255,255,0.04)', 
+                                        paddingBottom: '4px',
+                                        cursor: 'pointer',
+                                        userSelect: 'none'
+                                      }}
+                                    >
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '800', color: '#fff' }}>
-                                        <span style={{ color: '#30d158' }}>⊖</span>
+                                        <span style={{ color: '#30d158', fontSize: '13px', transition: 'all 0.15s ease' }}>
+                                          {isYearCollapsed ? '⊕' : '⊖'}
+                                        </span>
                                         <span>{year}</span>
                                       </div>
                                       <span style={{ fontSize: '12px', fontWeight: '800', color: '#30d158' }}>
@@ -1561,24 +1583,27 @@ export default function MobileStatsView({ trades = [], executions = [], selected
                                       </span>
                                     </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
-                                      {Object.entries(yearData.months).map(([month, amt]) => {
-                                        const pct = (amt / maxMonthAmt) * 100;
-                                        return (
-                                          <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ width: '24px', fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
-                                              {month}
-                                            </span>
-                                            <div style={{ flex: 1, height: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '100px', overflow: 'hidden' }}>
-                                              <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                    {/* Month Bars Grid */}
+                                    {!isYearCollapsed && (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                                        {Object.entries(yearData.months).map(([month, amt]) => {
+                                          const pct = (amt / maxMonthAmt) * 100;
+                                          return (
+                                            <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                              <span style={{ width: '24px', fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                                                {month}
+                                              </span>
+                                              <div style={{ flex: 1, height: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '100px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                              </div>
+                                              <span style={{ fontSize: '10.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '45px' }}>
+                                                ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                              </span>
                                             </div>
-                                            <span style={{ fontSize: '10.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '45px' }}>
-                                              ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-                                            </span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
