@@ -46,8 +46,8 @@ function PurpleToggle({ checked, onChange }) {
 }
 
 export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyReview }) {
-  const [displayName, setDisplayName] = useState(localStorage.getItem('hollowDisplayName') || 'Emanuel Maxim');
-  const [userEmail, setUserEmail] = useState('maxim.emanuel@icloud.com');
+  const [displayName, setDisplayName] = useState(localStorage.getItem('hollowDisplayName') || 'Local Trader');
+  const [userEmail, setUserEmail] = useState('');
   const [requireFaceId, setRequireFaceId] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [activeModal, setActiveModal] = useState(null); // 'accountInfo' | 'editProfile'
@@ -59,16 +59,21 @@ export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyRevi
     async function fetchUser() {
       if (!supabase) return;
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          if (user.email) {
-            setUserEmail(user.email);
-            setEditEmail(user.email);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user && session.user.id !== 'offline-local-user') {
+          if (session.user.email) {
+            setUserEmail(session.user.email);
+            setEditEmail(session.user.email);
           }
-          if (user.user_metadata?.displayName) {
-            setDisplayName(user.user_metadata.displayName);
-            setEditName(user.user_metadata.displayName);
+          if (session.user.user_metadata?.displayName) {
+            setDisplayName(session.user.user_metadata.displayName);
+            setEditName(session.user.user_metadata.displayName);
           }
+        } else {
+          setUserEmail('offline@hollow.local');
+          setEditEmail('offline@hollow.local');
+          setDisplayName(localStorage.getItem('hollowDisplayName') || 'Local Trader');
+          setEditName(localStorage.getItem('hollowDisplayName') || 'Local Trader');
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
@@ -199,9 +204,15 @@ export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyRevi
             <div style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em', marginBottom: '2px' }}>
               {displayName}
             </div>
-            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {userEmail}
-            </div>
+            {(!userEmail || userEmail === 'offline@hollow.local') ? (
+              <div style={{ fontSize: '13px', color: '#ff9f0a', fontWeight: 600 }}>
+                Offline Mode (Not Synced)
+              </div>
+            ) : (
+              <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {userEmail}
+              </div>
+            )}
           </div>
 
           <ChevronRight size={18} color="rgba(255, 255, 255, 0.3)" />
@@ -385,30 +396,59 @@ export default function ProfileView({ addToast, onScrollChange, onOpenWeeklyRevi
           </div>
         </div>
 
-        {/* ── LOG OUT ── */}
-        <button
-          onClick={handleLogout}
-          style={{
-            width: '100%',
-            background: 'rgba(220, 38, 38, 0.15)',
-            border: '1px solid rgba(220, 38, 38, 0.35)',
-            borderRadius: '18px',
-            padding: '16px',
-            fontSize: '15px',
-            fontWeight: 700,
-            color: '#ff453a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            outline: 'none',
-            transition: 'opacity 0.15s',
-          }}
-        >
-          <LogOut size={17} strokeWidth={2.4} />
-          <span>Log out</span>
-        </button>
+        {/* ── LOG OUT / CONNECT ── */}
+        {(!userEmail || userEmail === 'offline@hollow.local') ? (
+          <button
+            onClick={() => {
+              window.dispatchEvent(new Event('hollowTriggerAuth'));
+            }}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #b86eff, #7c3aed)',
+              border: 'none',
+              borderRadius: '18px',
+              padding: '16px',
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 4px 16px rgba(184, 110, 255, 0.3)',
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <User size={17} strokeWidth={2.4} />
+            <span>Connect Cloud Account</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%',
+              background: 'rgba(220, 38, 38, 0.15)',
+              border: '1px solid rgba(220, 38, 38, 0.35)',
+              borderRadius: '18px',
+              padding: '16px',
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#ff453a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <LogOut size={17} strokeWidth={2.4} />
+            <span>Log out</span>
+          </button>
+        )}
 
         {/* ── APP VERSION ── */}
         <div style={{ textAlign: 'center', fontSize: '12px', color: 'rgba(255, 255, 255, 0.2)', paddingBottom: '8px' }}>

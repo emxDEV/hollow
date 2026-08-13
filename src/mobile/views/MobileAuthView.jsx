@@ -4,7 +4,7 @@ import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion';
 import HollowLogo from '../../components/HollowLogo';
 
-export default function MobileAuthView({ addToast, initialMode = 'login', onResetComplete }) {
+export default function MobileAuthView({ addToast, initialMode = 'login', onResetComplete, onCancel }) {
   const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,25 +18,25 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
 
     if (mode === 'login' || mode === 'signup') {
       if (!email || !password) {
-        setErrorMsg('Bitte E-Mail und Passwort eingeben.');
+        setErrorMsg('Please enter both email and password.');
         return;
       }
     } else if (mode === 'forgot') {
       if (!email) {
-        setErrorMsg('Bitte gib deine E-Mail-Adresse ein.');
+        setErrorMsg('Please enter your email address.');
         return;
       }
     } else if (mode === 'reset') {
       if (!password || !confirmPassword) {
-        setErrorMsg('Bitte fülle beide Passwort-Felder aus.');
+        setErrorMsg('Please fill in both password fields.');
         return;
       }
       if (password !== confirmPassword) {
-        setErrorMsg('Passwörter stimmen nicht überein.');
+        setErrorMsg('Passwords do not match.');
         return;
       }
       if (password.length < 6) {
-        setErrorMsg('Das Passwort muss mindestens 6 Zeichen lang sein.');
+        setErrorMsg('Password must be at least 6 characters long.');
         return;
       }
     }
@@ -50,7 +50,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           password
         });
         if (error) throw error;
-        addToast('Erfolgreich angemeldet.', 'success');
+        addToast('Successfully signed in.', 'success');
       } else if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -59,23 +59,23 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         if (error) throw error;
         
         if (data?.user && data.user.identities?.length === 0) {
-          addToast('E-Mail ist bereits registriert. Versuche dich anzumelden.', 'info');
+          addToast('Email is already registered. Try signing in.', 'info');
         } else {
-          addToast('Bitte überprüfe deine E-Mails auf den Bestätigungslink.', 'success');
+          addToast('Please check your email for confirmation link.', 'success');
         }
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: window.location.origin
         });
         if (error) throw error;
-        addToast('Link zum Zurücksetzen an deine E-Mail gesendet.', 'success');
+        addToast('Reset link has been sent to your email.', 'success');
         setEmail('');
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.updateUser({
           password: password
         });
         if (error) throw error;
-        addToast('Passwort erfolgreich aktualisiert!', 'success');
+        addToast('Password updated successfully!', 'success');
         setTimeout(async () => {
           await supabase.auth.signOut();
           if (onResetComplete) onResetComplete();
@@ -85,8 +85,8 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         }, 2000);
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Ein Fehler ist aufgetreten.');
-      addToast(err.message || 'Fehlgeschlagen.', 'error');
+      setErrorMsg(err.message || 'An error occurred.');
+      addToast(err.message || 'Action failed.', 'error');
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         left: 0,
         right: 0,
         height: '40%',
-        background: 'radial-gradient(circle at 50% 0%, rgba(10, 132, 255, 0.15) 0%, rgba(0,0,0,0) 80%)',
+        background: 'radial-gradient(circle at 50% 0%, rgba(184, 110, 255, 0.15) 0%, rgba(0,0,0,0) 80%)',
         pointerEvents: 'none'
       }} />
 
@@ -126,10 +126,10 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', gap: '8px' }}>
           <HollowLogo size={42} showText={true} color="#ffffff" style={{ marginBottom: '4px' }} />
           <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
-            {mode === 'login' && 'Melde dich an, um fortzufahren'}
-            {mode === 'signup' && 'Erstelle ein neues Konto'}
-            {mode === 'forgot' && 'Passwort zurücksetzen'}
-            {mode === 'reset' && 'Neues Passwort wählen'}
+            {mode === 'login' && 'Sign in to continue'}
+            {mode === 'signup' && 'Create a new account'}
+            {mode === 'forgot' && 'Reset your password'}
+            {mode === 'reset' && 'Choose a new password'}
           </span>
         </div>
 
@@ -164,7 +164,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>E-MAIL-ADRESSE</label>
+              <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>EMAIL ADDRESS</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type="email"
@@ -193,7 +193,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           {(mode === 'login' || mode === 'signup') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORT</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORD</label>
                 {mode === 'login' && (
                   <button
                     type="button"
@@ -212,7 +212,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                       outline: 'none'
                     }}
                   >
-                    Passwort vergessen?
+                    Forgot password?
                   </button>
                 )}
               </div>
@@ -244,7 +244,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
           {mode === 'reset' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>NEUES PASSWORT</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>NEW PASSWORD</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="password"
@@ -263,14 +263,14 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                       padding: '12px 14px 12px 38px',
                       outline: 'none',
                       boxSizing: 'border-box'
-                    }}
+                  }}
                   />
                   <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.25)' }} />
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>PASSWORT BESTÄTIGEN</label>
+                <label style={{ fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.02em' }}>CONFIRM PASSWORD</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="password"
@@ -320,13 +320,13 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
               boxShadow: '0 4px 12px rgba(255,255,255,0.05)'
             }}
           >
-            {loading ? 'Wird verarbeitet...' : (
+            {loading ? 'Processing...' : (
               <>
                 <span>
-                  {mode === 'login' && 'Anmelden'}
-                  {mode === 'signup' && 'Konto erstellen'}
-                  {mode === 'forgot' && 'Link zum Zurücksetzen senden'}
-                  {mode === 'reset' && 'Passwort aktualisieren'}
+                  {mode === 'login' && 'Sign In'}
+                  {mode === 'signup' && 'Create Account'}
+                  {mode === 'forgot' && 'Send Reset Link'}
+                  {mode === 'reset' && 'Update Password'}
                 </span>
                 <ArrowRight size={14} />
               </>
@@ -335,7 +335,7 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
         </form>
 
         {/* Toggle Switch */}
-        <div style={{ marginTop: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+        <div style={{ marginTop: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center' }}>
           {mode !== 'reset' ? (
             <button
               onClick={() => {
@@ -356,9 +356,9 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                 outline: 'none'
               }}
             >
-              {mode === 'login' && 'Noch kein Konto? Registrieren'}
-              {mode === 'signup' && 'Bereits ein Konto? Anmelden'}
-              {mode === 'forgot' && 'Zurück zur Anmeldung'}
+              {mode === 'login' && "Don't have an account? Sign Up"}
+              {mode === 'signup' && 'Already have an account? Sign In'}
+              {mode === 'forgot' && 'Back to Sign In'}
             </button>
           ) : (
             <button
@@ -377,7 +377,27 @@ export default function MobileAuthView({ addToast, initialMode = 'login', onRese
                 outline: 'none'
               }}
             >
-              Abbrechen & Zurück zur Anmeldung
+              Cancel & Back to Sign In
+            </button>
+          )}
+
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.3)',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                outline: 'none',
+                marginTop: '4px'
+              }}
+            >
+              Continue in Offline Mode
             </button>
           )}
         </div>

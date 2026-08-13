@@ -4,7 +4,7 @@ import { Mail, Lock, AlertCircle, ArrowRight, CheckCircle2, Shield, TrendingUp, 
 import { motion, AnimatePresence } from 'framer-motion';
 import HollowLogo from './HollowLogo';
 
-export default function AuthView({ initialMode = 'login', onResetComplete }) {
+export default function AuthView({ initialMode = 'login', onResetComplete, onCancel }) {
   const [mode, setMode] = useState(initialMode); // 'login' | 'signup' | 'forgot' | 'reset'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -239,8 +239,8 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
           style={{
             width: '100%',
             maxWidth: '430px',
-            background: 'rgba(13, 11, 20, 0.55)',
-            border: '1px solid rgba(184, 110, 255, 0.18)',
+            background: 'rgba(9, 9, 11, 0.55)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '28px',
             padding: '44px 40px',
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
@@ -484,7 +484,7 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
           </form>
 
           {/* Footer toggle link */}
-          <div style={{ marginTop: '28px', textAlign: 'center' }}>
+          <div style={{ marginTop: '28px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center' }}>
             {mode !== 'reset' ? (
               <button
                 onClick={() => {
@@ -534,6 +534,25 @@ export default function AuthView({ initialMode = 'login', onResetComplete }) {
                 onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
               >
                 Cancel & Back to Sign In
+              </button>
+            )}
+
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.3)',
+                  fontSize: '11.5px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  outline: 'none'
+                }}
+              >
+                Continue in Offline Mode
               </button>
             )}
           </div>

@@ -43,6 +43,7 @@ export default function MobileApp() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isAuthRequired, setIsAuthRequired] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setAppInitialized(true);
@@ -149,6 +150,7 @@ export default function MobileApp() {
           } else {
             setSession(currentSession);
           }
+          setIsAuthRequired(false);
         } else if (event === 'SIGNED_OUT') {
           localStorage.removeItem('hollow_last_user_id');
           setSession(getMockSession());
@@ -172,6 +174,13 @@ export default function MobileApp() {
       if (subscription) subscription.unsubscribe();
       window.removeEventListener('hashchange', checkHashForRecovery);
     };
+  }, []);
+
+  // Listen to custom event to trigger auth overlay manually on mobile
+  useEffect(() => {
+    const handleTriggerAuth = () => setIsAuthRequired(true);
+    window.addEventListener('hollowTriggerAuth', handleTriggerAuth);
+    return () => window.removeEventListener('hollowTriggerAuth', handleTriggerAuth);
   }, []);
 
   // Real-time cross-device sync: subscribe whenever a session is active
@@ -264,6 +273,14 @@ export default function MobileApp() {
     return (
       <IPhoneFrame>
         <div style={{ height: '100%', width: '100%', background: '#000' }} />
+      </IPhoneFrame>
+    );
+  }
+
+  if (isAuthRequired) {
+    return (
+      <IPhoneFrame>
+        <MobileAuthView addToast={addToast} onCancel={() => setIsAuthRequired(false)} />
       </IPhoneFrame>
     );
   }

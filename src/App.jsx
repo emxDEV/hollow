@@ -39,6 +39,7 @@ export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
   const [appInitialized, setAppInitialized] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isAuthRequired, setIsAuthRequired] = useState(false);
   const [uiOptions, setUiOptions] = useState({ enableClouds: true });
 
   const handleLoadingComplete = useCallback(() => {
@@ -161,6 +162,7 @@ export default function App() {
           } else {
             setSession(currentSession);
           }
+          setIsAuthRequired(false);
         } else if (event === 'SIGNED_OUT') {
           // Keep data local and auto-sign in to mock session instead of clearing database
           localStorage.removeItem('hollow_last_user_id');
@@ -185,6 +187,13 @@ export default function App() {
       if (subscription) subscription.unsubscribe();
       window.removeEventListener('hashchange', checkHashForRecovery);
     };
+  }, []);
+
+  // Listen to custom event to trigger auth overlay manually
+  useEffect(() => {
+    const handleTriggerAuth = () => setIsAuthRequired(true);
+    window.addEventListener('hollowTriggerAuth', handleTriggerAuth);
+    return () => window.removeEventListener('hollowTriggerAuth', handleTriggerAuth);
   }, []);
 
   // Real-time cross-device sync
@@ -298,6 +307,10 @@ export default function App() {
 
   if (isMobile) {
     return <MobileApp />;
+  }
+
+  if (isAuthRequired) {
+    return <AuthView onCancel={() => setIsAuthRequired(false)} />;
   }
 
   if (!authLoaded) {

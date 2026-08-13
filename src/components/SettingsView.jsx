@@ -149,7 +149,8 @@ import {
   ClipboardCheck,
   Dumbbell,
   Users,
-  LogOut
+  LogOut,
+  Cloud
 } from 'lucide-react';
 
 // Playbook Model Card row component
@@ -3115,7 +3116,11 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
                         <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 1, letterSpacing: '-0.01em' }}>
                           {profileSettings.displayName || 'Unnamed Trader'}
                         </div>
-                        {userEmail && (
+                        {(!userEmail || userEmail === 'offline@hollow.local') ? (
+                          <div style={{ fontSize: 12, color: '#ff9f0a', fontWeight: 600 }}>
+                            Offline Mode (Not Synced)
+                          </div>
+                        ) : (
                           <div style={{ fontSize: 12, color: '#4d4d4f', fontWeight: 500 }}>
                             {userEmail}
                           </div>
@@ -3306,58 +3311,108 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
 
                 {/* Account Operations */}
                 <div style={{ padding: '16px 0 12px' }}>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm('Sign out of your Hollow account? Offline cache will be cleared.')) {
-                        const { supabase } = await import('../db/supabaseClient');
-                        await supabase.auth.signOut();
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      background: '#b12525',
-                      border: 'none',
-                      borderRadius: 14,
-                      padding: '14px',
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: '#fff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      boxShadow: '0 4px 12px rgba(177, 37, 37, 0.25)',
-                      fontFamily: 'var(--font-body)'
-                    }}
-                  >
-                    <LogOut size={16} />
-                    <span>Log out</span>
-                  </button>
+                  {(!userEmail || userEmail === 'offline@hollow.local') ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new Event('hollowTriggerAuth'));
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'linear-gradient(135deg, #b86eff 0%, #8a30f6 100%)',
+                        border: 'none',
+                        borderRadius: 14,
+                        padding: '14px',
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: '#fff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 4px 16px rgba(184, 110, 255, 0.3)',
+                        fontFamily: 'var(--font-body)'
+                      }}
+                    >
+                      <Cloud size={16} />
+                      <span>Connect Cloud Account (Sign In / Register)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (window.confirm('Sign out of your Hollow account? Offline cache will be cleared.')) {
+                          const { supabase } = await import('../db/supabaseClient');
+                          await supabase.auth.signOut();
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#b12525',
+                        border: 'none',
+                        borderRadius: 14,
+                        padding: '14px',
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: '#fff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: '0 4px 12px rgba(177, 37, 37, 0.25)',
+                        fontFamily: 'var(--font-body)'
+                      }}
+                    >
+                      <LogOut size={16} />
+                      <span>Log out</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Delete Account button */}
                 <div style={{ padding: '0 0 20px', textAlign: 'center' }}>
-                  <span
-                    onClick={async () => {
-                      if (window.confirm('WARNING: Are you sure you want to delete your profile account and permanently wipe all data? This will erase all local and cloud data. This action cannot be undone.')) {
-                        const { clearDatabaseAndCloud } = await import('../db/hollowDb');
-                        const { supabase } = await import('../db/supabaseClient');
-                        await clearDatabaseAndCloud();
-                        await supabase.auth.signOut();
-                      }
-                    }}
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#4d4d4f',
-                      textDecoration: 'underline',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Delete Account & Permanent Data Wipe
-                  </span>
+                  {(!userEmail || userEmail === 'offline@hollow.local') ? (
+                    <span
+                      onClick={async () => {
+                        if (window.confirm('WARNING: Are you sure you want to permanently delete and wipe all local data? This action cannot be undone.')) {
+                          const { clearDatabase } = await import('../db/hollowDb');
+                          await clearDatabase();
+                          window.location.reload();
+                        }
+                      }}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#4d4d4f',
+                        textDecoration: 'underline',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Permanently Wipe All Local Data
+                    </span>
+                  ) : (
+                    <span
+                      onClick={async () => {
+                        if (window.confirm('WARNING: Are you sure you want to delete your profile account and permanently wipe all data? This will erase all local and cloud data. This action cannot be undone.')) {
+                          const { clearDatabaseAndCloud } = await import('../db/hollowDb');
+                          const { supabase } = await import('../db/supabaseClient');
+                          await clearDatabaseAndCloud();
+                          await supabase.auth.signOut();
+                        }
+                      }}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#4d4d4f',
+                        textDecoration: 'underline',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete Account & Permanent Data Wipe
+                    </span>
+                  )}
                 </div>
 
                 {/* Brand footer */}
