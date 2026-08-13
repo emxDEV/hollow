@@ -392,6 +392,7 @@ export default function MobileJournalView({ addToast, onScrollChange }) {
         onScroll={(e) => onScrollChange && onScrollChange(e.target.scrollTop)}
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',

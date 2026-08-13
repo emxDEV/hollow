@@ -338,7 +338,7 @@ export default function MobileApp() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              style={{ height: '100%', width: '100%' }}
+              style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             >
               {renderActiveScreen()}
             </motion.div>

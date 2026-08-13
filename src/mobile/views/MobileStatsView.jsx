@@ -22,7 +22,9 @@ import {
   Plus,
   Trash2,
   X,
-  Sparkles
+  Sparkles,
+  DollarSign,
+  Upload
 } from 'lucide-react';
 import { calculateTradePnL, isTradeWinRateEligible } from '../../utils/tradeMath';
 import { getPayouts, savePayouts } from '../../db/hollowDb';
@@ -774,6 +776,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
         onScroll={handleScroll}
         style={{ 
           flex: 1, 
+          minHeight: 0,
           overflowY: 'auto', 
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',

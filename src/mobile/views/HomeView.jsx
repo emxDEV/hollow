@@ -15,7 +15,8 @@ import {
   CheckCircle,
   Eye,
   Activity,
-  Plus
+  Plus,
+  DollarSign
 } from 'lucide-react';
 
 export default function HomeView({
@@ -431,6 +432,7 @@ export default function HomeView({
         onScroll={handleScroll}
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
