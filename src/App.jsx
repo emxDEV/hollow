@@ -17,6 +17,7 @@ import CognitiveAgentPanel from './components/CognitiveAgentPanel';
 import SettingsView from './components/SettingsView';
 import AddExecutionModal from './components/AddExecutionModal';
 import MobileApp from './mobile/MobileApp';
+import ExecutionDetailModal from './mobile/components/ExecutionDetailModal';
 import './App.css';
 import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useUIStore } from './store/useUIStore';
@@ -530,6 +531,7 @@ export default function App() {
         </div>
 
         <CognitiveAgentPanel />
+        <ExecutionDetailModal />
       </div>
 
       {/* Mobile fixed bottom nav */}

@@ -112,6 +112,9 @@ function getEventsForDate(dateStr) {
 
 export default function CalendarView() {
   const isMobile = useUIStore(state => state.isMobile);
+  const setSelectedDate = useUIStore(state => state.setSelectedDate);
+  const setView = useUIStore(state => state.setView);
+  const setSelectedExecutionDetail = useUIStore(state => state.setSelectedExecutionDetail);
   
   // Current active calendar month view
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -120,6 +123,15 @@ export default function CalendarView() {
   
   // Selected date popover
   const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+
+  const handleSingleClick = (dayCell) => {
+    setSelectedDayDetails(dayCell);
+  };
+
+  const handleDoubleClick = (dayCell) => {
+    setSelectedDate(dayCell.dateStr);
+    setView('journal');
+  };
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -179,10 +191,7 @@ export default function CalendarView() {
       const netPnL = exec.manualPnL !== undefined ? parseFloat(exec.manualPnL) : rVal * 200;
 
       map[dateStr].push({
-        id: exec.id,
-        symbol: exec.symbol || 'NQ',
-        bias: exec.bias || 'Long',
-        model: exec.model || 'Standard Setup',
+        ...exec,
         netPnL,
         wl: exec.wl
       });
@@ -484,7 +493,8 @@ export default function CalendarView() {
                 return (
                   <div
                     key={dIdx}
-                    onClick={() => (hasTrades || dayCell.events.length > 0) && setSelectedDayDetails(dayCell)}
+                    onClick={() => handleSingleClick(dayCell)}
+                    onDoubleClick={() => handleDoubleClick(dayCell)}
                     style={{
                       height: '92px',
                       borderRadius: '12px',
@@ -492,7 +502,7 @@ export default function CalendarView() {
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      cursor: (hasTrades || dayCell.events.length > 0) ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       position: 'relative',
                       background: cellBg,
                       border: borderStyle,
@@ -500,7 +510,7 @@ export default function CalendarView() {
                       transition: 'transform 0.15s, border-color 0.15s',
                     }}
                     onMouseEnter={e => {
-                      if (dayCell.isCurrentMonth && (hasTrades || dayCell.events.length > 0)) {
+                      if (dayCell.isCurrentMonth) {
                         e.currentTarget.style.transform = 'scale(1.02)';
                       }
                     }}
@@ -702,6 +712,10 @@ export default function CalendarView() {
                       return (
                         <div
                           key={trade.id}
+                          onClick={() => {
+                            setSelectedExecutionDetail(trade);
+                            setSelectedDayDetails(null);
+                          }}
                           style={{
                             background: 'rgba(255,255,255,0.02)',
                             border: '1px solid rgba(255,255,255,0.04)',
@@ -709,8 +723,12 @@ export default function CalendarView() {
                             padding: '12px 16px',
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'background 0.15s'
                           }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                         >
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: '800', color: '#fff' }}>
@@ -720,7 +738,7 @@ export default function CalendarView() {
                               Model: {trade.model || 'Standard Setup'}
                             </div>
                           </div>
-                          <div style={{ textCol: isWin ? '#30d158' : (isLoss ? '#ff453a' : '#fff'), textAlign: 'right' }}>
+                          <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '14px', fontWeight: '850', color: isWin ? '#30d158' : (isLoss ? '#ff453a' : '#fff') }}>
                               {trade.netPnL >= 0 ? '+' : ''}${Math.round(trade.netPnL).toLocaleString()}
                             </div>
