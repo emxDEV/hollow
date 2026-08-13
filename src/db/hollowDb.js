@@ -157,7 +157,7 @@ function sanitizeForSupabaseRaw(tableName, obj) {
 
     const sideVal = (obj.bias || '').toUpperCase() === 'SHORT' ? 'SELL' : 'BUY';
 
-    // Pack all other local-only properties into type using __HOLLOW_META__
+    // Pack all other local-only properties into id using __HOLLOW_META__
     const meta = {};
     const metaKeys = [
       'rr', 'wl', 'rating', 'model', 'dol', 'entryTf', 'session', 'bias', 'symbol', 'date',
@@ -169,13 +169,14 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     });
 
     const serializedMeta = JSON.stringify(meta);
-    const typeVal = `ENTRY\n\n__HOLLOW_META__:${serializedMeta}`;
+    const suffix = `\n\n__HOLLOW_META__:${serializedMeta}`;
 
     const cleaned = {
       ...obj,
+      id: obj.id ? (obj.id.split('\n\n__HOLLOW_META__:')[0] + suffix) : obj.id,
       timestamp: isoTs,
       side: sideVal,
-      type: typeVal,
+      type: 'ENTRY', // Strictly 'ENTRY' to satisfy check constraint executions_type_check!
       price: parseFloat(obj.tp) || 0,
       contracts: 1,
       commissions: 0
@@ -461,22 +462,23 @@ export function unprefixRecord(obj, userId, tableName) {
       }
     }
   } else if (tableName === 'executions') {
-    clean.id = strip(clean.id);
     if (clean.tradeId) clean.tradeId = strip(clean.tradeId);
 
-    // Unpack metadata from type column if present
-    if (clean.type && typeof clean.type === 'string') {
-      const parts = clean.type.split('\n\n__HOLLOW_META__:');
+    // Unpack metadata from id column if present
+    if (clean.id && typeof clean.id === 'string') {
+      const parts = clean.id.split('\n\n__HOLLOW_META__:');
       if (parts.length > 1) {
-        const originalType = parts[0];
+        const prefixedOriginalId = parts[0];
         const serializedMeta = parts[parts.length - 1];
         try {
           const meta = JSON.parse(serializedMeta);
           Object.assign(clean, meta);
         } catch (e) {
-          console.error("Failed to parse hollow executions metadata:", e);
+          console.error("Failed to parse hollow executions metadata from ID:", e);
         }
-        clean.type = originalType;
+        clean.id = strip(prefixedOriginalId);
+      } else {
+        clean.id = strip(clean.id);
       }
     }
   } else if (tableName === 'workouts' || tableName === 'workoutPlans') {
@@ -539,7 +541,15 @@ export async function syncWithSupabase() {
       for (const item of pendingDeletions) {
         const prefixedKey = `${userId}:${item.id}`;
         const pkName = getTablePk(item.tableName);
-        const { error } = await supabase.from(item.tableName).delete().eq(pkName, prefixedKey);
+        
+        let query = supabase.from(item.tableName).delete();
+        if (item.tableName === 'executions') {
+          query = query.like(pkName, `${prefixedKey}%`);
+        } else {
+          query = query.eq(pkName, prefixedKey);
+        }
+        
+        const { error } = await query;
         if (error) {
           console.error(`Failed to sync pending deletion for ${item.tableName}:${item.id}`, error);
           remainingDeletions.push(item);
