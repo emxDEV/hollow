@@ -63,6 +63,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
 
   // Payouts Tracker State & Dialog
   const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutModalTab, setPayoutModalTab] = useState('insights'); // 'payouts' | 'insights'
   const [payoutsList, setPayoutsList] = useState([]);
   const [formAmount, setFormAmount] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
@@ -79,6 +80,51 @@ export default function MobileStatsView({ trades = [], executions = [], selected
 
   const totalPayoutsSum = useMemo(() => {
     return payoutsList.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  }, [payoutsList]);
+
+  // Group payouts by propFirm for insights
+  const propFirmInsights = useMemo(() => {
+    const groups = {};
+    payoutsList.forEach(p => {
+      const firm = p.propFirm || 'Other Platform';
+      if (!groups[firm]) {
+        groups[firm] = {
+          name: firm,
+          totalEarned: 0,
+          payoutsCount: 0,
+          largestPayout: 0,
+          earliestDate: null,
+          yearlyData: {}
+        };
+      }
+
+      const amt = parseFloat(p.amount) || 0;
+      groups[firm].totalEarned += amt;
+      groups[firm].payoutsCount += 1;
+      if (amt > groups[firm].largestPayout) {
+        groups[firm].largestPayout = amt;
+      }
+
+      const pDate = new Date(p.date);
+      if (!isNaN(pDate.getTime())) {
+        if (!groups[firm].earliestDate || pDate < groups[firm].earliestDate) {
+          groups[firm].earliestDate = pDate;
+        }
+
+        const year = pDate.getFullYear();
+        const monthName = pDate.toLocaleString('en-US', { month: 'short' });
+        if (!groups[firm].yearlyData[year]) {
+          groups[firm].yearlyData[year] = {
+            total: 0,
+            months: {}
+          };
+        }
+        groups[firm].yearlyData[year].total += amt;
+        groups[firm].yearlyData[year].months[monthName] = (groups[firm].yearlyData[year].months[monthName] || 0) + amt;
+      }
+    });
+
+    return Object.values(groups);
   }, [payoutsList]);
 
   const handleAddPayout = async (e) => {
@@ -1195,9 +1241,9 @@ export default function MobileStatsView({ trades = [], executions = [], selected
             >
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#fff' }}>Payout Tracker</h2>
-                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: '2px 0 0 0' }}>Log prop firm payouts and track historical data</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 850, margin: 0, color: '#fff', letterSpacing: '-0.02em' }}>Payouts</h2>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: 0 }}>Manage your payout requests and view history</p>
                 </div>
                 <button
                   onClick={() => setShowPayoutModal(false)}
@@ -1211,143 +1257,190 @@ export default function MobileStatsView({ trades = [], executions = [], selected
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#fff',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    outline: 'none'
                   }}
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              {/* Add Payout Form */}
-              <form onSubmit={handleAddPayout} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Amount ($)</label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="e.g. 2500"
-                      value={formAmount}
-                      onChange={e => setFormAmount(e.target.value)}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        color: '#fff',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={formDate}
-                      onChange={e => setFormDate(e.target.value)}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        padding: '9px 10px',
-                        color: '#fff',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Prop Firm / Platform</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Apex, Topstep, FundedNext"
-                    value={formPropFirm}
-                    onChange={e => setFormPropFirm(e.target.value)}
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '8px',
-                      padding: '10px',
-                      color: '#fff',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
+              {/* Selector Tab switcher: Payouts vs Insights */}
+              <div style={{
+                display: 'flex',
+                background: '#000000',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '3px'
+              }}>
                 <button
-                  type="submit"
+                  onClick={() => setPayoutModalTab('payouts')}
                   style={{
-                    background: '#b86eff',
-                    color: '#000',
+                    flex: 1,
+                    background: payoutModalTab === 'payouts' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    color: payoutModalTab === 'payouts' ? '#ffffff' : 'rgba(255,255,255,0.45)',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    fontWeight: 700,
+                    borderRadius: '9px',
+                    padding: '8px',
                     fontSize: '13px',
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    marginTop: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
+                    outline: 'none'
                   }}
                 >
-                  <Plus size={16} /> Add Payout
+                  Payouts
                 </button>
-              </form>
+                <button
+                  onClick={() => setPayoutModalTab('insights')}
+                  style={{
+                    flex: 1,
+                    background: payoutModalTab === 'insights' ? 'rgba(48, 209, 88, 0.15)' : 'transparent',
+                    color: payoutModalTab === 'insights' ? '#30d158' : 'rgba(255,255,255,0.45)',
+                    border: 'none',
+                    borderRadius: '9px',
+                    padding: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  Insights
+                </button>
+              </div>
 
-              {/* Historical List */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
-                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>History ({payoutsList.length})</span>
-                
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px' }}>
-                  {payoutsList.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>
-                      No payouts logged yet.
-                    </div>
-                  ) : (
-                    payoutsList.map(p => (
-                      <div
-                        key={p.id}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', paddingRight: '2px' }}>
+                {payoutModalTab === 'payouts' ? (
+                  <>
+                    {/* Add Payout Form */}
+                    <form onSubmit={handleAddPayout} style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#b86eff' }}>+ Log New Payout</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>AMOUNT ($)</label>
+                          <input
+                            type="number"
+                            required
+                            placeholder="e.g. 2500"
+                            value={formAmount}
+                            onChange={e => setFormAmount(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '8px',
+                              padding: '10px',
+                              color: '#fff',
+                              fontSize: '13px',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>DATE</label>
+                          <input
+                            type="date"
+                            required
+                            value={formDate}
+                            onChange={e => setFormDate(e.target.value)}
+                            style={{
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '8px',
+                              padding: '9px 10px',
+                              color: '#fff',
+                              fontSize: '13px',
+                              outline: 'none'
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>PROP FIRM / PLATFORM</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Apex, Topstep, Lucid Trading"
+                          value={formPropFirm}
+                          onChange={e => setFormPropFirm(e.target.value)}
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '8px',
+                            padding: '10px',
+                            color: '#fff',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
                         style={{
-                          background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.04)',
+                          background: 'linear-gradient(135deg, #b86eff, #8a30f6)',
+                          color: '#fff',
+                          border: 'none',
                           borderRadius: '10px',
-                          padding: '10px 12px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
+                          padding: '12px',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          marginTop: '4px',
+                          outline: 'none'
                         }}
                       >
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{p.propFirm}</div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
-                            {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </div>
-                        </div>
+                        Add Payout
+                      </button>
+                    </form>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 800, color: '#30d158' }}>
-                            +${parseFloat(p.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          <button
-                            onClick={() => handleDeletePayout(p.id)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#ff453a',
-                              padding: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                          >
+                    {/* Historical List */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>History ({payoutsList.length})</span>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {payoutsList.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>
+                            No payouts logged yet.
+                          </div>
+                        ) : (
+                          payoutsList.map(p => (
+                            <div
+                              key={p.id}
+                              style={{
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.04)',
+                                borderRadius: '12px',
+                                padding: '12px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff' }}>{p.propFirm}</div>
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>
+                                  {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ fontSize: '15px', fontWeight: 850, color: '#30d158' }}>
+                                  +${parseFloat(p.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                                <button
+                                  onClick={() => handleDeletePayout(p.id)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#ff453a',
+                                    padding: '4px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    outline: 'none'
+                                  }}
+                                >
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -1355,6 +1448,147 @@ export default function MobileStatsView({ trades = [], executions = [], selected
                     ))
                   )}
                 </div>
+              </div>
+                  </>
+                ) : (
+                  /* ── INSIGHTS TAB ON MOBILE ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+                    {propFirmInsights.length === 0 ? (
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '24px' }}>
+                        No payouts logged yet. Use the **Payouts** tab to record your profit splits.
+                      </div>
+                    ) : (
+                      propFirmInsights.map(firm => {
+                        const oldestDateStr = firm.earliestDate
+                          ? firm.earliestDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                          : 'N/A';
+
+                        return (
+                          <div
+                            key={firm.name}
+                            style={{
+                              background: '#09090b',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '20px',
+                              padding: '16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '14px',
+                              boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                            }}
+                          >
+                            {/* Card Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {/* 3D cosmic orb planet logo */}
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '50%',
+                                  background: 'radial-gradient(circle at 30% 30%, #5b6e9c 0%, #0f1322 75%, #000000 100%)',
+                                  boxShadow: '0 0 12px rgba(48, 209, 88, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  flexShrink: 0
+                                }} />
+                                <div>
+                                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#fff', letterSpacing: '-0.01em' }}>
+                                    {firm.name}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px', color: '#30d158', fontSize: '8.5px', fontWeight: '800', letterSpacing: '0.04em' }}>
+                                    <DollarSign size={8} strokeWidth={2.5} />
+                                    <span>FUNDED PAYOUTS</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <button style={{ background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '8px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', outline: 'none' }}>
+                                <Upload size={12} />
+                              </button>
+                            </div>
+
+                            {/* Total Earned Payout Amount */}
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '12px' }}>
+                              <div style={{ fontSize: '9.5px', fontWeight: '750', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Total Earned
+                              </div>
+                              <div style={{ fontSize: '26px', fontWeight: '850', color: '#30d158', marginTop: '2px', letterSpacing: '-0.02em' }}>
+                                ${firm.totalEarned.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+
+                            {/* Key Stats Grid */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, 1fr)',
+                              gap: '10px',
+                              background: 'rgba(255,255,255,0.02)',
+                              borderRadius: '12px',
+                              padding: '10px 12px',
+                              border: '1px solid rgba(255,255,255,0.04)'
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Payouts</div>
+                                <div style={{ fontSize: '13px', fontWeight: '800', color: '#fff', marginTop: '2px' }}>{firm.payoutsCount}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Largest</div>
+                                <div style={{ fontSize: '13px', fontWeight: '800', color: '#30d158', marginTop: '2px' }}>
+                                  ${firm.largestPayout.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Since</div>
+                                <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#fff', marginTop: '2px' }}>{oldestDateStr}</div>
+                              </div>
+                            </div>
+
+                            {/* Yearly / Monthly breakdown bars */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Earnings</span>
+                              
+                              {Object.entries(firm.yearlyData).map(([year, yearData]) => {
+                                const maxMonthAmt = Math.max(...Object.values(yearData.months), 1);
+
+                                return (
+                                  <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '4px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '800', color: '#fff' }}>
+                                        <span style={{ color: '#30d158' }}>⊖</span>
+                                        <span>{year}</span>
+                                      </div>
+                                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#30d158' }}>
+                                        ${yearData.total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                      </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                                      {Object.entries(yearData.months).map(([month, amt]) => {
+                                        const pct = (amt / maxMonthAmt) * 100;
+                                        return (
+                                          <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ width: '24px', fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: '600' }}>
+                                              {month}
+                                            </span>
+                                            <div style={{ flex: 1, height: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '100px', overflow: 'hidden' }}>
+                                              <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                            </div>
+                                            <span style={{ fontSize: '10.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '45px' }}>
+                                              ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
 
             </motion.div>

@@ -86,8 +86,28 @@ export default function HomeView({
     return sorted.slice(0, 5);
   }, [executions]);
 
+  // High/Medium impact economic events generator schedule
+  const getEventsForDate = (dateStr) => {
+    if (!dateStr) return [];
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return [];
+    const dayOfWeek = d.getDay();
+    const dayOfMonth = d.getDate();
+    const events = [];
+    if (dayOfWeek === 5 && dayOfMonth <= 7) events.push({ name: 'NFP', impact: 'high' });
+    if (dayOfWeek === 2 && dayOfMonth >= 8 && dayOfMonth <= 14) events.push({ name: 'CPI', impact: 'high' });
+    if (dayOfWeek === 3 && dayOfMonth >= 8 && dayOfMonth <= 14) events.push({ name: 'PPI', impact: 'high' });
+    if (dayOfWeek === 3 && dayOfMonth >= 15 && dayOfMonth <= 21) events.push({ name: 'FOMC Decision', impact: 'high' });
+    if (dayOfWeek === 4) events.push({ name: 'Jobless Claims', impact: 'medium' });
+    if (dayOfMonth === 1) events.push({ name: 'ISM Mfg PMI', impact: 'medium' });
+    if (dayOfMonth === 3) events.push({ name: 'ISM Serv PMI', impact: 'medium' });
+    if (dayOfMonth === 15) events.push({ name: 'Retail Sales', impact: 'high' });
+    return events;
+  };
+
   // 4. Generate Mobile P&L Calendar optimized grid
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [calendarMode, setCalendarMode] = useState('PNL'); // 'PNL' | 'EVENTS'
   
   const calendarData = useMemo(() => {
     const year = currentCalendarDate.getFullYear();
@@ -116,8 +136,11 @@ export default function HomeView({
       });
       
       let pnlR = 0;
+      let pnlUSD = 0;
       let count = dayExecs.length;
       let traded = count > 0;
+      let wins = 0;
+      let totalFinished = 0;
       
       dayExecs.forEach(e => {
         if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
@@ -128,14 +151,40 @@ export default function HomeView({
         } else if (e.wl === 'Loss') {
           pnlR -= 1.0;
         }
+
+        let executionPnL = 0;
+        if (e.netPnL !== undefined) {
+          executionPnL = parseFloat(e.netPnL);
+        } else {
+          let rVal = 0;
+          if (e.rr !== undefined && e.rr !== null && e.rr !== '') {
+            const num = parseFloat(String(e.rr).replace(/[^0-9.-]/g, ''));
+            if (!isNaN(num)) rVal = num;
+          } else if (e.wl === 'Win') {
+            rVal = 2.0;
+          } else if (e.wl === 'Loss') {
+            rVal = -1.0;
+          }
+          executionPnL = rVal * 200;
+        }
+        pnlUSD += executionPnL;
+
+        if (e.wl === 'Win') {
+          wins++;
+          totalFinished++;
+        } else if (e.wl === 'Loss') {
+          totalFinished++;
+        }
       });
       
       let status = 'none'; // 'win', 'loss', 'breakeven', 'none'
       if (traded) {
-        if (pnlR > 0.05) status = 'win';
-        else if (pnlR < -0.05) status = 'loss';
+        if (pnlUSD > 0.05) status = 'win';
+        else if (pnlUSD < -0.05) status = 'loss';
         else status = 'breakeven';
       }
+
+      const winRate = totalFinished > 0 ? Math.round((wins / totalFinished) * 100) : 0;
       
       cells.push({
         padding: false,
@@ -143,9 +192,12 @@ export default function HomeView({
         day,
         dateStr,
         pnlR,
+        pnlUSD,
         status,
         count,
-        traded
+        traded,
+        winRate,
+        events: getEventsForDate(dateStr)
       });
     }
     
@@ -547,13 +599,60 @@ export default function HomeView({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '10px',
+            marginBottom: '12px',
             paddingLeft: '2px'
           }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              P&amp;L Calendar
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                Trading Calendar
+              </span>
+              
+              {/* Segment control switcher: PNL vs Events */}
+              <div style={{
+                display: 'flex',
+                background: '#000000',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '100px',
+                padding: '2px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setCalendarMode('PNL')}
+                  style={{
+                    background: calendarMode === 'PNL' ? '#30d158' : 'transparent',
+                    color: calendarMode === 'PNL' ? '#000000' : 'rgba(255, 255, 255, 0.4)',
+                    fontWeight: '700',
+                    fontSize: '9px',
+                    padding: '3px 10px',
+                    borderRadius: '100px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  PNL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCalendarMode('EVENTS')}
+                  style={{
+                    background: calendarMode === 'EVENTS' ? '#30d158' : 'transparent',
+                    color: calendarMode === 'EVENTS' ? '#000000' : 'rgba(255, 255, 255, 0.4)',
+                    fontWeight: '700',
+                    fontSize: '9px',
+                    padding: '3px 10px',
+                    borderRadius: '100px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  Events
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <button
                 onClick={() => handleMonthShift(-1)}
                 style={{
@@ -566,8 +665,8 @@ export default function HomeView({
               >
                 <ChevronLeft size={16} />
               </button>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff', minWidth: '95px', textAlign: 'center' }}>
-                {currentCalendarDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#fff', minWidth: '82px', textAlign: 'center' }}>
+                {currentCalendarDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
               </span>
               <button
                 onClick={() => handleMonthShift(1)}
@@ -585,38 +684,37 @@ export default function HomeView({
           </div>
 
           <div style={{
-            background: '#09090b',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'rgba(255,255,255,0.01)',
+            border: '1px solid rgba(255, 255, 255, 0.04)',
             borderRadius: '20px',
-            padding: '16px',
+            padding: '12px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px'
+            gap: '8px'
           }}>
             
             {/* Weekdays Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', textAlign: 'center', columnGap: '4px' }}>
-              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'WEEKLY'].map((wd) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', columnGap: '4px', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '6px' }}>
+              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((wd) => (
                 <span key={wd} style={{ fontSize: '7.5px', fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                   {wd}
                 </span>
               ))}
             </div>
 
-            {/* Calendar Rows Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Calendar Grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               {calendarRows.map((row) => (
-                <div key={row.weekIndex} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', columnGap: '5px' }}>
+                <div key={row.weekIndex} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', columnGap: '5px' }}>
                   {/* Render 7 Days of the Week */}
                   {row.cells.map((cell) => {
                     if (cell.padding) {
                       return (
                         <div key={cell.id} style={{
-                          background: 'rgba(255, 255, 255, 0.01)',
-                          border: '1px solid rgba(255, 255, 255, 0.02)',
+                          background: 'transparent',
                           borderRadius: '6px',
-                          minHeight: '52px'
+                          minHeight: '48px'
                         }} />
                       );
                     }
@@ -624,21 +722,23 @@ export default function HomeView({
                     const isCellToday = cell.dateStr === todayStr;
                     
                     let pnlColor = 'rgba(255, 255, 255, 0.4)';
-                    let borderStyle = '1px solid rgba(255, 255, 255, 0.08)';
-                    let cellBg = '#09090b';
+                    let borderStyle = '1px solid rgba(255, 255, 255, 0.06)';
+                    let cellBg = '#141416';
 
-                    if (cell.status === 'win') {
-                      pnlColor = '#30d158'; // Green
-                      cellBg = 'rgba(48, 209, 88, 0.16)';
-                      borderStyle = '1px solid rgba(48, 209, 88, 0.3)';
-                    } else if (cell.status === 'loss') {
-                      pnlColor = '#ff453a'; // Red
-                      cellBg = 'rgba(255, 69, 58, 0.16)';
-                      borderStyle = '1px solid rgba(255, 69, 58, 0.3)';
-                    } else if (cell.status === 'breakeven') {
-                      pnlColor = '#ffd60a'; // Yellow
-                      cellBg = 'rgba(255, 214, 10, 0.16)';
-                      borderStyle = '1px solid rgba(255, 214, 10, 0.3)';
+                    if (calendarMode === 'PNL' && cell.traded) {
+                      if (cell.status === 'win') {
+                        pnlColor = '#30d158'; // Green
+                        cellBg = 'rgba(48, 209, 88, 0.06)';
+                        borderStyle = '1px solid rgba(48, 209, 88, 0.18)';
+                      } else if (cell.status === 'loss') {
+                        pnlColor = '#ff453a'; // Red
+                        cellBg = 'rgba(255, 69, 58, 0.06)';
+                        borderStyle = '1px solid rgba(255, 69, 58, 0.18)';
+                      } else if (cell.status === 'breakeven') {
+                        pnlColor = '#ffd60a'; // Yellow
+                        cellBg = 'rgba(255, 214, 10, 0.06)';
+                        borderStyle = '1px solid rgba(255, 214, 10, 0.18)';
+                      }
                     }
 
                     if (isCellToday) {
@@ -657,6 +757,8 @@ export default function HomeView({
                       lastTapRef.current = now;
                     };
 
+                    const firstEvent = cell.events && cell.events[0];
+
                     return (
                       <div
                         key={cell.id}
@@ -664,9 +766,9 @@ export default function HomeView({
                         style={{
                           background: cellBg,
                           border: borderStyle,
-                          borderRadius: '6px',
-                          padding: '4px 2px',
-                          minHeight: '52px',
+                          borderRadius: '8px',
+                          padding: '4px 3px',
+                          minHeight: '48px',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
@@ -676,101 +778,57 @@ export default function HomeView({
                         }}
                       >
                         {/* Day Number in top-right */}
-                        <span style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.35)', alignSelf: 'flex-end', paddingRight: '2px', lineHeight: 1 }}>
+                        <span style={{ fontSize: '8px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.7)', alignSelf: 'flex-end', lineHeight: 1 }}>
                           {cell.day}
                         </span>
 
-                        {/* P&L outcome in center */}
-                        {cell.traded ? (
-                          <span style={{
-                            fontSize: '9.5px',
-                            fontWeight: 800,
-                            color: pnlColor,
-                            textAlign: 'center',
-                            lineHeight: 1.1,
-                            letterSpacing: '-0.02em',
-                            margin: '2px 0'
-                          }}>
-                            {cell.pnlR >= 0 ? `+${cell.pnlR.toFixed(1)}R` : `${cell.pnlR.toFixed(1)}R`}
-                          </span>
-                        ) : <div style={{ flex: 1 }} />}
-
-                        {/* Trade count at bottom */}
-                        {cell.traded ? (
-                          <span style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', lineHeight: 1 }}>
-                            {cell.count} {cell.count === 1 ? 'trade' : 'trades'}
-                          </span>
-                        ) : <div style={{ height: '7px' }} />}
+                        {/* P&L / Events in center */}
+                        {calendarMode === 'PNL' ? (
+                          cell.traded ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+                              <span style={{
+                                fontSize: '8.5px',
+                                fontWeight: 850,
+                                color: pnlColor,
+                                textAlign: 'center',
+                                lineHeight: 1,
+                                letterSpacing: '-0.02em'
+                              }}>
+                                {cell.pnlUSD >= 0 
+                                  ? `$${Math.round(cell.pnlUSD)}` 
+                                  : `-$${Math.abs(Math.round(cell.pnlUSD))}`}
+                              </span>
+                              <span style={{ fontSize: '7px', fontWeight: '750', color: pnlColor, opacity: 0.8, marginTop: '2px', lineHeight: 1 }}>
+                                {cell.winRate}%
+                              </span>
+                            </div>
+                          ) : <div style={{ flex: 1 }} />
+                        ) : (
+                          firstEvent ? (
+                            <div style={{
+                              background: firstEvent.impact === 'high' ? 'rgba(255,69,58,0.1)' : 'rgba(255,214,10,0.1)',
+                              border: firstEvent.impact === 'high' ? '1px solid rgba(255,69,58,0.2)' : '1px solid rgba(255,214,10,0.2)',
+                              borderRadius: '4px',
+                              padding: '1px 2px',
+                              fontSize: '6.5px',
+                              fontWeight: '800',
+                              color: firstEvent.impact === 'high' ? '#ff453a' : '#ffd60a',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '1px',
+                              margin: '2px 0 0 0',
+                              width: '100%',
+                              boxSizing: 'border-box'
+                            }}>
+                              <span>{firstEvent.impact === 'high' ? '🔴' : '🟡'}</span>
+                              <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{firstEvent.name}</span>
+                            </div>
+                          ) : <div style={{ flex: 1 }} />
+                        )}
                       </div>
                     );
                   })}
-
-                  {/* WEEKLY Outcome Column */}
-                  {(() => {
-                    const isWeeklyPos = row.weeklyPnL > 0.05;
-                    const isWeeklyNeg = row.weeklyPnL < -0.05;
-                    const isWeeklyTraded = row.weeklyTradedDays > 0;
-                    
-                    let weeklyColor = 'rgba(255, 255, 255, 0.4)';
-                    let weeklyBorder = '1px solid rgba(255, 255, 255, 0.04)';
-                    let weeklyBg = 'rgba(255,255,255,0.02)';
-
-                    if (isWeeklyTraded) {
-                      if (isWeeklyPos) {
-                        weeklyColor = '#30d158';
-                        weeklyBorder = '1px solid rgba(48, 209, 88, 0.3)';
-                        weeklyBg = 'rgba(48, 209, 88, 0.16)';
-                      } else if (isWeeklyNeg) {
-                        weeklyColor = '#ff453a';
-                        weeklyBorder = '1px solid rgba(255, 69, 58, 0.3)';
-                        weeklyBg = 'rgba(255, 69, 58, 0.16)';
-                      } else {
-                        weeklyColor = '#ffd60a';
-                        weeklyBorder = '1px solid rgba(255, 214, 10, 0.3)';
-                        weeklyBg = 'rgba(255, 214, 10, 0.16)';
-                      }
-                    }
-
-                    return (
-                      <div
-                        key={`weekly-${row.weekIndex}`}
-                        style={{
-                          background: weeklyBg,
-                          border: weeklyBorder,
-                          borderRadius: '6px',
-                          padding: '4px 2px',
-                          minHeight: '52px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          opacity: 0.85
-                        }}
-                      >
-                        {/* Weekly Label */}
-                        <span style={{ fontSize: '7px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 1 }}>
-                          Week {row.weekIndex}
-                        </span>
-
-                        {/* Weekly PNL */}
-                        <span style={{
-                          fontSize: '9.5px',
-                          fontWeight: 800,
-                          color: weeklyColor,
-                          textAlign: 'center',
-                          lineHeight: 1.1,
-                          letterSpacing: '-0.02em',
-                          margin: '2px 0'
-                        }}>
-                          {row.weeklyPnL >= 0 ? `+${row.weeklyPnL.toFixed(1)}R` : `${row.weeklyPnL.toFixed(1)}R`}
-                        </span>
-
-                        {/* Weekly active days */}
-                        <span style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.3)', textAlign: 'center', lineHeight: 1 }}>
-                          {row.weeklyTradedDays} {row.weeklyTradedDays === 1 ? 'day' : 'days'}
-                        </span>
-                      </div>
-                    );
-                  })()}
                 </div>
               ))}
             </div>

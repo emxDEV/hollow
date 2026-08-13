@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/hollowDb';
+import { db, getPayouts, savePayouts } from '../db/hollowDb';
 import { calculateTradePnL } from '../utils/tradeMath';
 import {
   BarChart2, Calendar, Filter, TrendingUp, TrendingDown,
@@ -44,13 +44,10 @@ export default function AnalyticsView() {
 
   // Payout Tracker Modal State & Persistence
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
-  const [payoutsList, setPayoutsList] = useState(() => {
-    try {
-      const saved = localStorage.getItem('hollowPayoutsList');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
+  const [payoutModalTab, setPayoutModalTab] = useState('payouts'); // 'payouts' | 'insights'
+
+  // Load payouts reactively from IndexedDB dailyJournals
+  const payoutsList = useLiveQuery(() => getPayouts(), []) || [];
 
   // Payout Form inputs
   const [payoutAmount, setPayoutAmount] = useState('');
@@ -59,27 +56,21 @@ export default function AnalyticsView() {
   const [certificateDataUrl, setCertificateDataUrl] = useState('');
   const [selectedCertificateLightbox, setSelectedCertificateLightbox] = useState(null);
 
-  // Save payouts to localStorage
-  const savePayoutsList = (newList) => {
-    setPayoutsList(newList);
-    localStorage.setItem('hollowPayoutsList', JSON.stringify(newList));
-  };
-
-  const handleAddPayout = (e) => {
+  const handleAddPayout = async (e) => {
     if (e) e.preventDefault();
     const num = parseFloat(payoutAmount);
     if (isNaN(num) || num <= 0) return;
 
     const newPayout = {
-      id: `payout-${Date.now()}`,
+      id: Date.now(),
       amount: num,
       date: payoutDate || new Date().toISOString().split('T')[0],
-      accountName: payoutAccount.trim() || 'Prop Firm Account',
+      propFirm: payoutAccount.trim() || 'Apex',
       certificateUrl: certificateDataUrl
     };
 
     const updated = [newPayout, ...payoutsList];
-    savePayoutsList(updated);
+    await savePayouts(updated);
 
     // Reset inputs
     setPayoutAmount('');
@@ -87,9 +78,9 @@ export default function AnalyticsView() {
     setCertificateDataUrl('');
   };
 
-  const handleDeletePayout = (id) => {
+  const handleDeletePayout = async (id) => {
     const updated = payoutsList.filter(p => p.id !== id);
-    savePayoutsList(updated);
+    await savePayouts(updated);
   };
 
   const handleCertificateUpload = (e) => {
@@ -105,6 +96,51 @@ export default function AnalyticsView() {
   // Total Payouts Sum
   const totalPayoutsSum = useMemo(() => {
     return payoutsList.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  }, [payoutsList]);
+
+  // Group payouts by propFirm for insights
+  const propFirmInsights = useMemo(() => {
+    const groups = {};
+    payoutsList.forEach(p => {
+      const firm = p.propFirm || 'Other Platform';
+      if (!groups[firm]) {
+        groups[firm] = {
+          name: firm,
+          totalEarned: 0,
+          payoutsCount: 0,
+          largestPayout: 0,
+          earliestDate: null,
+          yearlyData: {}
+        };
+      }
+
+      const amt = parseFloat(p.amount) || 0;
+      groups[firm].totalEarned += amt;
+      groups[firm].payoutsCount += 1;
+      if (amt > groups[firm].largestPayout) {
+        groups[firm].largestPayout = amt;
+      }
+
+      const pDate = new Date(p.date);
+      if (!isNaN(pDate.getTime())) {
+        if (!groups[firm].earliestDate || pDate < groups[firm].earliestDate) {
+          groups[firm].earliestDate = pDate;
+        }
+
+        const year = pDate.getFullYear();
+        const monthName = pDate.toLocaleString('en-US', { month: 'short' });
+        if (!groups[firm].yearlyData[year]) {
+          groups[firm].yearlyData[year] = {
+            total: 0,
+            months: {}
+          };
+        }
+        groups[firm].yearlyData[year].total += amt;
+        groups[firm].yearlyData[year].months[monthName] = (groups[firm].yearlyData[year].months[monthName] || 0) + amt;
+      }
+    });
+
+    return Object.values(groups);
   }, [payoutsList]);
 
   // Reactively query trades and executions
@@ -1537,199 +1573,397 @@ export default function AnalyticsView() {
             >
               {/* Modal Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: 0 }}>Payout Tracker & Proof Certificates</h2>
-                  <p style={{ fontSize: '12px', color: COLORS.muted, marginTop: '2px' }}>
-                    Record your payouts and upload funding proof certificates
-                  </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: '850', color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>Payouts</h2>
+                  
+                  {/* Payouts vs Insights Segment Toggle */}
+                  <div style={{
+                    display: 'flex',
+                    background: '#000000',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '100px',
+                    padding: '2px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutModalTab('payouts')}
+                      style={{
+                        background: payoutModalTab === 'payouts' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                        color: payoutModalTab === 'payouts' ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
+                        fontWeight: '700',
+                        fontSize: '11px',
+                        padding: '4px 12px',
+                        borderRadius: '100px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      Payouts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayoutModalTab('insights')}
+                      style={{
+                        background: payoutModalTab === 'insights' ? 'rgba(48, 209, 88, 0.15)' : 'transparent',
+                        color: payoutModalTab === 'insights' ? '#30d158' : 'rgba(255, 255, 255, 0.4)',
+                        fontWeight: '700',
+                        fontSize: '11px',
+                        padding: '4px 12px',
+                        borderRadius: '100px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      Insights
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsPayoutModalOpen(false)}
-                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Add New Payout Form */}
-              <form onSubmit={handleAddPayout} style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#b86eff' }}>+ Log New Payout</span>
-
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Payout Amount ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="2500.00"
-                      value={payoutAmount}
-                      onChange={e => setPayoutAmount(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        borderRadius: '10px',
-                        padding: '10px 12px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Payout Date</label>
-                    <input
-                      type="date"
-                      value={payoutDate}
-                      onChange={e => setPayoutDate(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        borderRadius: '10px',
-                        padding: '10px 12px',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Account / Prop Firm Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Apex 50k #1, Topstep 150k"
-                    value={payoutAccount}
-                    onChange={e => setPayoutAccount(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      borderRadius: '10px',
-                      padding: '10px 12px',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                {/* Upload Certificate Photo / Proof */}
-                <div>
-                  <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Proof Certificate (Optional Photo/PDF)</label>
-                  <label style={{
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    background: 'rgba(184, 110, 255, 0.08)',
-                    border: '1px border-dashed #b86eff',
-                    borderRadius: '10px',
-                    padding: '12px',
-                    color: '#b86eff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}>
-                    <Upload size={16} />
-                    <span>{certificateDataUrl ? 'Certificate Attached ✓' : 'Upload Proof Certificate'}</span>
-                    <input type="file" accept="image/*" onChange={handleCertificateUpload} style={{ display: 'none' }} />
-                  </label>
-                  {certificateDataUrl && (
-                    <div style={{ marginTop: '8px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(184,110,255,0.4)', position: 'relative' }}>
-                      <img src={certificateDataUrl} alt="Certificate Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button
-                        type="button"
-                        onClick={() => setCertificateDataUrl('')}
-                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    background: 'linear-gradient(135deg, #b86eff, #8a30f6)',
                     color: '#fff',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    fontSize: '13px',
-                    fontWeight: '800',
                     cursor: 'pointer',
-                    marginTop: '4px'
+                    outline: 'none'
                   }}
                 >
-                  Save Payout Record
+                  <X size={18} />
                 </button>
-              </form>
+              </div>
 
-              {/* Logged Payouts History List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#fff' }}>Payout History</span>
+              {payoutModalTab === 'payouts' ? (
+                <>
+                  {/* Add New Payout Form */}
+                  <form onSubmit={handleAddPayout} style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#b86eff' }}>+ Log New Payout</span>
 
-                {payoutsList.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: COLORS.muted, textAlign: 'center', padding: '16px' }}>No payouts logged yet</div>
-                ) : (
-                  payoutsList.map(item => (
-                    <div
-                      key={item.id}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '14px',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {item.certificateUrl ? (
-                          <div
-                            onClick={() => setSelectedCertificateLightbox(item.certificateUrl)}
-                            style={{ width: '42px', height: '42px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #b86eff', cursor: 'pointer', flexShrink: 0 }}
-                          >
-                            <img src={item.certificateUrl} alt="Certificate Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          </div>
-                        ) : (
-                          <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'rgba(184, 110, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b86eff', flexShrink: 0 }}>
-                            <Award size={20} />
-                          </div>
-                        )}
-
-                        <div>
-                          <div style={{ fontSize: '15px', fontWeight: '800', color: COLORS.gain }}>
-                            +${parseFloat(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                          </div>
-                          <div style={{ fontSize: '11px', color: COLORS.muted }}>
-                            {item.accountName} • {item.date}
-                          </div>
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Payout Amount ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="2500.00"
+                          value={payoutAmount}
+                          onChange={e => setPayoutAmount(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: '#fff',
+                            borderRadius: '10px',
+                            padding: '10px 12px',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
 
-                      <button
-                        onClick={() => handleDeletePayout(item.id)}
-                        style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.6)', cursor: 'pointer' }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div>
+                        <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Payout Date</label>
+                        <input
+                          type="date"
+                          value={payoutDate}
+                          onChange={e => setPayoutDate(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: '#fff',
+                            borderRadius: '10px',
+                            padding: '10px 12px',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
                     </div>
-                  ))
-                )}
-              </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Account / Prop Firm Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Apex 50k #1, Topstep 150k"
+                        value={payoutAccount}
+                        onChange={e => setPayoutAccount(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: '#fff',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    {/* Upload Certificate Photo / Proof */}
+                    <div>
+                      <label style={{ fontSize: '11px', color: COLORS.muted, display: 'block', marginBottom: '4px' }}>Proof Certificate (Optional Photo/PDF)</label>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        background: 'rgba(184, 110, 255, 0.08)',
+                        border: '1px border-dashed #b86eff',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        color: '#b86eff',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}>
+                        <Upload size={16} />
+                        <span>{certificateDataUrl ? 'Certificate Attached ✓' : 'Upload Proof Certificate'}</span>
+                        <input type="file" accept="image/*" onChange={handleCertificateUpload} style={{ display: 'none' }} />
+                      </label>
+                      {certificateDataUrl && (
+                        <div style={{ marginTop: '8px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(184,110,255,0.4)', position: 'relative' }}>
+                          <img src={certificateDataUrl} alt="Certificate Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <button
+                            type="button"
+                            onClick={() => setCertificateDataUrl('')}
+                            style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      style={{
+                        background: 'linear-gradient(135deg, #b86eff, #8a30f6)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                        outline: 'none'
+                      }}
+                    >
+                      Save Payout Record
+                    </button>
+                  </form>
+
+                  {/* Logged Payouts History List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#fff' }}>Payout History</span>
+
+                    {payoutsList.length === 0 ? (
+                      <div style={{ fontSize: '12px', color: COLORS.muted, textAlign: 'center', padding: '16px' }}>No payouts logged yet</div>
+                    ) : (
+                      payoutsList.map(item => (
+                        <div
+                          key={item.id}
+                          style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '14px',
+                            padding: '12px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {item.certificateUrl ? (
+                              <div
+                                onClick={() => setSelectedCertificateLightbox(item.certificateUrl)}
+                                style={{ width: '42px', height: '42px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #b86eff', cursor: 'pointer', flexShrink: 0 }}
+                              >
+                                <img src={item.certificateUrl} alt="Certificate Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            ) : (
+                              <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'rgba(184, 110, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b86eff', flexShrink: 0 }}>
+                                <Award size={20} />
+                              </div>
+                            )}
+
+                            <div>
+                              <div style={{ fontSize: '15px', fontWeight: '800', color: COLORS.gain }}>
+                                +${parseFloat(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </div>
+                              <div style={{ fontSize: '11px', color: COLORS.muted }}>
+                                {item.propFirm || 'Other Account'} • {item.date}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeletePayout(item.id)}
+                            style={{ background: 'none', border: 'none', color: 'rgba(255,69,58,0.6)', cursor: 'pointer', outline: 'none' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* ── INSIGHTS TAB ── */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {propFirmInsights.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: COLORS.muted, textAlign: 'center', padding: '32px' }}>
+                      No payouts logged yet. Log profit splits under the **Payouts** tab first.
+                    </div>
+                  ) : (
+                    propFirmInsights.map(firm => {
+                      const oldestDateStr = firm.earliestDate
+                        ? firm.earliestDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                        : 'N/A';
+
+                      return (
+                        <div
+                          key={firm.name}
+                          style={{
+                            background: '#09090b',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '20px',
+                            padding: '20px',
+                            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px'
+                          }}
+                        >
+                          {/* Card Header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              {/* 3D cosmic orb planet logo */}
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '50%',
+                                background: 'radial-gradient(circle at 30% 30%, #5b6e9c 0%, #0f1322 75%, #000000 100%)',
+                                boxShadow: '0 0 16px rgba(48, 209, 88, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                flexShrink: 0
+                              }} />
+                              <div>
+                                <div style={{ fontSize: '15px', fontWeight: '800', color: '#fff', letterSpacing: '-0.01em' }}>
+                                  {firm.name}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: '#30d158', fontSize: '9px', fontWeight: '800', letterSpacing: '0.04em' }}>
+                                  <DollarSign size={10} strokeWidth={2.5} />
+                                  <span>FUNDED PAYOUTS</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <button style={{ background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '10px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', outline: 'none' }}>
+                              <Upload size={14} />
+                            </button>
+                          </div>
+
+                          {/* Large Payout Amount */}
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '750', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Total Earned
+                            </div>
+                            <div style={{ fontSize: '32px', fontWeight: '850', color: '#30d158', marginTop: '4px', letterSpacing: '-0.03em' }}>
+                              ${firm.totalEarned.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </div>
+                          </div>
+
+                          {/* Key Statistics Grid */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: '12px',
+                            background: 'rgba(255,255,255,0.02)',
+                            borderRadius: '14px',
+                            padding: '12px 16px',
+                            border: '1px solid rgba(255,255,255,0.04)'
+                          }}>
+                            <div>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Payouts</div>
+                              <div style={{ fontSize: '15px', fontWeight: '800', color: '#fff', marginTop: '2px' }}>{firm.payoutsCount}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Largest</div>
+                              <div style={{ fontSize: '15px', fontWeight: '800', color: '#30d158', marginTop: '2px' }}>
+                                ${firm.largestPayout.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Since</div>
+                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#fff', marginTop: '2.5px' }}>{oldestDateStr}</div>
+                            </div>
+                          </div>
+
+                          {/* EARNINGS Collapse Breakdown */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Earnings</span>
+                            
+                            {Object.entries(firm.yearlyData).map(([year, yearData]) => {
+                              const maxMonthAmt = Math.max(...Object.values(yearData.months), 1);
+
+                              return (
+                                <div key={year} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {/* Year Header Row */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: '6px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '800', color: '#fff' }}>
+                                      <span style={{ color: '#30d158' }}>⊖</span>
+                                      <span>{year}</span>
+                                    </div>
+                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#30d158' }}>
+                                      ${yearData.total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    </span>
+                                  </div>
+
+                                  {/* Month Bars Grid */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px' }}>
+                                    {Object.entries(yearData.months).map(([month, amt]) => {
+                                      const pct = (amt / maxMonthAmt) * 100;
+                                      return (
+                                        <div key={month} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                          <span style={{ width: '28px', fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>
+                                            {month}
+                                          </span>
+                                          <div style={{ flex: 1, height: '14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '100px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #1d8239, #30d158)', borderRadius: '100px' }} />
+                                          </div>
+                                          <span style={{ fontSize: '11.5px', color: '#30d158', fontWeight: '750', textAlign: 'right', minWidth: '55px' }}>
+                                            ${amt.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
