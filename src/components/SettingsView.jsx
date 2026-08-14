@@ -150,7 +150,11 @@ import {
   Dumbbell,
   Users,
   LogOut,
-  Cloud
+  Cloud,
+  Database,
+  Upload,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 
 // Playbook Model Card row component
@@ -332,6 +336,458 @@ const SWATCH_PALETTE = [
   '#ff9f0a', // Orange
   '#ff375f'  // Pink
 ];
+
+function NotionImporter() {
+  const isMobile = useUIStore(state => state.isMobile);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [mappings, setMappings] = useState({
+    date: '',
+    symbol: '',
+    bias: '',
+    pnl: '',
+    model: '',
+    rating: '',
+    entryTf: '',
+    dol: '',
+    po3: '',
+    emotion: '',
+    photos: ''
+  });
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, details: '' });
+  const [previewData, setPreviewData] = useState([]);
+
+  const accounts = useLiveQuery(async () => {
+    if (!db || !db.accounts) return [];
+    return await db.accounts.toArray();
+  }, []) || [];
+
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts]);
+
+  // Self-contained CSV parser
+  const parseCSV = (text) => {
+    const lines = [];
+    let row = [""];
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      const next = text[i+1];
+      if (c === '"') {
+        if (inQuotes && next === '"') {
+          row[row.length - 1] += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (c === ',' && !inQuotes) {
+        row.push('');
+      } else if ((c === '\r' || c === '\n') && !inQuotes) {
+        if (c === '\r' && next === '\n') {
+          i++;
+        }
+        lines.push(row);
+        row = [''];
+      } else {
+        row[row.length - 1] += c;
+      }
+    }
+    if (row.length > 1 || row[0] !== '') {
+      lines.push(row);
+    }
+    return lines;
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setCsvFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const allLines = parseCSV(text);
+      if (allLines.length === 0) return;
+
+      const headerRow = allLines[0].map(h => h.trim());
+      const dataRows = allLines.slice(1).filter(r => r.length > 1 || (r.length === 1 && r[0] !== ''));
+
+      setHeaders(headerRow);
+      setRows(dataRows);
+
+      // Auto-detect header mappings
+      const autoMappings = { ...mappings };
+      const findBestHeader = (keywords) => {
+        return headerRow.find(h => {
+          const l = h.toLowerCase();
+          return keywords.some(k => l === k || l.includes(k));
+        }) || '';
+      };
+
+      autoMappings.date = findBestHeader(['date', 'when', 'created', 'time']);
+      autoMappings.symbol = findBestHeader(['symbol', 'ticker', 'pair', 'asset', 'instrument']);
+      autoMappings.bias = findBestHeader(['bias', 'direction', 'side', 'type', 'long/short']);
+      autoMappings.pnl = findBestHeader(['pnl', 'profit', 'return', 'net p&l', 'result', 'r-value', 'amount']);
+      autoMappings.model = findBestHeader(['model', 'setup', 'strategy', 'framework']);
+      autoMappings.rating = findBestHeader(['rating', 'grade', 'quality']);
+      autoMappings.entryTf = findBestHeader(['timeframe', 'tf', 'chart tf', 'entry tf']);
+      autoMappings.dol = findBestHeader(['dol', 'draw on liquidity', 'target', 'liquidity']);
+      autoMappings.po3 = findBestHeader(['po3', 'timing', 'po3 time']);
+      autoMappings.emotion = findBestHeader(['emotion', 'mindset', 'mood', 'feeling']);
+      autoMappings.photos = findBestHeader(['photos', 'screenshots', 'images', 'attachments', 'media', 'files']);
+
+      setMappings(autoMappings);
+    };
+    reader.readAsText(file);
+  };
+
+  useEffect(() => {
+    if (rows.length === 0) return;
+    // Generate preview data
+    const preview = rows.slice(0, 5).map(row => {
+      const getVal = (field) => {
+        const headerName = mappings[field];
+        if (!headerName) return '';
+        const idx = headers.indexOf(headerName);
+        return idx !== -1 ? (row[idx] || '').trim() : '';
+      };
+
+      return {
+        date: getVal('date'),
+        symbol: getVal('symbol') || 'NQ',
+        bias: getVal('bias') || 'Long',
+        pnl: getVal('pnl') || '0',
+        model: getVal('model') || '',
+        rating: getVal('rating') || 'A',
+        entryTf: getVal('entryTf') || '',
+        dol: getVal('dol') || '',
+        po3: getVal('po3') || '',
+        emotion: getVal('emotion') || '',
+        photos: getVal('photos') || ''
+      };
+    });
+    setPreviewData(preview);
+  }, [rows, mappings, headers]);
+
+  const downloadImageAsBase64 = async (url) => {
+    if (!url || !url.startsWith('http')) return null;
+    try {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error('Proxy fetch failed');
+      const blob = await res.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn("Failed to download image via proxy, returning raw URL:", e);
+      return url; // Keep raw S3 URL as fallback
+    }
+  };
+
+  const handleImport = async () => {
+    if (rows.length === 0) return;
+    setImporting(true);
+    setImportProgress({ current: 0, total: rows.length, details: 'Preparing executions...' });
+
+    let count = 0;
+    try {
+      for (const row of rows) {
+        count++;
+        const getVal = (field) => {
+          const headerName = mappings[field];
+          if (!headerName) return '';
+          const idx = headers.indexOf(headerName);
+          return idx !== -1 ? (row[idx] || '').trim() : '';
+        };
+
+        const rawDate = getVal('date');
+        let cleanDate = new Date().toISOString().split('T')[0];
+        if (rawDate) {
+          const parsedDate = new Date(rawDate);
+          if (!isNaN(parsedDate.getTime())) {
+            cleanDate = parsedDate.toISOString().split('T')[0];
+          }
+        }
+
+        const rawPnL = getVal('pnl');
+        let parsedPnL = parseFloat(rawPnL.replace(/[^0-9.-]/g, '')) || 0;
+        let rVal = 0.0;
+        // Check if raw value is R multiple or monetary return
+        if (Math.abs(parsedPnL) < 50 && rawPnL.toLowerCase().includes('r')) {
+          rVal = parsedPnL;
+          parsedPnL = rVal * 200; // standard $200 risk amount
+        } else {
+          rVal = parsedPnL / 200;
+        }
+
+        const biasRaw = getVal('bias').toLowerCase();
+        const bias = biasRaw.includes('short') || biasRaw.includes('sell') ? 'Short' : 'Long';
+
+        // Extract photos/screenshots URLs (Notion format: space or comma separated URLs)
+        const rawPhotos = getVal('photos');
+        let imageList = [];
+        if (rawPhotos) {
+          const urls = rawPhotos.split(/[,\s]+/).map(u => u.trim()).filter(u => u.startsWith('http'));
+          setImportProgress(prev => ({
+            ...prev,
+            current: count,
+            details: `Downloading ${urls.length} screenshots for trade ${count}...`
+          }));
+
+          for (const u of urls) {
+            const b64 = await downloadImageAsBase64(u);
+            if (b64) imageList.push(b64);
+          }
+        }
+
+        const dateObj = new Date(cleanDate);
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const monthName = dateObj.toLocaleDateString('en-US', { month: 'long' });
+
+        const execution = {
+          id: `exec-${Date.now()}-${count}-${Math.random().toString(36).substr(2, 5)}`,
+          accountId: selectedAccountId || 'default',
+          date: cleanDate,
+          symbol: (getVal('symbol') || 'NQ').toUpperCase(),
+          bias,
+          wl: parsedPnL > 0.05 ? 'Win' : (parsedPnL < -0.05 ? 'Loss' : 'BE'),
+          rating: getVal('rating') || 'A',
+          model: getVal('model') || 'Notion Import',
+          dol: getVal('dol') || '',
+          po3: getVal('po3') || 'Standard PO3',
+          po3Times: getVal('po3') ? [getVal('po3')] : [],
+          entryTf: getVal('entryTf') || '30s',
+          session: 'New York',
+          sl: '15.00',
+          tp: '37.50',
+          rr: rVal.toFixed(2),
+          executionTime: '09:48',
+          outcomeTimeStart: '09:45',
+          outcomeTimeEnd: '10:15',
+          outcomeTime: '09:45 - 10:15',
+          emotion: getVal('emotion') || '🎯 Focused',
+          psychTags: [],
+          notes: `Imported from Notion.`,
+          ltfImages: imageList,
+          mtfImages: [],
+          htfImages: [],
+          outcomeImages: [],
+          type: 'ENTRY',
+          day: dayName,
+          month: monthName,
+          timestamp: Date.now()
+        };
+
+        if (db && db.executions) {
+          await db.executions.put(execution);
+        }
+
+        setImportProgress({
+          current: count,
+          total: rows.length,
+          details: `Saving trade ${count} of ${rows.length}...`
+        });
+      }
+
+      showToast(`${rows.length} trades imported successfully from Notion!`, 'success');
+      setCsvFile(null);
+      setHeaders([]);
+      setRows([]);
+    } catch (err) {
+      console.error(err);
+      showToast('Import failed. Please verify CSV encoding.', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', background: 'var(--colors-surface-card)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div>
+        <h2 style={{ fontSize: '18px', fontWeight: 850, color: '#fff', margin: 0 }}>Notion Trade Importer</h2>
+        <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+          Import your Notion database exports completely with images, ratings, tags, and parameters.
+        </p>
+      </div>
+
+      {importing && (
+        <div style={{ background: 'rgba(184,110,255,0.06)', border: '1px solid rgba(184,110,255,0.2)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '750', color: '#fff' }}>
+            <span>Importing Database...</span>
+            <span>{importProgress.current} / {importProgress.total}</span>
+          </div>
+          <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(importProgress.current / importProgress.total) * 100}%`, background: '#b86eff', transition: 'width 0.15s ease' }} />
+          </div>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>{importProgress.details}</span>
+        </div>
+      )}
+
+      {!csvFile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Target Account</label>
+            <select
+              value={selectedAccountId}
+              onChange={e => setSelectedAccountId(e.target.value)}
+              style={{
+                width: '100%',
+                marginTop: '6px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                color: '#fff',
+                fontSize: '13px',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id} style={{ background: '#09090b' }}>
+                  {acc.name} ({acc.broker || 'Personal'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+            background: 'rgba(255, 255, 255, 0.01)',
+            border: '2px dashed rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            padding: '40px 20px',
+            cursor: 'pointer',
+            textAlign: 'center',
+            transition: 'border-color 0.15s'
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = '#b86eff'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+          >
+            <Upload size={32} color="rgba(255,255,255,0.3)" />
+            <div>
+              <span style={{ fontSize: '13px', fontWeight: '750', color: '#fff' }}>Click to upload Notion CSV Export</span>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Only .csv files generated by Notion exports are supported.</p>
+            </div>
+            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
+          </label>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontSize: '13px', fontWeight: '750', color: '#fff' }}>{csvFile.name}</span>
+            <button
+              onClick={() => { setCsvFile(null); setHeaders([]); setRows([]); }}
+              style={{ background: 'none', border: 'none', color: '#ff453a', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div>
+            <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>Map Notion Database Columns</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+              {Object.keys(mappings).map(field => (
+                <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', textTransform: 'capitalize' }}>
+                    {field === 'entryTf' ? 'Entry Timeframe' : field === 'po3' ? 'PO3 Timing' : field === 'pnl' ? 'Net P&L / R' : field}
+                  </label>
+                  <select
+                    value={mappings[field]}
+                    onChange={e => setMappings({ ...mappings, [field]: e.target.value })}
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      color: '#fff',
+                      fontSize: '12px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">-- Skip Field --</option>
+                    {headers.map(h => (
+                      <option key={h} value={h} style={{ background: '#09090b' }}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {previewData.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>Trades Preview (First {previewData.length} records)</h3>
+              <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }} className="hollow-menu-scrollbar">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={{ padding: '8px 12px' }}>Date</th>
+                      <th style={{ padding: '8px 12px' }}>Symbol</th>
+                      <th style={{ padding: '8px 12px' }}>Bias</th>
+                      <th style={{ padding: '8px 12px' }}>Net P&L</th>
+                      <th style={{ padding: '8px 12px' }}>Model</th>
+                      <th style={{ padding: '8px 12px' }}>Rating</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewData.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.date}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: '750', color: '#64d2ff' }}>{p.symbol}</td>
+                        <td style={{ padding: '8px 12px', color: p.bias === 'Short' ? '#ff453a' : '#30d158' }}>{p.bias}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: '750', color: parseFloat(p.pnl) >= 0 ? '#30d158' : '#ff453a' }}>{p.pnl}</td>
+                        <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.model}</td>
+                        <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.rating}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            style={{
+              background: 'linear-gradient(135deg, #b86eff 0%, #8a30f6 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '12px',
+              fontWeight: '750',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              opacity: importing ? 0.6 : 1
+            }}
+          >
+            {importing ? 'Importing...' : `Import ${rows.length} Trades`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 function CustomPillManager() {
   const isMobile = useUIStore(state => state.isMobile);
@@ -1497,6 +1953,7 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
           {[
             { id: 'profile', label: 'Profile', icon: <User size={16} /> },
             { id: 'pills', label: 'Custom Pills', icon: <Tag size={16} /> },
+            { id: 'notion', label: 'Notion Importer', icon: <Database size={16} /> },
             ...(isMobile ? [{ id: 'weeklyReview', label: 'Weekly Review', icon: <ClipboardCheck size={16} /> }] : [])
           ].map(tab => {
             const isSelected = activeTab === tab.id;
@@ -3043,6 +3500,9 @@ export default function SettingsView({ selectedAccountId, setSelectedAccountId }
 
           {/* TAB 2: Custom Pills Manager */}
           {activeTab === 'pills' && <CustomPillManager />}
+
+          {/* TAB 2.1: Notion Trade Importer */}
+          {activeTab === 'notion' && <NotionImporter />}
 
           {/* TAB 3: Profile */}
           {activeTab === 'profile' && (() => {
