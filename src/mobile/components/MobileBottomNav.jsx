@@ -12,8 +12,8 @@ const TABS = [
 export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) {
   return (
     <div style={{
-      /* position: fixed relative to the transformed parent wrapper */
-      position: 'fixed',
+      /* position: absolute relative to the fixed parent wrapper */
+      position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
