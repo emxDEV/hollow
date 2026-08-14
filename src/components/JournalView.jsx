@@ -26,6 +26,7 @@ export default function JournalView() {
   const selectedDate = useUIStore(state => state.selectedDate);
   const setSelectedDate = useUIStore(state => state.setSelectedDate);
   const setIsAddExecutionOpen = useUIStore(state => state.setIsAddExecutionOpen);
+  const setSelectedExecutionDetail = useUIStore(state => state.setSelectedExecutionDetail);
   const [selectedLightboxImage, setSelectedLightboxImage] = useState(null);
 
   // Date Shift Helper
@@ -348,7 +349,7 @@ export default function JournalView() {
             return (
               <div
                 key={trade.id}
-                onClick={() => openEditExecution(trade.rawExec || trade)}
+                onClick={() => setSelectedExecutionDetail(trade.rawExec || trade)}
                 style={{
                   background: 'var(--colors-surface-card)',
                   border: '1px solid rgba(255,255,255,0.08)',
