@@ -104,8 +104,26 @@ function sanitizeForSupabaseRaw(tableName, obj) {
       updatedNotes = `${cleanNotes}\n\n__HOLLOW_META__:${serializedMeta}`;
     }
 
+    // Map sleepQuality string to integer rating out of 5 for Supabase integer column
+    let cleanSleepQuality = 5;
+    if (obj.sleepQuality !== undefined) {
+      if (typeof obj.sleepQuality === 'string') {
+        const sq = obj.sleepQuality.toLowerCase();
+        if (sq === 'poor') cleanSleepQuality = 1;
+        else if (sq === 'fair') cleanSleepQuality = 3;
+        else if (sq === 'good') cleanSleepQuality = 5;
+        else {
+          const parsed = parseInt(obj.sleepQuality, 10);
+          cleanSleepQuality = isNaN(parsed) ? 5 : parsed;
+        }
+      } else if (typeof obj.sleepQuality === 'number') {
+        cleanSleepQuality = obj.sleepQuality;
+      }
+    }
+
     const cleaned = {
       ...rest,
+      sleepQuality: cleanSleepQuality,
       postMarketNotes: updatedNotes
     };
 
@@ -424,6 +442,18 @@ export function unprefixRecord(obj, userId, tableName) {
 
   if (tableName === 'dailyJournals') {
     clean.date = strip(clean.date);
+    
+    // Map sleepQuality integer back to string so UI dropdown select works correctly
+    if (clean.sleepQuality !== undefined) {
+      const num = parseInt(clean.sleepQuality, 10);
+      if (!isNaN(num)) {
+        if (num <= 2) clean.sleepQuality = 'Poor';
+        else if (num <= 4) clean.sleepQuality = 'Fair';
+        else clean.sleepQuality = 'Good';
+      } else {
+        clean.sleepQuality = clean.sleepQuality || 'Good';
+      }
+    }
     
     // Unpack metadata from postMarketNotes if present
     if (clean.postMarketNotes && typeof clean.postMarketNotes === 'string') {
