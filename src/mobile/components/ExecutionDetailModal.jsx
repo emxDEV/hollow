@@ -7,6 +7,62 @@ import {
 import { useUIStore } from '../../store/useUIStore';
 import { db } from '../../db/hollowDb';
 
+const getPsychTagStyle = (tag) => {
+  const cleanTag = tag.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const positive = ['focused', 'patient', 'disciplined', 'calm', 'relaxed', 'confident', 'happy', 'good', 'satisfied', 'prepared', 'neutral'];
+  const negative = ['fomo', 'greedy', 'fearful', 'impatient', 'aggressive', 'overtrading', 'revenge', 'angry', 'sad', 'stressed', 'frustrated', 'chasing', 'anxious', 'hesitant', 'unsure', 'tired', 'distracted', 'bored'];
+
+  if (positive.some(p => cleanTag.includes(p))) {
+    return {
+      background: 'rgba(48, 209, 88, 0.12)',
+      border: '1px solid rgba(48, 209, 88, 0.25)',
+      color: '#30d158'
+    };
+  }
+  if (negative.some(n => cleanTag.includes(n))) {
+    return {
+      background: 'rgba(255, 69, 58, 0.12)',
+      border: '1px solid rgba(255, 69, 58, 0.25)',
+      color: '#ff453a'
+    };
+  }
+
+  // Default color (Vibrant Blue/Purple)
+  return {
+    background: 'rgba(10, 132, 255, 0.12)',
+    border: '1px solid rgba(10, 132, 255, 0.25)',
+    color: '#0a84ff'
+  };
+};
+
+const getValueColor = (label, val) => {
+  if (!val || val === 'N/A') return 'rgba(255, 255, 255, 0.45)';
+  
+  if (label === 'Rating') {
+    if (val.includes('A')) return '#30d158'; // Green
+    if (val.includes('B')) return '#64d2ff'; // Blue
+    if (val.includes('C')) return '#ff9f0a'; // Orange
+    if (val.includes('D') || val.includes('F')) return '#ff453a'; // Red
+  }
+  if (label === 'Stop Loss') {
+    return '#ff453a'; // Red
+  }
+  if (label === 'Take Profit') {
+    return '#30d158'; // Green
+  }
+  if (label === 'Model') {
+    return '#bf5af2'; // Purple/Violet
+  }
+  if (label === 'DOL Target') {
+    return '#ffd60a'; // Amber/Yellow
+  }
+  if (label === 'Timeframe') {
+    return '#ff9f0a'; // Orange
+  }
+  
+  return '#ffffff';
+};
+
 export default function ExecutionDetailModal() {
   const isMobile = useUIStore(s => s.isMobile);
   const selectedExecution = useUIStore(s => s.selectedExecutionDetail);
@@ -277,7 +333,7 @@ export default function ExecutionDetailModal() {
                 ].map(param => (
                   <div key={param.label} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{param.label}</span>
-                    <span style={{ fontSize: '13px', color: '#fff', fontWeight: 700 }}>{param.val}</span>
+                    <span style={{ fontSize: '13px', color: getValueColor(param.label, param.val), fontWeight: 700 }}>{param.val}</span>
                   </div>
                 ))}
               </div>
@@ -303,23 +359,27 @@ export default function ExecutionDetailModal() {
                   </div>
                 )}
 
-                {Array.isArray(exec.psychTags) && exec.psychTags.length > 0 && (
+                 {Array.isArray(exec.psychTags) && exec.psychTags.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                    {exec.psychTags.map(tag => (
-                      <span
-                        key={tag}
-                        style={{
-                          background: 'rgba(184, 110, 255, 0.12)',
-                          color: '#d8b4fe',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          padding: '3px 8px',
-                          borderRadius: '6px'
-                        }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    {exec.psychTags.map(tag => {
+                      const tagStyle = getPsychTagStyle(tag);
+                      return (
+                        <span
+                          key={tag}
+                          style={{
+                            background: tagStyle.background,
+                            color: tagStyle.color,
+                            border: tagStyle.border,
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px'
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>
