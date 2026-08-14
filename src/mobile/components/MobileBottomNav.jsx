@@ -12,11 +12,7 @@ const TABS = [
 export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) {
   return (
     <div style={{
-      /* position: absolute relative to the fixed parent wrapper */
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
+      width: '100%',
       zIndex: 200,
       // Increased padding to position bar at absolute bottom with safe-area notch space
       paddingBottom: 'env(safe-area-inset-bottom)',

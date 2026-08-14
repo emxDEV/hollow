@@ -437,7 +437,7 @@ export default function HomeView({
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           padding: '16px',
-          paddingBottom: 'calc(env(safe-area-inset-bottom) + 96px)',
+          paddingBottom: '32px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',

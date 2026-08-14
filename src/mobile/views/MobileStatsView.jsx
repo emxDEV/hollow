@@ -781,7 +781,7 @@ export default function MobileStatsView({ trades = [], executions = [], selected
           overflowX: 'hidden', 
           WebkitOverflowScrolling: 'touch',
           padding: '16px',
-          paddingBottom: 'calc(64px + env(safe-area-inset-bottom) + 24px)',
+          paddingBottom: '32px',
           display: 'flex',
           flexDirection: 'column',
           gap: '20px'
