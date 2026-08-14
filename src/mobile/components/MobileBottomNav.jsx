@@ -19,8 +19,8 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
       right: 0,
       zIndex: 200,
       // Increased padding to position bar at absolute bottom with safe-area notch space
-      paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
-      paddingTop: '12px',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingTop: '8px',
       background: 'rgba(9, 9, 11, 0.98)',
       backdropFilter: 'blur(28px) saturate(190%)',
       WebkitBackdropFilter: 'blur(28px) saturate(190%)',
@@ -54,12 +54,12 @@ export default function MobileBottomNav({ activeTab, onTabChange, onAddClick }) 
                 boxShadow: '0 4px 18px rgba(138, 48, 246, 0.55), 0 0 12px rgba(184, 110, 255, 0.4)',
                 WebkitTapHighlightColor: 'transparent',
                 outline: 'none',
-                transform: 'translateY(-10px)', // Raised action button
+                transform: 'translateY(-8px)', // Raised action button
                 transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
-              onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(0.95)'; }}
-              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-10px) scale(1)'; }}
-              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-10px) scale(1)'; }}
+              onTouchStart={e => { e.currentTarget.style.transform = 'translateY(-6px) scale(0.95)'; }}
+              onTouchEnd={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(1)'; }}
+              onTouchCancel={e => { e.currentTarget.style.transform = 'translateY(-8px) scale(1)'; }}
             >
               <Plus size={26} strokeWidth={2.5} color="#ffffff" />
             </button>
