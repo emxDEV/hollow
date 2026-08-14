@@ -160,8 +160,8 @@ function sanitizeForSupabaseRaw(tableName, obj) {
     // Pack all other local-only properties into id using __HOLLOW_META__
     const meta = {};
     const metaKeys = [
-      'rr', 'wl', 'rating', 'model', 'dol', 'entryTf', 'session', 'bias', 'symbol', 'date',
-      'po3Times', 'notes', 'executionTime', 'outcomeTimeStart', 'outcomeTimeEnd', 'emotion',
+      'rr', 'wl', 'rating', 'model', 'dol', 'dols', 'entryTf', 'session', 'bias', 'symbol', 'date',
+      'po3', 'po3Times', 'notes', 'executionTime', 'outcomeTimeStart', 'outcomeTimeEnd', 'emotion',
       'psychTags', 'ltfImages', 'mtfImages', 'htfImages', 'outcomeImages', 'day', 'month', 'sl', 'tp'
     ];
     metaKeys.forEach(k => {

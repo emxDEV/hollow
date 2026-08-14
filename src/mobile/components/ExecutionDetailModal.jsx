@@ -63,6 +63,16 @@ const getValueColor = (label, val) => {
   return '#ffffff';
 };
 
+const getDolColor = (label) => {
+  try {
+    const activeDOLs = JSON.parse(localStorage.getItem('hollowCustomDOLs') || '[]');
+    const match = activeDOLs.find(d => d.label.toLowerCase() === label.toLowerCase());
+    return match ? match.color : '#ffd60a'; // Fallback to yellow
+  } catch (e) {
+    return '#ffd60a';
+  }
+};
+
 export default function ExecutionDetailModal() {
   const isMobile = useUIStore(s => s.isMobile);
   const selectedExecution = useUIStore(s => s.selectedExecutionDetail);
@@ -324,8 +334,8 @@ export default function ExecutionDetailModal() {
                 {[
                   { label: 'Rating', val: exec.rating ? `Grade ${exec.rating}` : 'N/A' },
                   { label: 'Model', val: exec.model || 'N/A' },
-                  { label: 'DOL Target', val: exec.dol || 'N/A' },
-                  { label: 'PO3 Timing', val: exec.po3 || 'N/A' },
+                  { label: 'DOL Target', val: exec.dol || 'N/A', isDol: true },
+                  { label: 'PO3 Timing', val: exec.po3 || (Array.isArray(exec.po3Times) && exec.po3Times.length > 0 ? exec.po3Times.join(', ') : 'N/A') },
                   { label: 'Timeframe', val: exec.entryTf || 'N/A' },
                   { label: 'Execution Time', val: exec.executionTime ? `${exec.executionTime} EST` : 'N/A' },
                   { label: 'Stop Loss', val: exec.sl ? `${exec.sl} pts` : 'N/A' },
@@ -333,7 +343,36 @@ export default function ExecutionDetailModal() {
                 ].map(param => (
                   <div key={param.label} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{param.label}</span>
-                    <span style={{ fontSize: '13px', color: getValueColor(param.label, param.val), fontWeight: 700 }}>{param.val}</span>
+                    {param.isDol ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                        {param.val === 'N/A' ? (
+                          <span style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700 }}>N/A</span>
+                        ) : (
+                          param.val.split(',').map(s => s.trim()).filter(Boolean).map(item => {
+                            const col = getDolColor(item);
+                            return (
+                              <span
+                                key={item}
+                                style={{
+                                  background: `${col}18`,
+                                  color: col,
+                                  border: `1px solid ${col}40`,
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  display: 'inline-block'
+                                }}
+                              >
+                                {item}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '13px', color: getValueColor(param.label, param.val), fontWeight: 700 }}>{param.val}</span>
+                    )}
                   </div>
                 ))}
               </div>
