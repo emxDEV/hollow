@@ -371,14 +371,70 @@ function NotionImporter() {
     }
   }, [accounts]);
 
-  // Self-contained CSV parser
+  // Robust date parser that handles YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, and dots
+  const parseCleanDate = (dateStr) => {
+    if (!dateStr) return new Date().toISOString().split('T')[0];
+    const clean = dateStr.trim();
+    let d = new Date(clean);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+
+    const parts = clean.split(/[\/\.-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } else {
+        const p1 = parseInt(parts[0], 10);
+        const p2 = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        if (p2 > 12) {
+          d = new Date(year, p1 - 1, p2);
+        } else {
+          d = new Date(year, p2 - 1, p1);
+        }
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      }
+    }
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Robust P&L parser that handles parentheses (accounting format), currency, and R multiples
+  const parsePnLValue = (pnlStr) => {
+    if (!pnlStr) return { pnl: 0, r: 0 };
+    const clean = pnlStr.trim();
+    let isNegative = false;
+    if ((clean.startsWith('(') && clean.endsWith(')')) || clean.startsWith('-')) {
+      isNegative = true;
+    }
+    const numStr = clean.replace(/[^0-9.]/g, '');
+    let val = parseFloat(numStr) || 0;
+    if (isNegative) val = -val;
+
+    let rVal = val / 200;
+    if (clean.toLowerCase().includes('r') && Math.abs(val) < 50) {
+      rVal = val;
+      val = rVal * 200;
+    }
+    return { pnl: val, r: rVal };
+  };
+
+  // Delimiter-agnostic CSV parser (supports comma, semicolon, and strips UTF-8 BOM)
   const parseCSV = (text) => {
+    const cleanText = text.startsWith('\ufeff') ? text.substring(1) : text;
+    const firstLine = cleanText.split(/\r?\n/)[0] || '';
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semiCount = (firstLine.match(/;/g) || []).length;
+    const delim = semiCount > commaCount ? ';' : ',';
+
     const lines = [];
     let row = [""];
     let inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-      const c = text[i];
-      const next = text[i+1];
+    for (let i = 0; i < cleanText.length; i++) {
+      const c = cleanText[i];
+      const next = cleanText[i+1];
       if (c === '"') {
         if (inQuotes && next === '"') {
           row[row.length - 1] += '"';
@@ -386,7 +442,7 @@ function NotionImporter() {
         } else {
           inQuotes = !inQuotes;
         }
-      } else if (c === ',' && !inQuotes) {
+      } else if (c === delim && !inQuotes) {
         row.push('');
       } else if ((c === '\r' || c === '\n') && !inQuotes) {
         if (c === '\r' && next === '\n') {
@@ -449,7 +505,7 @@ function NotionImporter() {
 
   useEffect(() => {
     if (rows.length === 0) return;
-    // Generate preview data
+    // Generate preview data safely
     const preview = rows.slice(0, 5).map(row => {
       const getVal = (field) => {
         const headerName = mappings[field];
@@ -458,11 +514,12 @@ function NotionImporter() {
         return idx !== -1 ? (row[idx] || '').trim() : '';
       };
 
+      const parsedMetrics = parsePnLValue(getVal('pnl'));
       return {
-        date: getVal('date'),
+        date: parseCleanDate(getVal('date')),
         symbol: getVal('symbol') || 'NQ',
         bias: getVal('bias') || 'Long',
-        pnl: getVal('pnl') || '0',
+        pnl: parsedMetrics.pnl >= 0 ? `+$${parsedMetrics.pnl.toFixed(2)}` : `-$${Math.abs(parsedMetrics.pnl).toFixed(2)}`,
         model: getVal('model') || '',
         rating: getVal('rating') || 'A',
         entryTf: getVal('entryTf') || '',
@@ -475,11 +532,17 @@ function NotionImporter() {
     setPreviewData(preview);
   }, [rows, mappings, headers]);
 
+  // Image archiver using CORS proxy and timeout AbortController
   const downloadImageAsBase64 = async (url) => {
     if (!url || !url.startsWith('http')) return null;
     try {
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-      const res = await fetch(proxyUrl);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error('Proxy fetch failed');
       const blob = await res.blob();
       return new Promise((resolve, reject) => {
@@ -497,10 +560,31 @@ function NotionImporter() {
   const handleImport = async () => {
     if (rows.length === 0) return;
     setImporting(true);
-    setImportProgress({ current: 0, total: rows.length, details: 'Preparing executions...' });
+    setImportProgress({ current: 0, total: rows.length, details: 'Preparing account settings...' });
 
-    let count = 0;
     try {
+      // 1. Ensure target account exists
+      let targetAccountId = selectedAccountId;
+      if (!targetAccountId) {
+        const existingAccounts = await db.accounts.toArray();
+        if (existingAccounts.length > 0) {
+          targetAccountId = existingAccounts[0].id;
+        } else {
+          const defAcc = {
+            id: 'acc-default-notion',
+            name: 'Notion Imports',
+            broker: 'Notion',
+            balance: '0',
+            status: 'Active',
+            timestamp: Date.now()
+          };
+          await db.accounts.put(defAcc);
+          targetAccountId = defAcc.id;
+        }
+      }
+
+      // 2. Loop through and import rows
+      let count = 0;
       for (const row of rows) {
         count++;
         const getVal = (field) => {
@@ -510,44 +594,26 @@ function NotionImporter() {
           return idx !== -1 ? (row[idx] || '').trim() : '';
         };
 
-        const rawDate = getVal('date');
-        let cleanDate = new Date().toISOString().split('T')[0];
-        if (rawDate) {
-          const parsedDate = new Date(rawDate);
-          if (!isNaN(parsedDate.getTime())) {
-            cleanDate = parsedDate.toISOString().split('T')[0];
-          }
-        }
-
-        const rawPnL = getVal('pnl');
-        let parsedPnL = parseFloat(rawPnL.replace(/[^0-9.-]/g, '')) || 0;
-        let rVal = 0.0;
-        // Check if raw value is R multiple or monetary return
-        if (Math.abs(parsedPnL) < 50 && rawPnL.toLowerCase().includes('r')) {
-          rVal = parsedPnL;
-          parsedPnL = rVal * 200; // standard $200 risk amount
-        } else {
-          rVal = parsedPnL / 200;
-        }
+        const cleanDate = parseCleanDate(getVal('date'));
+        const parsedMetrics = parsePnLValue(getVal('pnl'));
 
         const biasRaw = getVal('bias').toLowerCase();
         const bias = biasRaw.includes('short') || biasRaw.includes('sell') ? 'Short' : 'Long';
 
-        // Extract photos/screenshots URLs (Notion format: space or comma separated URLs)
+        // Extract photos/screenshots URLs and fetch in parallel
         const rawPhotos = getVal('photos');
         let imageList = [];
         if (rawPhotos) {
-          const urls = rawPhotos.split(/[,\s]+/).map(u => u.trim()).filter(u => u.startsWith('http'));
+          const urls = rawPhotos.split(/[,\s;]+/).map(u => u.trim()).filter(u => u.startsWith('http'));
           setImportProgress(prev => ({
             ...prev,
             current: count,
             details: `Downloading ${urls.length} screenshots for trade ${count}...`
           }));
 
-          for (const u of urls) {
-            const b64 = await downloadImageAsBase64(u);
-            if (b64) imageList.push(b64);
-          }
+          const downloadPromises = urls.map(u => downloadImageAsBase64(u));
+          const results = await Promise.all(downloadPromises);
+          imageList = results.filter(Boolean);
         }
 
         const dateObj = new Date(cleanDate);
@@ -556,11 +622,11 @@ function NotionImporter() {
 
         const execution = {
           id: `exec-${Date.now()}-${count}-${Math.random().toString(36).substr(2, 5)}`,
-          accountId: selectedAccountId || 'default',
+          accountId: targetAccountId,
           date: cleanDate,
           symbol: (getVal('symbol') || 'NQ').toUpperCase(),
           bias,
-          wl: parsedPnL > 0.05 ? 'Win' : (parsedPnL < -0.05 ? 'Loss' : 'BE'),
+          wl: parsedMetrics.pnl > 0.05 ? 'Win' : (parsedMetrics.pnl < -0.05 ? 'Loss' : 'BE'),
           rating: getVal('rating') || 'A',
           model: getVal('model') || 'Notion Import',
           dol: getVal('dol') || '',
@@ -570,7 +636,7 @@ function NotionImporter() {
           session: 'New York',
           sl: '15.00',
           tp: '37.50',
-          rr: rVal.toFixed(2),
+          rr: parsedMetrics.r.toFixed(2),
           executionTime: '09:48',
           outcomeTimeStart: '09:45',
           outcomeTimeEnd: '10:15',
@@ -599,13 +665,13 @@ function NotionImporter() {
         });
       }
 
-      showToast(`${rows.length} trades imported successfully from Notion!`, 'success');
+      showToast(`${rows.length} trades imported successfully!`, 'success');
       setCsvFile(null);
       setHeaders([]);
       setRows([]);
     } catch (err) {
       console.error(err);
-      showToast('Import failed. Please verify CSV encoding.', 'error');
+      showToast('Import failed. Please check file format.', 'error');
     } finally {
       setImporting(false);
     }
@@ -658,6 +724,9 @@ function NotionImporter() {
                   {acc.name} ({acc.broker || 'Personal'})
                 </option>
               ))}
+              {accounts.length === 0 && (
+                <option value="" style={{ background: '#09090b' }}>Auto-create default Account</option>
+              )}
             </select>
           </div>
 
@@ -680,9 +749,9 @@ function NotionImporter() {
             <Upload size={32} color="rgba(255,255,255,0.3)" />
             <div>
               <span style={{ fontSize: '13px', fontWeight: '750', color: '#fff' }}>Click to upload Notion CSV Export</span>
-              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Only .csv files generated by Notion exports are supported.</p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Supports .csv and plain text spreadsheet files.</p>
             </div>
-            <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} />
+            <input type="file" accept=".csv,text/csv,text/plain" onChange={handleFileUpload} style={{ display: 'none' }} />
           </label>
         </div>
       ) : (
@@ -750,7 +819,7 @@ function NotionImporter() {
                         <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.date}</td>
                         <td style={{ padding: '8px 12px', fontWeight: '750', color: '#64d2ff' }}>{p.symbol}</td>
                         <td style={{ padding: '8px 12px', color: p.bias === 'Short' ? '#ff453a' : '#30d158' }}>{p.bias}</td>
-                        <td style={{ padding: '8px 12px', fontWeight: '750', color: parseFloat(p.pnl) >= 0 ? '#30d158' : '#ff453a' }}>{p.pnl}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: '750', color: p.pnl.startsWith('+') ? '#30d158' : '#ff453a' }}>{p.pnl}</td>
                         <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.model}</td>
                         <td style={{ padding: '8px 12px', color: 'rgba(255,255,255,0.7)' }}>{p.rating}</td>
                       </tr>
